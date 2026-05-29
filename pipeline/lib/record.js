@@ -1,6 +1,4 @@
 import path from 'node:path'
-import puppeteer from 'puppeteer'
-import { PuppeteerScreenRecorder } from 'puppeteer-screen-recorder'
 import { log, sleep } from './util.js'
 
 /**
@@ -10,6 +8,11 @@ import { log, sleep } from './util.js'
  * @returns {Promise<string>} local path to screen.mp4
  */
 export async function recordScreen({ route, steps = [], outDir, baseUrl }) {
+  // Lazy-load Puppeteer so --mock runs (and `npm install` with
+  // PUPPETEER_SKIP_DOWNLOAD) don't require a Chromium download.
+  const { default: puppeteer } = await import('puppeteer')
+  const { PuppeteerScreenRecorder } = await import('puppeteer-screen-recorder')
+
   // Fail fast with a clear message if the app isn't up.
   try {
     await fetch(baseUrl, { method: 'HEAD' })

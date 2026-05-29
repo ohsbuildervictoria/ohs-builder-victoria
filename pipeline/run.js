@@ -111,7 +111,7 @@ try {
       throw new Error('Only inbox mode is implemented in this scaffold (no audit needed). Use --no-post + manual review for direct posting until the app passes TikTok audit.')
     }
     const { publishId, status } = await postToInbox(final, process.env.TIKTOK_OPEN_ID)
-    ok(`posted to @nextgenhustle365 inbox (publish_id ${publishId}, status ${status})`)
+    ok(`posted to @nexxtsitemanager inbox (publish_id ${publishId}, status ${status})`)
     console.log(`\n✅ Done. Open TikTok → drafts/inbox to review & publish.`)
   }
 } catch (err) {

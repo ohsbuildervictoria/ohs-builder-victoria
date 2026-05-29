@@ -1,6 +1,6 @@
 # Nexxt TikTok pipeline
 
-One command → a posted TikTok. Takes a tool name, builds the video end-to-end, and drops it in the @nextgenhustle365 inbox.
+One command → a posted TikTok. Takes a tool name, builds the video end-to-end, and drops it in the @nexxtsitemanager inbox.
 
 ```
 cd pipeline
