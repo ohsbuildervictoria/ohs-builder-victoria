@@ -1,0 +1,19 @@
+{
+  "name": "nexxt-tiktok-pipeline",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "One-command pipeline: Arcads presenter + Puppeteer screen recording + ffmpeg stitch/captions + TikTok post.",
+  "bin": { "nexxt-tiktok": "run.js" },
+  "scripts": {
+    "start": "node run.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.106.2",
+    "dotenv": "^16.4.7",
+    "ffmpeg-static": "^5.2.0",
+    "ffprobe-static": "^3.1.0",
+    "puppeteer": "^23.11.1",
+    "puppeteer-screen-recorder": "^3.0.6"
+  }
+}
