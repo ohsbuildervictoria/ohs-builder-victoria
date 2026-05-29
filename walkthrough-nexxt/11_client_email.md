@@ -22,7 +22,14 @@ Better comms, fewer disputes, more referrals. The tradie who communicates wins t
 - "The tradie who communicates wins 🤝"
 
 **#️⃣ HASHTAGS:**
-#TradieBusiness #VicBuilder #ClientComms #MelbourneBuilder #AussieTradie #ConstructionAU #VictorianBuilders #SmallBizAU #GetPaid #TradieTok
+#construction #builder #tradie #australia #victoriaaustralia
+#victorianbuilder #sitemanager #constructionlife #buildingsite #progressclaim #swms #sitemanagerlife #constructionaustralia
+#nexxtsitemanager #nexxtbuilder #sortedby7am
+
+**📝 VIDEO DESCRIPTION LINES:**
+- "Save this if you’re still doing paperwork at 10pm 👇"
+- "Tag a builder who needs this"
+- "Free to start — link in bio"
 
 **📢 CALL TO ACTION:**
 "Start free, upgrade when you're ready — link in bio." 👷

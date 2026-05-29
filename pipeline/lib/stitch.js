@@ -54,17 +54,19 @@ export async function stitch({ presenter, screen, spokenText, outDir }) {
   if (hasCaptions) {
     filters.push(`[ov]subtitles=${path.basename(srtPath)}:force_style='${CAPTION_STYLE}'[v]`)
   }
+  // Normalise audio to -14 LUFS (TikTok target) so the quality gate passes.
+  filters.push('[1:a]loudnorm=I=-14:TP=-1.5:LRA=11[a]')
 
   const args = [
     '-y',
     '-stream_loop', '-1', '-i', path.resolve(screen),
     '-i', path.resolve(presenter),
     '-filter_complex', filters.join(';'),
-    '-map', '[v]', '-map', '1:a?',
+    '-map', '[v]', '-map', '[a]',
     '-t', String(duration),
     '-r', '30',
     '-c:v', 'libx264', '-preset', 'medium', '-pix_fmt', 'yuv420p',
-    '-c:a', 'aac', '-b:a', '128k',
+    '-c:a', 'aac', '-b:a', '128k', '-ar', '44100',
     '-movflags', '+faststart',
     'final.mp4',
   ]

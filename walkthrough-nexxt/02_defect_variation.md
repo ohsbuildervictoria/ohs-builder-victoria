@@ -22,7 +22,14 @@ Every variation tracked against the contract so nothing slips through. That's re
 - "This is how you stop eating costs on a job"
 
 **#️⃣ HASHTAGS:**
-#VicBuilder #Variations #Defects #MelbourneBuilder #AussieTradie #ConstructionAU #VictorianBuilders #BuildingContracts #TradieTok #GetPaid
+#construction #builder #tradie #australia #victoriaaustralia
+#victorianbuilder #sitemanager #constructionlife #buildingsite #progressclaim #swms #sitemanagerlife #constructionaustralia
+#nexxtsitemanager #nexxtbuilder #sortedby7am
+
+**📝 VIDEO DESCRIPTION LINES:**
+- "Save this if you’re still doing paperwork at 10pm 👇"
+- "Tag a builder who needs this"
+- "Free to start — link in bio"
 
 **📢 CALL TO ACTION:**
 "Start free, upgrade when you're ready — link in bio." 👷

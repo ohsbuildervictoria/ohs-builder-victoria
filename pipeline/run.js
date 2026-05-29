@@ -10,6 +10,10 @@ import { recordScreen } from './lib/record.js'
 import { makePlaceholderPresenter, makePlaceholderScreen } from './lib/mockMedia.js'
 import { stitch } from './lib/stitch.js'
 import { postToInbox } from './lib/tiktok.js'
+import { runQualityGate } from './lib/qualityGate.js'
+import { CAPTION_FONT_SIZE } from './lib/captions.js'
+import { buildSchedule, printSchedule } from './lib/schedule.js'
+import { allVideoKeys } from './tools.config.js'
 import { ensureDir, log, ok, warn, requireEnv } from './lib/util.js'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -24,17 +28,19 @@ const opt = (name) => {
   return i >= 0 ? argv[i + 1] : undefined
 }
 
-if (!toolKey || flag('help')) {
+if (flag('help') || (!toolKey && !flag('schedule'))) {
   console.log(`
 Nexxt TikTok pipeline — one command from script to posted TikTok.
 
   node run.js <tool> [options]
+  node run.js --schedule          Print the 2-week posting schedule for all videos
 
 Tools: progress-claim, swms, trade-splitter, plan-reader, eot-notice
 
 Options:
   --mode inbox|direct   Post mode (default: inbox; direct needs video.publish + audit)
   --no-post             Build the video but don't post to TikTok
+  --no-gate             Skip the pre-post quality gate (not recommended)
   --presenter <path>    Reuse an existing presenter mp4 (skip Arcads)
   --screen <path>       Reuse an existing screen recording (skip Puppeteer)
   --mock                Generate placeholder presenter + screen with ffmpeg
@@ -42,7 +48,15 @@ Options:
                         captions + TikTok inbox. Combine with --no-post.
   --dry-run             Parse the script and print the plan only
 `)
-  process.exit(toolKey ? 0 : 1)
+  process.exit(toolKey || flag('schedule') ? 0 : 1)
+}
+
+// ── --schedule: print the 2-week plan for all 15 videos and exit ────────────
+if (flag('schedule')) {
+  const schedule = buildSchedule(allVideoKeys())
+  printSchedule(schedule)
+  console.log(`\n(${schedule.length} videos, AEST 6:30am / 7:30pm slots, ≥4h apart)`)
+  process.exit(0)
 }
 
 const tool = resolveTool(toolKey)
@@ -99,6 +113,21 @@ try {
   // and writes correctly-timed captions itself.
   const final = await stitch({ presenter, screen, spokenText: script.spokenScript, outDir })
   ok(`final → ${final}`)
+
+  // 3b. Quality gate — fail closed before any post.
+  if (!flag('no-gate')) {
+    log('gate', 'running quality checks…')
+    const { pass, checks } = await runQualityGate(final, { captionFontSize: CAPTION_FONT_SIZE })
+    for (const c of checks) {
+      process.stdout.write(`   ${c.pass ? '✓' : '✗'} ${c.name.padEnd(22)} ${c.detail}\n`)
+    }
+    if (!pass) {
+      throw new Error('Quality gate FAILED — not posting. Fix the ✗ checks above (or re-run with --no-gate to override).')
+    }
+    ok('quality gate passed')
+  } else {
+    warn('--no-gate: quality checks skipped')
+  }
 
   // 4. Post to TikTok.
   if (flag('no-post')) {

@@ -23,7 +23,14 @@ Solo? Free. Subbie wanting tidy branded paperwork? Documents. Running sites? Sit
 - "The $79 plan pays for itself the first variation you catch 💰"
 
 **#️⃣ HASHTAGS:**
-#VicBuilder #MelbourneBuilder #AussieTradie #TradieLife #ConstructionAU #VictorianBuilders #SiteManager #SubbieLife #TradieTok #BuildAustralia
+#construction #builder #tradie #australia #victoriaaustralia
+#victorianbuilder #sitemanager #constructionlife #buildingsite #progressclaim #swms #sitemanagerlife #constructionaustralia
+#nexxtsitemanager #nexxtbuilder #sortedby7am
+
+**📝 VIDEO DESCRIPTION LINES:**
+- "Save this if you’re still doing paperwork at 10pm 👇"
+- "Tag a builder who needs this"
+- "Free to start — link in bio"
 
 **📢 CALL TO ACTION:**
 "Start free, upgrade when you're ready — link in bio." 👷

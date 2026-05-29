@@ -22,7 +22,14 @@ Clean handover, final payment released, no six-month defect saga."
 - "Sign-off on the spot, on your phone ✍️"
 
 **#️⃣ HASHTAGS:**
-#PracticalCompletion #Handover #VicBuilder #BuildingContracts #MelbourneBuilder #AussieTradie #ConstructionAU #VictorianBuilders #FinalClaim #TradieTok
+#construction #builder #tradie #australia #victoriaaustralia
+#victorianbuilder #sitemanager #constructionlife #buildingsite #progressclaim #swms #sitemanagerlife #constructionaustralia
+#nexxtsitemanager #nexxtbuilder #sortedby7am
+
+**📝 VIDEO DESCRIPTION LINES:**
+- "Save this if you’re still doing paperwork at 10pm 👇"
+- "Tag a builder who needs this"
+- "Free to start — link in bio"
 
 **📢 CALL TO ACTION:**
 "Start free, upgrade when you're ready — link in bio." 👷

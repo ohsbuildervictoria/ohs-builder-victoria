@@ -42,9 +42,12 @@ export function writeSrt(spokenText, durationSec, destPath) {
 
 // libass force_style in Nexxt brand colours (navy #0F1B2E bg box, gold #C9952A text).
 // ASS colours are &HBBGGRR (and AABBGGRR for alpha).
+// Single source of truth for caption font size (read by the quality gate).
+export const CAPTION_FONT_SIZE = 15
+
 export const CAPTION_STYLE = [
   'FontName=Arial',
-  'FontSize=15',
+  `FontSize=${CAPTION_FONT_SIZE}`,
   'Bold=1',
   'PrimaryColour=&H002A95C9', // gold #C9952A -> BGR 2A95C9
   'OutlineColour=&H002E1B0F', // navy #0F1B2E -> BGR 2E1B0F

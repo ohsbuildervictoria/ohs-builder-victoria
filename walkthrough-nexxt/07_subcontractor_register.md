@@ -22,7 +22,14 @@ One screen: who's qualified, who's covered, who's inducted. Hand it straight to 
 - "Be the builder WorkSafe doesn't worry about ✅"
 
 **#️⃣ HASHTAGS:**
-#Subcontractors #VicBuilder #SiteSafety #WorkSafeVic #MelbourneBuilder #AussieTradie #ConstructionAU #VictorianBuilders #Compliance #TradieTok
+#construction #builder #tradie #australia #victoriaaustralia
+#victorianbuilder #sitemanager #constructionlife #buildingsite #progressclaim #swms #sitemanagerlife #constructionaustralia
+#nexxtsitemanager #nexxtbuilder #sortedby7am
+
+**📝 VIDEO DESCRIPTION LINES:**
+- "Save this if you’re still doing paperwork at 10pm 👇"
+- "Tag a builder who needs this"
+- "Free to start — link in bio"
 
 **📢 CALL TO ACTION:**
 "Start free, upgrade when you're ready — link in bio." 👷

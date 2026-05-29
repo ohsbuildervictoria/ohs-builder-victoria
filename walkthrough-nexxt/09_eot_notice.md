@@ -21,7 +21,14 @@ Send it to the client before the deadline. Protect your program, protect your ma
 - "Rain days straight from your diary → notice sent 📲"
 
 **#️⃣ HASHTAGS:**
-#ExtensionOfTime #EOT #VicBuilder #BuildingContracts #MelbourneBuilder #AussieTradie #ConstructionAU #VictorianBuilders #LiquidatedDamages #TradieTok
+#construction #builder #tradie #australia #victoriaaustralia
+#victorianbuilder #sitemanager #constructionlife #buildingsite #progressclaim #swms #sitemanagerlife #constructionaustralia
+#nexxtsitemanager #nexxtbuilder #sortedby7am
+
+**📝 VIDEO DESCRIPTION LINES:**
+- "Save this if you’re still doing paperwork at 10pm 👇"
+- "Tag a builder who needs this"
+- "Free to start — link in bio"
 
 **📢 CALL TO ACTION:**
 "Start free, upgrade when you're ready — link in bio." 👷

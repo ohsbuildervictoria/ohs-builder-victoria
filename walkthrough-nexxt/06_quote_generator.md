@@ -22,7 +22,14 @@ Win more jobs by being the first tidy quote in their inbox — not the last."
 - "Look like a pro, win the job 💼"
 
 **#️⃣ HASHTAGS:**
-#Quoting #VicBuilder #TradieBusiness #MelbourneBuilder #AussieTradie #ConstructionAU #VictorianBuilders #WinTheJob #TradieTok #SmallBizAU
+#construction #builder #tradie #australia #victoriaaustralia
+#victorianbuilder #sitemanager #constructionlife #buildingsite #progressclaim #swms #sitemanagerlife #constructionaustralia
+#nexxtsitemanager #nexxtbuilder #sortedby7am
+
+**📝 VIDEO DESCRIPTION LINES:**
+- "Save this if you’re still doing paperwork at 10pm 👇"
+- "Tag a builder who needs this"
+- "Free to start — link in bio"
 
 **📢 CALL TO ACTION:**
 "Start free, upgrade when you're ready — link in bio." 👷

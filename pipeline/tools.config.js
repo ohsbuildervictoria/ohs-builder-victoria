@@ -41,3 +41,22 @@ export function resolveTool(key) {
   }
   return cfg
 }
+
+// All 15 walkthrough scripts as schedulable video keys (derived from the
+// filenames in walkthrough-nexxt/). Configured tools above keep their nice
+// keys; the rest are scheduled by their script slug. Screens/steps for the
+// unconfigured ones still need filling before a real (non-mock) run.
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const SCRIPTS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'walkthrough-nexxt')
+
+export function allVideoKeys() {
+  const byScript = new Map(Object.entries(tools).map(([k, v]) => [v.script, k]))
+  return fs
+    .readdirSync(SCRIPTS_DIR)
+    .filter((f) => f.endsWith('.md'))
+    .sort()
+    .map((f) => byScript.get(f) || f.replace(/\.md$/, ''))
+}

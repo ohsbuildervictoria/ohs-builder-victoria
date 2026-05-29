@@ -13,18 +13,41 @@ node run.js progress-claim
 
 1. **Arcads** — reads `walkthrough-nexxt/<tool>.md`, generates an **AI presenter video that speaks the hook + voiceover** (presenter *and* voiceover in one asset — no separate TTS). → `out/<tool>-<ts>/presenter.mp4`
 2. **Puppeteer** — records the app screen demo for the tool (`tools.config.js` → route + interaction steps). → `screen.mp4`
-3. **ffmpeg** (`ffmpeg-static`, no system install needed) — composes **9:16 1080×1920**: screen recording fills the frame, presenter as a picture-in-picture, presenter audio as soundtrack, **navy/gold captions burned in** from the voiceover. → `final.mp4`
-4. **TikTok** — uploads `final.mp4` to the connected account via the **inbox FILE_UPLOAD** flow (no audit, no domain verification) — lands in TikTok drafts to review & publish.
+3. **ffmpeg** (`ffmpeg-static`, no system install needed) — composes **9:16 1080×1920**: screen recording fills the frame, presenter as a picture-in-picture, presenter audio **normalised to −14 LUFS**, **navy/gold captions burned in** from the voiceover. → `final.mp4`
+4. **Quality gate** — automated pre-post checks (see below). Fails closed.
+5. **TikTok** — uploads `final.mp4` to the connected account via the **inbox FILE_UPLOAD** flow (no audit, no domain verification) — lands in TikTok drafts to review & publish.
+
+## Quality gate (runs before every post)
+
+| Check | Requirement |
+|-------|-------------|
+| Resolution | exactly 1080×1920 |
+| Duration | 30–60s (TikTok sweet spot) |
+| Loudness | −14 LUFS (±1.5) — audio is normalised in the stitch step |
+| Silence | no silent gap over 2s |
+| Captions | font size ≥14, navy outline + gold fill (high contrast) |
+
+If any check fails, the video is **not posted**. Override with `--no-gate` (not recommended).
+
+## Scheduling
+
+`node run.js --schedule` prints a 2-week plan for all 15 walkthrough videos:
+- AEST windows **6:30am** (before site) and **7:30pm** (after work)
+- **≥4h** between posts, max one morning + one evening per day
+- 15 videos land across ~8 days inside the fortnight
 
 ## Usage
 
 ```
 node run.js <tool> [options]
+node run.js --schedule          Print the 2-week posting schedule for all 15 videos
 
 Tools:  progress-claim, swms, trade-splitter, plan-reader, eot-notice
+        (all 15 walkthrough scripts are schedulable; the 5 above have app routes/steps configured)
 
 --mode inbox|direct   Post mode (default inbox; direct needs video.publish + audit)
 --no-post             Build the video but don't post (great for first runs)
+--no-gate             Skip the pre-post quality gate (not recommended)
 --presenter <path>    Reuse an existing presenter mp4 (skip Arcads)
 --screen <path>       Reuse an existing screen recording (skip Puppeteer)
 --mock                ffmpeg placeholders for presenter + screen (no Arcads

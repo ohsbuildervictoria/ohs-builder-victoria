@@ -22,7 +22,14 @@ The Daily Supervisor view rolls it all up so you can run the whole site off your
 - "Run the whole site off your phone 👷📱"
 
 **#️⃣ HASHTAGS:**
-#SiteDiary #VicBuilder #SiteManager #MelbourneBuilder #AussieTradie #ConstructionAU #VictorianBuilders #BuildingDisputes #TradieTok #DailyReport
+#construction #builder #tradie #australia #victoriaaustralia
+#victorianbuilder #sitemanager #constructionlife #buildingsite #progressclaim #swms #sitemanagerlife #constructionaustralia
+#nexxtsitemanager #nexxtbuilder #sortedby7am
+
+**📝 VIDEO DESCRIPTION LINES:**
+- "Save this if you’re still doing paperwork at 10pm 👇"
+- "Tag a builder who needs this"
+- "Free to start — link in bio"
 
 **📢 CALL TO ACTION:**
 "Start free, upgrade when you're ready — link in bio." 👷

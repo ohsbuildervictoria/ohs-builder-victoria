@@ -22,7 +22,14 @@ Quote tighter, order the right gear, and stop building off a detail you skimmed 
 - "Quote tighter, order right, build once"
 
 **#️⃣ HASHTAGS:**
-#BuildingPlans #VicBuilder #Estimating #MelbourneBuilder #AussieTradie #ConstructionAU #VictorianBuilders #ConstructionTech #TradieTok #BuildSmart
+#construction #builder #tradie #australia #victoriaaustralia
+#victorianbuilder #sitemanager #constructionlife #buildingsite #progressclaim #swms #sitemanagerlife #constructionaustralia
+#nexxtsitemanager #nexxtbuilder #sortedby7am
+
+**📝 VIDEO DESCRIPTION LINES:**
+- "Save this if you’re still doing paperwork at 10pm 👇"
+- "Tag a builder who needs this"
+- "Free to start — link in bio"
 
 **📢 CALL TO ACTION:**
 "Start free, upgrade when you're ready — link in bio." 👷

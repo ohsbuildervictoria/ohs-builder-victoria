@@ -22,7 +22,14 @@ It remembers everything so you don't have to. Start free, no card. Upgrade when 
 - "Built by tradies, for tradies. Not another corporate app."
 
 **#️⃣ HASHTAGS:**
-#VicBuilder #MelbourneBuilder #AussieTradie #TradieLife #ConstructionAU #VictorianBuilders #SiteManager #TradieTok #BuildAustralia #ChippyLife
+#construction #builder #tradie #australia #victoriaaustralia
+#victorianbuilder #sitemanager #constructionlife #buildingsite #progressclaim #swms #sitemanagerlife #constructionaustralia
+#nexxtsitemanager #nexxtbuilder #sortedby7am
+
+**📝 VIDEO DESCRIPTION LINES:**
+- "Save this if you’re still doing paperwork at 10pm 👇"
+- "Tag a builder who needs this"
+- "Free to start — link in bio"
 
 **📢 CALL TO ACTION:**
 "Start free, upgrade when you're ready — link in bio." 👷

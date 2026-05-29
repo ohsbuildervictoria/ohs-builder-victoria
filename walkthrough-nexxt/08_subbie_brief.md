@@ -22,7 +22,14 @@ Clear scope, agreed price, agreed date, in writing. Fewer arguments, fewer defec
 - "Clear scope = fewer defects 💯"
 
 **#️⃣ HASHTAGS:**
-#Subcontractors #VicBuilder #SiteManagement #MelbourneBuilder #AussieTradie #ConstructionAU #VictorianBuilders #SubbieLife #TradieTok #BuildItOnce
+#construction #builder #tradie #australia #victoriaaustralia
+#victorianbuilder #sitemanager #constructionlife #buildingsite #progressclaim #swms #sitemanagerlife #constructionaustralia
+#nexxtsitemanager #nexxtbuilder #sortedby7am
+
+**📝 VIDEO DESCRIPTION LINES:**
+- "Save this if you’re still doing paperwork at 10pm 👇"
+- "Tag a builder who needs this"
+- "Free to start — link in bio"
 
 **📢 CALL TO ACTION:**
 "Start free, upgrade when you're ready — link in bio." 👷
