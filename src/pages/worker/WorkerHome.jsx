@@ -22,8 +22,8 @@ export default function WorkerHome() {
     <div className="space-y-5">
       {/* Greeting */}
       <div>
-        <h1 className="text-2xl font-extrabold text-navy-900">G'day, {currentWorker.name.split(' ')[0]} 👷</h1>
-        <p className="text-navy-500 text-sm">Here's what you need to complete for site access.</p>
+        <h1 className="text-2xl font-extrabold text-navy-900">G&apos;day, {currentWorker.name.split(' ')[0]} 👷</h1>
+        <p className="text-navy-500 text-sm">Here&apos;s what you need to complete for site access.</p>
       </div>
 
       {/* Assigned project */}

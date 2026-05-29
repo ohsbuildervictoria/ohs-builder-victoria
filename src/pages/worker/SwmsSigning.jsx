@@ -66,7 +66,7 @@ export default function SwmsSigning() {
       <div className="max-w-md mx-auto pt-8">
         <div className="card p-6 text-center animate-fade-in">
           <div className="h-20 w-20 rounded-full bg-emerald-100 text-emerald-600 grid place-items-center mx-auto"><Trophy size={40} /></div>
-          <h2 className="text-2xl font-extrabold text-navy-900 mt-4">You're Site Ready! 🎉</h2>
+          <h2 className="text-2xl font-extrabold text-navy-900 mt-4">You&apos;re Site Ready! 🎉</h2>
           <p className="text-navy-500 mt-1">SWMS signed. Induction, quiz and safety docs complete.</p>
           <div className="mt-5 space-y-2 text-left">
             {['Site induction completed', 'OH&S quiz passed (100%)', 'Carpentry SWMS signed'].map((t) => (
