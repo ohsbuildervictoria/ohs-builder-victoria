@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard.jsx'
 import ProjectList from './pages/ProjectList.jsx'
 import CreateProject from './pages/CreateProject.jsx'
 import ProjectDetails from './pages/ProjectDetails.jsx'
+import ProgressClaim from './pages/ProgressClaim.jsx'
 import Compliance from './pages/Compliance.jsx'
 import SiteDiary from './pages/SiteDiary.jsx'
 import Incidents from './pages/Incidents.jsx'
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/projects" element={<ProjectList />} />
         <Route path="/projects/new" element={<CreateProject />} />
         <Route path="/projects/:id" element={<ProjectDetails />} />
+        <Route path="/progress-claim" element={<ProgressClaim />} />
         <Route path="/compliance" element={<Compliance />} />
         <Route path="/site-diary" element={<SiteDiary />} />
         <Route path="/incidents" element={<Incidents />} />

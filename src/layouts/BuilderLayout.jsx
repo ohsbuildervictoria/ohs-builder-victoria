@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, FolderKanban, ShieldCheck, BookOpen, AlertTriangle,
   Eye, Users2, FileText, Settings as SettingsIcon, BarChart3, ClipboardList,
-  Menu, X, Bell, Search, LogOut, ChevronDown, HardHat,
+  Menu, X, Bell, Search, LogOut, ChevronDown, HardHat, Receipt,
 } from 'lucide-react'
 import Logo from '../components/Logo.jsx'
 import { currentBuilder } from '../data/mockData.js'
@@ -11,6 +11,7 @@ import { currentBuilder } from '../data/mockData.js'
 const nav = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/projects', label: 'Projects', icon: FolderKanban },
+  { to: '/progress-claim', label: 'Progress Claim', icon: Receipt },
   { to: '/compliance', label: 'Compliance', icon: ShieldCheck },
   { to: '/swms', label: 'SWMS', icon: FileText },
   { to: '/site-diary', label: 'Site Diary', icon: BookOpen },
