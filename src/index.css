@@ -2,52 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  html {
-    -webkit-text-size-adjust: 100%;
-  }
-  body {
-    @apply bg-navy-50 text-navy-800 antialiased font-sans;
-  }
-  * {
-    -webkit-tap-highlight-color: transparent;
-  }
+html,
+body,
+#root {
+  height: 100%;
 }
 
-@layer components {
-  .card {
-    @apply bg-white rounded-2xl shadow-card border border-navy-100/60;
-  }
-  .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
-  }
-  .btn-primary {
-    @apply btn bg-brand-600 text-white hover:bg-brand-700 px-4 py-2.5 text-sm shadow-sm;
-  }
-  .btn-safety {
-    @apply btn bg-safety-500 text-white hover:bg-safety-600 px-4 py-2.5 text-sm shadow-sm;
-  }
-  .btn-ghost {
-    @apply btn bg-white text-navy-700 border border-navy-200 hover:bg-navy-50 px-4 py-2.5 text-sm;
-  }
-  .btn-dark {
-    @apply btn bg-navy-800 text-white hover:bg-navy-900 px-4 py-2.5 text-sm;
-  }
-  .input {
-    @apply w-full rounded-xl border border-navy-200 bg-white px-3.5 py-2.5 text-sm text-navy-800 placeholder:text-navy-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 outline-none transition;
-  }
-  .label {
-    @apply block text-xs font-semibold text-navy-500 mb-1.5 uppercase tracking-wide;
-  }
-  .chip {
-    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold;
-  }
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  background-color: #f8fafc;
+  color: #1e293b;
+  -webkit-font-smoothing: antialiased;
 }
 
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #aab9d6; border-radius: 10px; border: 2px solid transparent; background-clip: content-box; }
-::-webkit-scrollbar-thumb:hover { background: #7f95bf; background-clip: content-box; }
+* {
+  box-sizing: border-box;
+}
 
-.animate-fade-in { animation: fadeIn 0.35s ease both; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+/* Thin scrollbars for sidebars and scroll panes */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.5);
+  border-radius: 3px;
+}

@@ -1,99 +1,153 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { BadgeCheck, CheckCircle2, XCircle, RotateCcw, ChevronRight, Trophy, AlertTriangle, ArrowRight } from 'lucide-react'
-import { quizQuestions } from '../../data/mockData.js'
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import ProgressBar from "../../components/ui/ProgressBar";
+import { quizQuestions } from "../../data/mockData";
 
 export default function Quiz() {
-  const navigate = useNavigate()
-  const [current, setCurrent] = useState(0)
-  const [answers, setAnswers] = useState([])
-  const [selected, setSelected] = useState(null)
-  const [finished, setFinished] = useState(false)
+  const [current, setCurrent] = useState(0);
+  const [selected, setSelected] = useState(null);
+  const [revealed, setRevealed] = useState(false);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [finished, setFinished] = useState(false);
 
-  const q = quizQuestions[current]
-  const pct = Math.round(((current + (finished ? 1 : 0)) / quizQuestions.length) * 100)
+  const q = quizQuestions[current];
+  const passed = finished && correctCount === quizQuestions.length;
 
   const submit = () => {
-    const next = [...answers, selected]
-    setAnswers(next)
-    setSelected(null)
-    if (current < quizQuestions.length - 1) {
-      setCurrent(current + 1)
+    if (selected == null) return;
+    setRevealed(true);
+    if (selected === q.correct) setCorrectCount((c) => c + 1);
+  };
+
+  const next = () => {
+    if (current + 1 < quizQuestions.length) {
+      setCurrent((c) => c + 1);
+      setSelected(null);
+      setRevealed(false);
     } else {
-      setFinished(true)
+      setFinished(true);
     }
-  }
+  };
 
   const retry = () => {
-    setCurrent(0); setAnswers([]); setSelected(null); setFinished(false)
-  }
+    setCurrent(0);
+    setSelected(null);
+    setRevealed(false);
+    setCorrectCount(0);
+    setFinished(false);
+  };
 
   if (finished) {
-    const correct = answers.filter((a, i) => a === quizQuestions[i].answer).length
-    const passed = correct === quizQuestions.length
     return (
-      <div className="max-w-md mx-auto pt-6">
-        <div className="card p-6 text-center animate-fade-in">
-          <div className={`h-20 w-20 rounded-full grid place-items-center mx-auto ${passed ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-            {passed ? <Trophy size={40} /> : <AlertTriangle size={40} />}
-          </div>
-          <h2 className="text-2xl font-extrabold text-navy-900 mt-4">{passed ? 'Quiz Passed!' : 'Not Quite'}</h2>
-          <p className="text-navy-500 mt-1">{passed ? 'You scored 100% — site safety knowledge confirmed.' : 'A 100% pass is required. Review and try again.'}</p>
-          <div className="text-4xl font-extrabold mt-4" style={{ color: passed ? '#10b981' : '#e11d48' }}>{correct}/{quizQuestions.length}</div>
-
-          <div className="mt-5 space-y-2 text-left">
-            {quizQuestions.map((qq, i) => {
-              const ok = answers[i] === qq.answer
-              return (
-                <div key={i} className="flex items-start gap-2 text-sm">
-                  {ok ? <CheckCircle2 size={18} className="text-emerald-500 mt-0.5 shrink-0" /> : <XCircle size={18} className="text-rose-500 mt-0.5 shrink-0" />}
-                  <span className="text-navy-600">{qq.q}</span>
-                </div>
-              )
-            })}
-          </div>
-
+      <div className="p-4">
+        <div
+          className={`rounded-xl p-6 text-center ${
+            passed ? "bg-green-100" : "bg-red-100"
+          }`}
+        >
+          <p className="text-4xl">{passed ? "🎉" : "❌"}</p>
+          <h1 className="mt-2 text-xl font-bold text-slate-800">
+            {passed ? "Quiz Passed ✅" : "Not Quite"}
+          </h1>
+          <p className="mt-1 text-sm text-slate-600">
+            You answered {correctCount} of {quizQuestions.length} correctly.
+          </p>
           {passed ? (
-            <button onClick={() => navigate('/worker/swms')} className="btn-safety w-full mt-6 py-3">Continue to SWMS <ArrowRight size={18} /></button>
+            <Link
+              to="/worker/swms"
+              className="mt-4 inline-block rounded-lg bg-green-600 px-5 py-2.5 text-sm font-semibold text-white"
+            >
+              Proceed to sign your SWMS →
+            </Link>
           ) : (
-            <button onClick={retry} className="btn-primary w-full mt-6 py-3"><RotateCcw size={18} /> Retry Quiz</button>
+            <button
+              onClick={retry}
+              className="mt-4 rounded-lg bg-blue-900 px-5 py-2.5 text-sm font-semibold text-white"
+            >
+              Retry Quiz
+            </button>
           )}
         </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="max-w-xl mx-auto">
-      <div className="mb-4">
-        <h1 className="text-2xl font-extrabold text-navy-900">OH&S Knowledge Quiz</h1>
-        <p className="text-navy-500 text-sm">Answer all questions correctly to pass.</p>
+    <div className="p-4">
+      <h1 className="text-xl font-bold text-slate-800">Safety Quiz</h1>
+      <p className="text-sm text-slate-500">Answer all questions correctly to pass.</p>
+
+      <div className="mt-3">
+        <div className="mb-1 flex justify-between text-xs text-slate-500">
+          <span>
+            Question {current + 1} of {quizQuestions.length}
+          </span>
+        </div>
+        <ProgressBar value={((current + 1) / quizQuestions.length) * 100} color="bg-blue-900" />
       </div>
 
-      {/* Progress */}
-      <div className="flex items-center gap-3 mb-5">
-        <div className="h-2.5 flex-1 rounded-full bg-navy-100 overflow-hidden">
-          <div className="h-full rounded-full bg-brand-500 transition-all duration-300" style={{ width: `${pct}%` }} />
+      <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+        <p className="text-sm font-semibold text-slate-800">{q.question}</p>
+        <div className="mt-3 space-y-2">
+          {q.options.map((opt, i) => {
+            const isSelected = selected === i;
+            const isCorrect = i === q.correct;
+            let style = "border-slate-200 bg-white";
+            if (revealed) {
+              if (isCorrect) style = "border-green-500 bg-green-50";
+              else if (isSelected) style = "border-red-500 bg-red-50";
+            } else if (isSelected) {
+              style = "border-blue-900 bg-blue-50";
+            }
+            return (
+              <button
+                key={i}
+                disabled={revealed}
+                onClick={() => setSelected(i)}
+                className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2.5 text-left text-sm ${style}`}
+              >
+                <span className="font-semibold text-slate-500">
+                  {String.fromCharCode(65 + i)})
+                </span>
+                <span className="text-slate-700">{opt}</span>
+                {revealed && isCorrect && <span className="ml-auto">✅</span>}
+                {revealed && isSelected && !isCorrect && (
+                  <span className="ml-auto">❌</span>
+                )}
+              </button>
+            );
+          })}
         </div>
-        <span className="text-sm font-bold text-navy-600 whitespace-nowrap">Q{current + 1}/{quizQuestions.length}</span>
-      </div>
 
-      <div className="card p-5 animate-fade-in" key={current}>
-        <div className="flex items-center gap-2 text-xs font-bold text-brand-600 uppercase tracking-wide mb-2"><BadgeCheck size={16} /> Question {current + 1}</div>
-        <h3 className="text-lg font-bold text-navy-900 mb-4">{q.q}</h3>
-        <div className="space-y-2.5">
-          {q.options.map((opt, i) => (
-            <button key={i} onClick={() => setSelected(i)}
-              className={`w-full flex items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition ${selected === i ? 'border-brand-500 bg-brand-50' : 'border-navy-100 hover:border-navy-300'}`}>
-              <span className={`h-6 w-6 rounded-full grid place-items-center text-xs font-bold shrink-0 ${selected === i ? 'bg-brand-600 text-white' : 'bg-navy-100 text-navy-500'}`}>{String.fromCharCode(65 + i)}</span>
-              <span className="text-sm font-medium text-navy-700">{opt}</span>
-            </button>
-          ))}
-        </div>
-        <button onClick={submit} disabled={selected === null} className="btn-primary w-full mt-5 py-3 disabled:opacity-40">
-          {current < quizQuestions.length - 1 ? <>Next Question <ChevronRight size={18} /></> : <>Submit Quiz <CheckCircle2 size={18} /></>}
-        </button>
+        {revealed && (
+          <p
+            className={`mt-3 text-sm font-medium ${
+              selected === q.correct ? "text-green-700" : "text-red-700"
+            }`}
+          >
+            {selected === q.correct
+              ? "Correct!"
+              : "Incorrect — review the highlighted answer."}
+          </p>
+        )}
+
+        {!revealed ? (
+          <button
+            disabled={selected == null}
+            onClick={submit}
+            className="mt-4 w-full rounded-lg bg-blue-900 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            Submit Answer
+          </button>
+        ) : (
+          <button
+            onClick={next}
+            className="mt-4 w-full rounded-lg bg-blue-900 py-2.5 text-sm font-semibold text-white"
+          >
+            {current + 1 < quizQuestions.length ? "Next Question →" : "See Results"}
+          </button>
+        )}
       </div>
     </div>
-  )
+  );
 }

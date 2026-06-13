@@ -1,70 +1,105 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { GraduationCap, CheckCircle2, Circle, PlayCircle, Clock, ChevronRight, BadgeCheck, ShieldCheck } from 'lucide-react'
-import { inductionModules } from '../../data/mockData.js'
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import ProgressBar from "../../components/ui/ProgressBar";
+import { inductionModules } from "../../data/mockData";
 
 export default function Induction() {
-  const navigate = useNavigate()
-  const [modules, setModules] = useState(inductionModules)
-  const done = modules.filter((m) => m.done).length
-  const pct = Math.round((done / modules.length) * 100)
+  // Modules unlock sequentially; first incomplete module is "in progress".
+  const [modules, setModules] = useState(inductionModules);
 
-  const complete = (id) => setModules((ms) => ms.map((m) => (m.id === id ? { ...m, done: true } : m)))
+  const completedCount = modules.filter((m) => m.status === "Complete").length;
+  const firstLockedIndex = modules.findIndex((m) => m.status !== "Complete");
+
+  const startModule = (id, index) => {
+    // Only the next unlocked module can be started.
+    if (index !== firstLockedIndex) return;
+    setModules((prev) =>
+      prev.map((m, i) => {
+        if (m.id === id) return { ...m, status: "Complete" };
+        // Unlock the following module.
+        if (i === index + 1 && m.status === "Locked")
+          return { ...m, status: "Available" };
+        return m;
+      })
+    );
+  };
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-extrabold text-navy-900">Site Induction</h1>
-        <p className="text-navy-500 text-sm">Docklands Tower Stage 2 · complete all modules</p>
+    <div className="p-4">
+      <h1 className="text-xl font-bold text-slate-800">Site Induction</h1>
+      <p className="text-sm text-slate-500">
+        Complete all modules in order to gain site access.
+      </p>
+
+      <div className="mt-3">
+        <div className="mb-1 flex justify-between text-xs text-slate-500">
+          <span>Progress</span>
+          <span className="font-semibold text-slate-700">
+            {completedCount} of {modules.length} modules
+          </span>
+        </div>
+        <ProgressBar value={(completedCount / modules.length) * 100} color="bg-green-500" />
       </div>
 
-      {/* Progress */}
-      <div className="card p-5">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2 font-bold text-navy-800"><GraduationCap size={20} className="text-brand-600" /> Your Progress</div>
-          <span className="text-sm font-extrabold text-navy-800">{done}/{modules.length}</span>
-        </div>
-        <div className="h-2.5 w-full rounded-full bg-navy-100 overflow-hidden">
-          <div className="h-full rounded-full bg-gradient-to-r from-brand-500 to-emerald-500 transition-all duration-500" style={{ width: `${pct}%` }} />
-        </div>
-        <div className="text-xs text-navy-400 mt-1.5">{pct}% complete · {modules.length - done} modules remaining</div>
-      </div>
-
-      {/* Modules */}
-      <div className="space-y-2.5">
-        {modules.map((m, i) => {
-          const locked = i > 0 && !modules[i - 1].done && !m.done
+      <div className="mt-4 space-y-2">
+        {modules.map((m, index) => {
+          const isComplete = m.status === "Complete";
+          const isNext = index === firstLockedIndex;
+          const isLocked = !isComplete && !isNext;
           return (
-            <div key={m.id} className={`card p-4 flex items-center gap-3 ${m.done ? 'bg-emerald-50/40' : ''}`}>
-              <div className={`h-10 w-10 rounded-xl grid place-items-center shrink-0 ${m.done ? 'bg-emerald-100 text-emerald-600' : locked ? 'bg-navy-100 text-navy-300' : 'bg-brand-50 text-brand-600'}`}>
-                {m.done ? <CheckCircle2 size={22} /> : locked ? <Circle size={22} /> : <PlayCircle size={22} />}
+            <div
+              key={m.id}
+              className={`rounded-xl border bg-white p-4 ${
+                isNext ? "border-blue-900" : "border-slate-200"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">
+                    {m.id}. {m.title}
+                  </p>
+                  <p className="text-xs text-slate-500">{m.duration}</p>
+                </div>
+                {isComplete ? (
+                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                    Complete ✅
+                  </span>
+                ) : isLocked ? (
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
+                    🔒 Locked
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                    Available
+                  </span>
+                )}
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-navy-800">{m.title}</div>
-                <div className="text-xs text-navy-400 flex items-center gap-1"><Clock size={12} />{m.mins} min</div>
-              </div>
-              {m.done ? (
-                <span className="chip bg-emerald-50 text-emerald-700">Done</span>
-              ) : locked ? (
-                <span className="text-xs text-navy-300 font-semibold">Locked</span>
-              ) : (
-                <button onClick={() => complete(m.id)} className="btn-primary py-1.5 px-3 text-xs">Start <ChevronRight size={14} /></button>
-              )}
+              <button
+                disabled={isComplete || isLocked}
+                onClick={() => startModule(m.id, index)}
+                className={`mt-3 w-full rounded-lg py-2 text-sm font-medium ${
+                  isComplete
+                    ? "bg-slate-100 text-slate-400"
+                    : isLocked
+                    ? "cursor-not-allowed bg-slate-100 text-slate-300"
+                    : "bg-blue-900 text-white hover:bg-blue-800"
+                }`}
+              >
+                {isComplete ? "Completed ✅" : isLocked ? "Locked" : "Start Module"}
+              </button>
             </div>
-          )
+          );
         })}
       </div>
 
-      {/* CTA to quiz */}
-      <div className={`card p-5 flex items-center gap-3 ${pct === 100 ? 'border-emerald-300' : ''}`}>
-        <div className={`h-11 w-11 rounded-xl grid place-items-center shrink-0 ${pct === 100 ? 'bg-emerald-100 text-emerald-600' : 'bg-navy-100 text-navy-400'}`}><BadgeCheck size={24} /></div>
-        <div className="flex-1"><div className="font-bold text-navy-800">OH&S Knowledge Quiz</div><div className="text-xs text-navy-400">{pct === 100 ? 'Unlocked — test your knowledge' : 'Complete all modules to unlock'}</div></div>
-        <button disabled={pct !== 100} onClick={() => navigate('/worker/quiz')} className="btn-safety py-2 px-4 text-sm disabled:opacity-40">Take Quiz</button>
-      </div>
-
-      <div className="rounded-xl bg-brand-50 border border-brand-100 p-3 flex items-center gap-2.5 text-xs text-brand-800">
-        <ShieldCheck size={24} className="text-brand-600 shrink-0" /> You must complete the induction and quiz before entering site.
-      </div>
+      {completedCount === modules.length && (
+        <Link
+          to="/worker/quiz"
+          className="mt-4 block rounded-xl bg-green-500 py-3 text-center text-sm font-semibold text-white"
+        >
+          Induction complete — Take the Safety Quiz →
+        </Link>
+      )}
     </div>
-  )
+  );
 }

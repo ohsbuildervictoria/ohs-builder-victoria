@@ -1,136 +1,167 @@
-import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { FileText, FileDown, PenLine, Eraser, CheckCircle2, ShieldCheck, HardHat, Trophy } from 'lucide-react'
-import { swmsDetail } from '../../data/mockData.js'
-
-const riskTone = { High: 'bg-rose-50 text-rose-700', Medium: 'bg-amber-50 text-amber-700', Low: 'bg-brand-50 text-brand-700' }
-
-function SignaturePad({ onChange }) {
-  const canvasRef = useRef(null)
-  const drawing = useRef(false)
-  const [hasInk, setHasInk] = useState(false)
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    const ratio = window.devicePixelRatio || 1
-    canvas.width = canvas.offsetWidth * ratio
-    canvas.height = canvas.offsetHeight * ratio
-    const ctx = canvas.getContext('2d')
-    ctx.scale(ratio, ratio)
-    ctx.lineWidth = 2.5
-    ctx.lineCap = 'round'
-    ctx.strokeStyle = '#16223d'
-  }, [])
-
-  const pos = (e) => {
-    const rect = canvasRef.current.getBoundingClientRect()
-    const p = e.touches ? e.touches[0] : e
-    return { x: p.clientX - rect.left, y: p.clientY - rect.top }
-  }
-  const start = (e) => { drawing.current = true; const ctx = canvasRef.current.getContext('2d'); const { x, y } = pos(e); ctx.beginPath(); ctx.moveTo(x, y) }
-  const move = (e) => {
-    if (!drawing.current) return
-    e.preventDefault()
-    const ctx = canvasRef.current.getContext('2d'); const { x, y } = pos(e); ctx.lineTo(x, y); ctx.stroke()
-    if (!hasInk) { setHasInk(true); onChange(true) }
-  }
-  const end = () => { drawing.current = false }
-  const clear = () => {
-    const canvas = canvasRef.current
-    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height)
-    setHasInk(false); onChange(false)
-  }
-
-  return (
-    <div>
-      <div className="relative rounded-xl border-2 border-navy-200 bg-navy-50/40 overflow-hidden">
-        <canvas ref={canvasRef} className="w-full h-36 touch-none cursor-crosshair"
-          onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
-          onTouchStart={start} onTouchMove={move} onTouchEnd={end} />
-        {!hasInk && <span className="absolute inset-0 grid place-items-center text-navy-300 italic pointer-events-none text-sm">✍️ Sign with your finger or mouse</span>}
-        <button onClick={clear} className="absolute top-2 right-2 flex items-center gap-1 text-xs font-semibold text-navy-500 bg-white rounded-lg px-2 py-1 shadow-sm"><Eraser size={13} /> Clear</button>
-      </div>
-    </div>
-  )
-}
+import { useState, useRef } from "react";
+import { useAuth } from "../../hooks/useAuth";
+import { useWorkers } from "../../hooks/useWorkers";
+import { useSWMS } from "../../hooks/useSWMS";
+import Badge from "../../components/ui/Badge";
+import { findSwms } from "../../data/swmsLibrary";
 
 export default function SwmsSigning() {
-  const navigate = useNavigate()
-  const detail = swmsDetail.Carpenter
-  const [signed, setSigned] = useState(false)
-  const [agreed, setAgreed] = useState(true)
-  const [hasInk, setHasInk] = useState(false)
+  const { user } = useAuth();
+  const { getWorker } = useWorkers();
+  const worker = getWorker(user?.workerId ?? 1);
+  const { templates } = useSWMS();
+
+  const template =
+    templates.find((t) => t.trade === worker?.trade) || templates[0];
+
+  // Get real hazards from the SWMS library for this worker's trade
+  const tradeSwms = findSwms(worker?.trade);
+  const tradeHazards = tradeSwms?.hazards || [];
+  const tradePpe = tradeSwms?.ppe || [];
+  const tradeEquipment = tradeSwms?.equipment || [];
+
+  const [scrolledToEnd, setScrolledToEnd] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  const [typedName, setTypedName] = useState("");
+  const [signed, setSigned] = useState(false);
+  const scrollRef = useRef(null);
+
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 8) {
+      setScrolledToEnd(true);
+    }
+  };
+
+  const canSign = scrolledToEnd && agreed && typedName.trim().length > 1;
+  const today = "2026-06-10";
 
   if (signed) {
     return (
-      <div className="max-w-md mx-auto pt-8">
-        <div className="card p-6 text-center animate-fade-in">
-          <div className="h-20 w-20 rounded-full bg-emerald-100 text-emerald-600 grid place-items-center mx-auto"><Trophy size={40} /></div>
-          <h2 className="text-2xl font-extrabold text-navy-900 mt-4">You're Site Ready! 🎉</h2>
-          <p className="text-navy-500 mt-1">SWMS signed. Induction, quiz and safety docs complete.</p>
-          <div className="mt-5 space-y-2 text-left">
-            {['Site induction completed', 'OH&S quiz passed (100%)', 'Carpentry SWMS signed'].map((t) => (
-              <div key={t} className="flex items-center gap-2 text-sm text-navy-700"><CheckCircle2 size={18} className="text-emerald-500" />{t}</div>
-            ))}
-          </div>
-          <button onClick={() => navigate('/worker')} className="btn-primary w-full mt-6 py-3">Back to My Site</button>
+      <div className="p-4">
+        <div className="rounded-xl bg-green-100 p-6 text-center">
+          <p className="text-4xl">✅</p>
+          <h1 className="mt-2 text-xl font-bold text-slate-800">SWMS Signed</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            {template?.trade} SWMS {template?.version} signed by {typedName} on{" "}
+            {today}.
+          </p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-extrabold text-navy-900">Sign SWMS</h1>
-        <p className="text-navy-500 text-sm">Carpentry & Formwork SWMS · v3.2</p>
+    <div className="p-4">
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-slate-800">Sign Your SWMS</h1>
+          <p className="text-sm text-slate-500">
+            {template?.trade} · {template?.version}
+          </p>
+        </div>
+        <Badge status="Pending">Read-only</Badge>
       </div>
 
-      {/* Doc header */}
-      <div className="rounded-2xl bg-navy-900 text-white p-5 flex items-center gap-3">
-        <div className="h-12 w-12 rounded-xl bg-white/10 grid place-items-center"><FileText size={24} className="text-safety-400" /></div>
-        <div className="flex-1"><div className="font-bold">Carpentry & Formwork SWMS</div><div className="text-xs text-navy-300 flex items-center gap-1.5"><HardHat size={13} /> Docklands Tower Stage 2</div></div>
-        <button className="btn bg-white/10 text-white px-3 py-2 text-xs"><FileDown size={15} /> PDF</button>
-      </div>
+      <p className="mt-2 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-500">
+        This SWMS is standardised and version-controlled. You cannot edit it — you
+        may only read and sign it.
+      </p>
 
-      {/* Hazards */}
-      <div className="card p-5">
-        <div className="text-xs font-semibold text-navy-500 uppercase mb-3">Hazards & Risk Controls</div>
-        <div className="space-y-2">
-          {detail.hazards.map((h, i) => (
-            <div key={i} className="rounded-xl border border-navy-100 p-3">
-              <div className="flex items-center justify-between"><span className="font-semibold text-navy-800 text-sm">{h.hazard}</span><span className={`chip ${riskTone[h.risk]}`}>{h.risk}</span></div>
-              <p className="text-xs text-navy-500 mt-1"><b>Control:</b> {h.control}</p>
+      {/* PPE & Equipment summary */}
+      {(tradePpe.length > 0 || tradeEquipment.length > 0) && (
+        <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-3">
+          {tradePpe.length > 0 && (
+            <div className="mb-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-blue-700">
+                Required PPE
+              </p>
+              <p className="mt-1 text-xs text-slate-700">{tradePpe.join(" · ")}</p>
             </div>
-          ))}
+          )}
+          {tradeEquipment.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-blue-700">
+                Plant &amp; Equipment
+              </p>
+              <p className="mt-1 text-xs text-slate-700">{tradeEquipment.join(" · ")}</p>
+            </div>
+          )}
         </div>
+      )}
+
+      {/* Scrollable hazard list */}
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        className="mt-3 h-72 space-y-3 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 scrollbar-thin"
+      >
+        <p className="text-sm font-semibold text-slate-700">
+          Hazards &amp; Risk Controls — {tradeSwms ? tradeSwms.trade : worker?.trade}
+        </p>
+        {tradeHazards.length > 0 ? tradeHazards.map((h, idx) => (
+          <div key={idx} className="rounded-lg border border-slate-200 p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  {h.task}
+                </p>
+                <p className="mt-0.5 text-sm font-medium text-slate-800">{h.hazard}</p>
+              </div>
+              <Badge status={h.risk}>{h.risk}</Badge>
+            </div>
+            <p className="mt-1.5 text-xs text-slate-600">
+              <span className="font-medium">Controls:</span> {h.controls}
+            </p>
+          </div>
+        )) : (
+          <p className="text-sm text-slate-400 italic">No trade-specific hazards loaded.</p>
+        )}
+        <p className="pt-2 text-center text-xs text-slate-400">
+          — End of SWMS — you may now sign below —
+        </p>
       </div>
 
-      {/* PPE */}
-      <div className="card p-5">
-        <div className="text-xs font-semibold text-navy-500 uppercase mb-3">Required PPE</div>
-        <div className="flex flex-wrap gap-2">
-          {detail.ppe.map((p) => <span key={p} className="chip bg-brand-50 text-brand-700"><CheckCircle2 size={13} />{p}</span>)}
-        </div>
-      </div>
+      {!scrolledToEnd && (
+        <p className="mt-2 text-center text-xs text-amber-600">
+          ⬇ Scroll to the bottom to enable signing
+        </p>
+      )}
 
       {/* Signature */}
-      <div className="card p-5">
-        <div className="flex items-center gap-2 text-xs font-semibold text-navy-500 uppercase mb-3"><PenLine size={15} /> Digital Signature</div>
-        <SignaturePad onChange={setHasInk} />
-        <label className="flex items-start gap-2 mt-4 text-sm text-navy-600">
-          <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 rounded border-navy-300 text-brand-600" />
-          I have read, understood and will comply with this SWMS and all site safety requirements.
+      <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+        <label className="flex items-start gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            checked={agreed}
+            disabled={!scrolledToEnd}
+            onChange={(e) => setAgreed(e.target.checked)}
+            className="mt-0.5"
+          />
+          I have read and understood this SWMS
         </label>
-        <button onClick={() => setSigned(true)} disabled={!hasInk || !agreed} className="btn-safety w-full mt-4 py-3 disabled:opacity-40">
-          <PenLine size={18} /> Sign & Submit
-        </button>
-        {(!hasInk || !agreed) && <p className="text-xs text-navy-400 text-center mt-2">Add your signature and confirm the declaration to continue.</p>}
-      </div>
 
-      <div className="rounded-xl bg-brand-50 border border-brand-100 p-3 flex items-center gap-2.5 text-xs text-brand-800">
-        <ShieldCheck size={24} className="text-brand-600 shrink-0" /> Your signature is timestamped and recorded against this project.
+        <label className="mt-3 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+          Type your full name to sign
+        </label>
+        <input
+          value={typedName}
+          disabled={!scrolledToEnd}
+          onChange={(e) => setTypedName(e.target.value)}
+          placeholder={worker?.name}
+          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-900 focus:outline-none disabled:bg-slate-50"
+        />
+        <p className="mt-1 text-xs text-slate-400">Date: {today}</p>
+
+        <button
+          disabled={!canSign}
+          onClick={() => setSigned(true)}
+          className="mt-4 w-full rounded-lg bg-green-600 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Sign SWMS
+        </button>
       </div>
     </div>
-  )
+  );
 }

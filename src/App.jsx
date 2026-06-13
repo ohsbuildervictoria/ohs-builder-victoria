@@ -1,60 +1,108 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
-import BuilderLayout from './layouts/BuilderLayout.jsx'
-import WorkerLayout from './layouts/WorkerLayout.jsx'
+import { Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "./context/AuthContext";
+import { AppProvider } from "./context/AppContext";
+import { ToastProvider } from "./components/ui/Notification";
+import { useAuth } from "./hooks/useAuth";
 
-import Login from './pages/Login.jsx'
-import Dashboard from './pages/Dashboard.jsx'
-import ProjectList from './pages/ProjectList.jsx'
-import CreateProject from './pages/CreateProject.jsx'
-import ProjectDetails from './pages/ProjectDetails.jsx'
-import Compliance from './pages/Compliance.jsx'
-import SiteDiary from './pages/SiteDiary.jsx'
-import Incidents from './pages/Incidents.jsx'
-import NearMiss from './pages/NearMiss.jsx'
-import Toolbox from './pages/Toolbox.jsx'
-import SwmsManagement from './pages/SwmsManagement.jsx'
-import Admin from './pages/Admin.jsx'
-import Reports from './pages/Reports.jsx'
-import Settings from './pages/Settings.jsx'
+import BuilderLayout from "./layouts/BuilderLayout";
+import WorkerLayout from "./layouts/WorkerLayout";
 
-import WorkerHome from './pages/worker/WorkerHome.jsx'
-import WorkerRegistration from './pages/worker/WorkerRegistration.jsx'
-import Induction from './pages/worker/Induction.jsx'
-import Quiz from './pages/worker/Quiz.jsx'
-import SwmsSigning from './pages/worker/SwmsSigning.jsx'
+import Login from "./pages/Login";
+
+import Dashboard from "./pages/builder/Dashboard";
+import Projects from "./pages/builder/Projects";
+import ProjectDetail from "./pages/builder/ProjectDetail";
+import Compliance from "./pages/builder/Compliance";
+import SWMS from "./pages/builder/SWMS";
+import SiteDiary from "./pages/builder/SiteDiary";
+import Incidents from "./pages/builder/Incidents";
+import NearMiss from "./pages/builder/NearMiss";
+import Toolbox from "./pages/builder/Toolbox";
+import Reports from "./pages/builder/Reports";
+import AdminPortal from "./pages/builder/AdminPortal";
+import Settings from "./pages/builder/Settings";
+
+import WorkerHome from "./pages/worker/WorkerHome";
+import Induction from "./pages/worker/Induction";
+import Quiz from "./pages/worker/Quiz";
+import SwmsSigning from "./pages/worker/SwmsSigning";
+import Registration from "./pages/worker/Registration";
+
+// Gates builder routes; redirects to /login when no session.
+function RequireBuilder({ children }) {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
+}
+
+// Builder Admin only.
+function RequireAdmin({ children }) {
+  const { user, role } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (role !== "builder_admin") return <Navigate to="/builder/dashboard" replace />;
+  return children;
+}
+
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/login" element={<Login />} />
+
+      {/* Builder web */}
+      <Route
+        path="/builder"
+        element={
+          <RequireBuilder>
+            <BuilderLayout />
+          </RequireBuilder>
+        }
+      >
+        <Route index element={<Navigate to="/builder/dashboard" replace />} />
+        <Route path="dashboard" element={<Dashboard />} />
+        <Route path="projects" element={<Projects />} />
+        <Route path="projects/:id" element={<ProjectDetail />} />
+        <Route path="compliance" element={<Compliance />} />
+        <Route path="swms" element={<SWMS />} />
+        <Route path="diary" element={<SiteDiary />} />
+        <Route path="incidents" element={<Incidents />} />
+        <Route path="incidents/near-miss" element={<NearMiss />} />
+        <Route path="toolbox" element={<Toolbox />} />
+        <Route path="reports" element={<Reports />} />
+        <Route
+          path="admin"
+          element={
+            <RequireAdmin>
+              <AdminPortal />
+            </RequireAdmin>
+          }
+        />
+        <Route path="settings" element={<Settings />} />
+      </Route>
+
+      {/* Worker mobile */}
+      <Route path="/worker" element={<WorkerLayout />}>
+        <Route index element={<Navigate to="/worker/home" replace />} />
+        <Route path="home" element={<WorkerHome />} />
+        <Route path="induction" element={<Induction />} />
+        <Route path="quiz" element={<Quiz />} />
+        <Route path="swms" element={<SwmsSigning />} />
+        <Route path="registration" element={<Registration />} />
+      </Route>
+
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
+  );
+}
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Login />} />
-
-      {/* Builder workspace */}
-      <Route element={<BuilderLayout />}>
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/projects" element={<ProjectList />} />
-        <Route path="/projects/new" element={<CreateProject />} />
-        <Route path="/projects/:id" element={<ProjectDetails />} />
-        <Route path="/compliance" element={<Compliance />} />
-        <Route path="/site-diary" element={<SiteDiary />} />
-        <Route path="/incidents" element={<Incidents />} />
-        <Route path="/near-miss" element={<NearMiss />} />
-        <Route path="/toolbox" element={<Toolbox />} />
-        <Route path="/swms" element={<SwmsManagement />} />
-        <Route path="/admin" element={<Admin />} />
-        <Route path="/reports" element={<Reports />} />
-        <Route path="/settings" element={<Settings />} />
-      </Route>
-
-      {/* Worker (tradie) workspace — restricted */}
-      <Route element={<WorkerLayout />}>
-        <Route path="/worker" element={<WorkerHome />} />
-        <Route path="/worker/register" element={<WorkerRegistration />} />
-        <Route path="/worker/induction" element={<Induction />} />
-        <Route path="/worker/quiz" element={<Quiz />} />
-        <Route path="/worker/swms" element={<SwmsSigning />} />
-      </Route>
-
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-  )
+    <AuthProvider>
+      <AppProvider>
+        <ToastProvider>
+          <AppRoutes />
+        </ToastProvider>
+      </AppProvider>
+    </AuthProvider>
+  );
 }
