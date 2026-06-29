@@ -8,7 +8,7 @@ import { useWorkers } from "../../hooks/useWorkers";
 import { useIncidents } from "../../hooks/useIncidents";
 import { useToast } from "../../components/ui/Notification";
 import { downloadReport } from "../../utils/export";
-import { complianceCategories, dashboardKpis, org } from "../../data/mockData";
+import { complianceCategories, dashboardKpis, org, brand } from "../../data/mockData";
 
 // Per-project, per-category compliance %, derived from worker records.
 function projectCompliance(workers, projectId) {
@@ -28,11 +28,12 @@ function projectCompliance(workers, projectId) {
 
 const REPORTS = [
   {
-    title: "Monthly OH&S Summary",
-    file: "ohs-monthly-summary.txt",
+    title: "Monthly WHS Summary",
+    file: "whs-monthly-summary.txt",
     desc: "Org-wide compliance, incidents and toolbox activity",
     build: (ctx) => [
-      `${org.name} — Monthly OH&S Summary`,
+      `${org.name} — Monthly WHS Summary`,
+      `Platform: ${brand.fullName}`,
       `Generated: ${new Date().toLocaleString("en-AU")}`,
       "",
       `Organisation compliance: ${dashboardKpis.compliance}%`,

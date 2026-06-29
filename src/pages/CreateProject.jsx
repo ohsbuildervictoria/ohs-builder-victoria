@@ -94,7 +94,7 @@ export default function CreateProject() {
               </div>
             </div>
             <div className="space-y-3">
-              {['Require digital site induction', 'Require OH&S knowledge quiz (pass mark 100%)', 'Require White Card verification', 'Require public liability insurance', 'Enable daily site diary'].map((opt, i) => (
+              {['Require digital site induction', 'Require WHS knowledge quiz (pass mark 100%)', 'Require White Card verification', 'Require public liability insurance', 'Enable daily site diary'].map((opt, i) => (
                 <label key={opt} className="flex items-center justify-between rounded-xl border border-navy-200 px-4 py-3">
                   <span className="text-sm font-medium text-navy-700">{opt}</span>
                   <input type="checkbox" defaultChecked={i < 4} className="h-5 w-9 appearance-none rounded-full bg-navy-200 checked:bg-emerald-500 relative transition cursor-pointer before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:h-4 before:w-4 before:rounded-full before:bg-white before:transition checked:before:translate-x-4" />

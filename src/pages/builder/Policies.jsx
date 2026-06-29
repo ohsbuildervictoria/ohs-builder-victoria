@@ -6,9 +6,9 @@ import Tabs from "../../components/ui/Tabs";
 import Modal from "../../components/ui/Modal";
 import { Table, THead, TBody, TR, TD } from "../../components/ui/Table";
 import { useToast } from "../../components/ui/Notification";
-import { policies, policyCategories, org } from "../../data/mockData";
+import { policies, policyCategories, org, brand } from "../../data/mockData";
 
-const TABS = ["Policies", "Notifications", "Organisation", "Platform"];
+const TABS = ["Policy Register", "Notifications", "Organisation", "Platform"];
 
 const NOTIFICATION_TOGGLES = [
   { key: "incident", label: "Incident alerts", locked: false },
@@ -25,9 +25,9 @@ const PLATFORM_LINKS = [
   { key: "security", label: "Security Policy" },
 ];
 
-export default function Settings() {
+export default function Policies() {
   const toast = useToast();
-  const [tab, setTab] = useState("Policies");
+  const [tab, setTab] = useState("Policy Register");
   const [toggles, setToggles] = useState({
     incident: true,
     compliance: true,
@@ -35,7 +35,7 @@ export default function Settings() {
     toolbox: true,
     worksafe: true,
   });
-  const [modal, setModal] = useState(null); // platform link key
+  const [modal, setModal] = useState(null);
 
   const flip = (key, locked) => {
     if (locked) {
@@ -48,18 +48,19 @@ export default function Settings() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Settings</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Policies</h1>
         <p className="text-sm text-slate-500">
-          Policies, notifications, organisation and platform
+          WHS policy register, notifications, organisation details and platform
+          terms — pushed to all stakeholders on site.
         </p>
       </div>
 
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
 
-      {tab === "Policies" && (
+      {tab === "Policy Register" && (
         <div className="space-y-4">
           <Card>
-            <CardHeader title="Policy Register" />
+            <CardHeader title="Active Policies" subtitle={`${org.name} · ${brand.region}`} />
             <CardBody className="pt-2">
               <Table>
                 <THead
@@ -93,7 +94,7 @@ export default function Settings() {
           </Card>
 
           <Card>
-            <CardHeader title="Policy Categories" subtitle="From David's annotations" />
+            <CardHeader title="Policy Categories" />
             <CardBody className="flex flex-wrap gap-2 pt-2">
               {policyCategories.map((c) => (
                 <span
@@ -121,7 +122,7 @@ export default function Settings() {
                   <p className="text-sm font-medium text-slate-800">{t.label}</p>
                   {t.locked && (
                     <p className="text-xs text-amber-600">
-                      🔒 Locked — required for compliance
+                      Locked — required for compliance
                     </p>
                   )}
                 </div>
@@ -154,6 +155,8 @@ export default function Settings() {
             <Info label="Plan Tier" value={`${org.plan} (${org.users} users)`} />
             <Info label="Billing Contact" value={org.billingContact} />
             <Info label="Built By" value={org.builtBy} />
+            <Info label="Platform" value={brand.fullName} />
+            <Info label="Domain" value={brand.domain} />
           </CardBody>
         </Card>
       )}
@@ -187,10 +190,9 @@ export default function Settings() {
         }
       >
         <p className="text-sm leading-relaxed text-slate-600">
-          This is placeholder content for the {modal?.label}. In production this
-          document outlines the relevant terms governing use of OH&amp;S Builder
-          Victoria by {org.name}. Refer to {org.builtBy} for the authoritative
-          version.
+          Placeholder content for the {modal?.label}. In production this document
+          governs use of {brand.fullName} by {org.name}. Refer to {org.builtBy}{" "}
+          for the authoritative version.
         </p>
       </Modal>
     </div>

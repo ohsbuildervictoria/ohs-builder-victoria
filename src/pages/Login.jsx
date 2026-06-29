@@ -5,7 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import Logo from "../components/shared/Logo";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
-import { org, demoLoginRoles } from "../data/mockData";
+import { org, demoLoginRoles, brand } from "../data/mockData";
 
 const BUILDER_ROLES = demoLoginRoles.filter((r) => r.role !== "worker");
 const STAKEHOLDER_ROLE = demoLoginRoles.find((r) => r.role === "worker");
@@ -71,10 +71,12 @@ export default function Login() {
           <div className="mb-6 flex flex-col items-center text-center">
             <Logo />
             <h1 className="mt-4 text-2xl font-bold text-slate-800">
-              OH&amp;S Builder Victoria
+              {brand.fullName}
             </h1>
             <p className="mt-1 text-sm text-slate-500">{org.tagline}</p>
-            <p className="mt-0.5 text-xs text-slate-400">{org.name}</p>
+            <p className="mt-0.5 text-xs text-slate-400">
+              {org.name} · {brand.domain}
+            </p>
           </div>
 
           <div className="mb-6 grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
@@ -200,7 +202,7 @@ export default function Login() {
             </p>
           </div>
           <ul className="list-inside list-disc space-y-1 text-sm text-slate-600">
-            <li>Read the {org.name} OH&amp;S Management Plan</li>
+            <li>Read the {org.name} WHS Management Plan</li>
             <li>Understand emergency procedures and muster points</li>
             <li>Confirm PPE requirements for your trade</li>
             <li>Report hazards before work commences</li>

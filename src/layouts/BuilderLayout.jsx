@@ -17,7 +17,7 @@ const NAV = [
   { to: "/builder/toolbox", label: "Toolbox Meetings", icon: "🧰", perm: "toolbox" },
   { to: "/builder/reports", label: "Reports", icon: "📈", perm: "reports" },
   { to: "/builder/admin", label: "Admin Portal", icon: "🛡️", perm: "admin" },
-  { to: "/builder/settings", label: "Settings", icon: "⚙️", perm: "settings" },
+  { to: "/builder/policies", label: "Policies", icon: "📜", perm: "policies" },
 ];
 
 export default function BuilderLayout() {

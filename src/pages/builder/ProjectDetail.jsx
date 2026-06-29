@@ -208,7 +208,7 @@ export default function ProjectDetail() {
               </p>
             </div>
             <div className="mt-4 space-y-2">
-              {["OH&S Management Plan.pdf", "SWMS Register.xlsx", "Site Layout Plan.pdf"].map(
+              {["WHS Management Plan.pdf", "SWMS Register.xlsx", "Site Layout Plan.pdf"].map(
                 (doc) => (
                   <div
                     key={doc}

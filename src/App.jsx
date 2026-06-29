@@ -20,7 +20,7 @@ import NearMiss from "./pages/builder/NearMiss";
 import Toolbox from "./pages/builder/Toolbox";
 import Reports from "./pages/builder/Reports";
 import AdminPortal from "./pages/builder/AdminPortal";
-import Settings from "./pages/builder/Settings";
+import Policies from "./pages/builder/Policies";
 
 import WorkerHome from "./pages/worker/WorkerHome";
 import Induction from "./pages/worker/Induction";
@@ -77,7 +77,8 @@ function AppRoutes() {
             </RequireAdmin>
           }
         />
-        <Route path="settings" element={<Settings />} />
+        <Route path="policies" element={<Policies />} />
+        <Route path="settings" element={<Navigate to="/builder/policies" replace />} />
       </Route>
 
       {/* Worker mobile */}
