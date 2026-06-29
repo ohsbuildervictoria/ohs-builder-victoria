@@ -1,22 +1,39 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "../../hooks/useAuth";
+import { useWorkers } from "../../hooks/useWorkers";
 import ProgressBar from "../../components/ui/ProgressBar";
-import { inductionModules } from "../../data/mockData";
+import { inductionModules as seedModules } from "../../data/mockData";
+
+function buildModuleState() {
+  const firstOpen = seedModules.findIndex((m) => !m.done);
+  return seedModules.map((m, i) => ({
+    ...m,
+    duration: `${m.mins} min`,
+    status: m.done ? "Complete" : i === firstOpen ? "Available" : "Locked",
+  }));
+}
 
 export default function Induction() {
-  // Modules unlock sequentially; first incomplete module is "in progress".
-  const [modules, setModules] = useState(inductionModules);
+  const { user } = useAuth();
+  const { getWorker, updateCompliance } = useWorkers();
+  const worker = getWorker(user?.workerId ?? 1);
+  const [modules, setModules] = useState(buildModuleState);
 
   const completedCount = modules.filter((m) => m.status === "Complete").length;
   const firstLockedIndex = modules.findIndex((m) => m.status !== "Complete");
 
+  useEffect(() => {
+    if (completedCount === modules.length && worker?.id) {
+      updateCompliance(worker.id, "induction", "Verified");
+    }
+  }, [completedCount, modules.length, worker?.id, updateCompliance]);
+
   const startModule = (id, index) => {
-    // Only the next unlocked module can be started.
     if (index !== firstLockedIndex) return;
     setModules((prev) =>
       prev.map((m, i) => {
         if (m.id === id) return { ...m, status: "Complete" };
-        // Unlock the following module.
         if (i === index + 1 && m.status === "Locked")
           return { ...m, status: "Available" };
         return m;
@@ -59,6 +76,11 @@ export default function Induction() {
                     {m.id}. {m.title}
                   </p>
                   <p className="text-xs text-slate-500">{m.duration}</p>
+                  {isNext && m.summary && (
+                    <p className="mt-2 rounded bg-slate-100 px-2 py-1 text-xs text-slate-600">
+                      {m.summary}
+                    </p>
+                  )}
                 </div>
                 {isComplete ? (
                   <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">

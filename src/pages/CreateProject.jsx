@@ -72,7 +72,7 @@ export default function CreateProject() {
               <div><label className="label"><CalendarDays size={12} className="inline mr-1" />Estimated Completion</label><input className="input" type="date" /></div>
             </div>
             <div><label className="label"><HardHat size={12} className="inline mr-1" />Site Supervisor</label>
-              <select className="input"><option>Daniel Hartley</option><option>Marcus Reid</option><option>Priya Sharma</option></select>
+              <select className="input"><option>David Caruana</option><option>Tom Wallace</option><option>Greg Patterson</option></select>
             </div>
           </div>
         )}

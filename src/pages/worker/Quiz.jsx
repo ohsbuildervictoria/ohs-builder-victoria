@@ -1,9 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import ProgressBar from "../../components/ui/ProgressBar";
+import { useAuth } from "../../hooks/useAuth";
+import { useWorkers } from "../../hooks/useWorkers";
 import { quizQuestions } from "../../data/mockData";
 
 export default function Quiz() {
+  const { user } = useAuth();
+  const { getWorker, updateCompliance } = useWorkers();
+  const worker = getWorker(user?.workerId ?? 1);
   const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState(null);
   const [revealed, setRevealed] = useState(false);
@@ -13,10 +18,16 @@ export default function Quiz() {
   const q = quizQuestions[current];
   const passed = finished && correctCount === quizQuestions.length;
 
+  useEffect(() => {
+    if (passed && worker?.id) {
+      updateCompliance(worker.id, "quiz", "Verified");
+    }
+  }, [passed, worker?.id, updateCompliance]);
+
   const submit = () => {
     if (selected == null) return;
     setRevealed(true);
-    if (selected === q.correct) setCorrectCount((c) => c + 1);
+    if (selected === q.answer) setCorrectCount((c) => c + 1);
   };
 
   const next = () => {
@@ -53,12 +64,17 @@ export default function Quiz() {
             You answered {correctCount} of {quizQuestions.length} correctly.
           </p>
           {passed ? (
-            <Link
-              to="/worker/swms"
-              className="mt-4 inline-block rounded-lg bg-green-600 px-5 py-2.5 text-sm font-semibold text-white"
-            >
-              Proceed to sign your SWMS →
-            </Link>
+            <>
+              <p className="mt-2 text-xs text-green-700">
+                Compliance updated — builder view will show Quiz Verified.
+              </p>
+              <Link
+                to="/worker/swms"
+                className="mt-4 inline-block rounded-lg bg-green-600 px-5 py-2.5 text-sm font-semibold text-white"
+              >
+                Proceed to sign your SWMS →
+              </Link>
+            </>
           ) : (
             <button
               onClick={retry}
@@ -87,11 +103,11 @@ export default function Quiz() {
       </div>
 
       <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
-        <p className="text-sm font-semibold text-slate-800">{q.question}</p>
+        <p className="text-sm font-semibold text-slate-800">{q.q}</p>
         <div className="mt-3 space-y-2">
           {q.options.map((opt, i) => {
             const isSelected = selected === i;
-            const isCorrect = i === q.correct;
+            const isCorrect = i === q.answer;
             let style = "border-slate-200 bg-white";
             if (revealed) {
               if (isCorrect) style = "border-green-500 bg-green-50";
@@ -122,10 +138,10 @@ export default function Quiz() {
         {revealed && (
           <p
             className={`mt-3 text-sm font-medium ${
-              selected === q.correct ? "text-green-700" : "text-red-700"
+              selected === q.answer ? "text-green-700" : "text-red-700"
             }`}
           >
-            {selected === q.correct
+            {selected === q.answer
               ? "Correct!"
               : "Incorrect — review the highlighted answer."}
           </p>

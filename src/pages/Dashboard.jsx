@@ -29,7 +29,7 @@ export default function Dashboard() {
     <>
       <PageHeader
         title="Builder Dashboard"
-        subtitle="Hartley & Co Constructions · Live safety overview across all sites"
+        subtitle="Arlington Homes · Live safety overview across all sites"
         actions={<Link to="/projects/new" className="btn-safety"><Plus size={18} /> New Project</Link>}
       />
 

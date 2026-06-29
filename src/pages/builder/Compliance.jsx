@@ -9,6 +9,7 @@ import ComplianceMatrix from "../../components/shared/ComplianceMatrix";
 import { useWorkers } from "../../hooks/useWorkers";
 import { useToast } from "../../components/ui/Notification";
 import { complianceCategories, complianceSummary } from "../../data/mockData";
+import { downloadCsv } from "../../utils/export";
 
 const TABS = ["Stakeholders", "Subcontractors", "Suppliers", "Developer", "Other"];
 const STATUSES = ["Verified", "Pending", "Missing"];
@@ -24,8 +25,22 @@ export default function Compliance() {
     complianceCategories.some((c) => w[c.key] === "Missing")
   );
 
-  const handleExport = () =>
-    toast("compliance-records-2026-06.csv exported", "success");
+  const handleExport = () => {
+    const headers = [
+      "Name",
+      "Trade",
+      ...complianceCategories.map((c) => c.label),
+      "Status",
+    ];
+    const rows = workers.map((w) => [
+      w.name,
+      w.trade,
+      ...complianceCategories.map((c) => w[c.key]),
+      w.status,
+    ]);
+    downloadCsv(`compliance-records-${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    toast("Compliance CSV downloaded", "success");
+  };
 
   return (
     <div className="space-y-6">

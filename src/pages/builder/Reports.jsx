@@ -5,8 +5,10 @@ import ComplianceDonut from "../../components/charts/ComplianceDonut";
 import { Table, THead, TBody, TR, TD } from "../../components/ui/Table";
 import { useProjects } from "../../hooks/useProjects";
 import { useWorkers } from "../../hooks/useWorkers";
+import { useIncidents } from "../../hooks/useIncidents";
 import { useToast } from "../../components/ui/Notification";
-import { complianceCategories, dashboardKpis } from "../../data/mockData";
+import { downloadReport } from "../../utils/export";
+import { complianceCategories, dashboardKpis, org } from "../../data/mockData";
 
 // Per-project, per-category compliance %, derived from worker records.
 function projectCompliance(workers, projectId) {
@@ -25,15 +27,69 @@ function projectCompliance(workers, projectId) {
 }
 
 const REPORTS = [
-  { title: "Monthly OH&S Summary", file: "ohs-monthly-summary-2026-06.pdf", desc: "Org-wide compliance, incidents and toolbox activity" },
-  { title: "WorkSafe Incident Register", file: "worksafe-incident-register.pdf", desc: "All notifiable and recordable incidents" },
-  { title: "SWMS Sign-off Report", file: "swms-signoff-report.pdf", desc: "Sign-off status per trade template" },
+  {
+    title: "Monthly OH&S Summary",
+    file: "ohs-monthly-summary.txt",
+    desc: "Org-wide compliance, incidents and toolbox activity",
+    build: (ctx) => [
+      `${org.name} — Monthly OH&S Summary`,
+      `Generated: ${new Date().toLocaleString("en-AU")}`,
+      "",
+      `Organisation compliance: ${dashboardKpis.compliance}%`,
+      `Active projects: ${dashboardKpis.activeProjects}`,
+      `Active stakeholders: ${dashboardKpis.activeWorkers}`,
+      `Open incidents: ${dashboardKpis.openIncidents}`,
+      "",
+      "— Prototype export. Full PDF generation after agreement.",
+    ],
+  },
+  {
+    title: "WorkSafe Incident Register",
+    file: "worksafe-incident-register.txt",
+    desc: "All notifiable and recordable incidents",
+    build: ({ incidents, projects }) => [
+      `${org.name} — WorkSafe Incident Register`,
+      `Generated: ${new Date().toLocaleString("en-AU")}`,
+      "",
+      ...incidents.map(
+        (i) =>
+          `[${i.type}] ${i.description} — ${i.project} (${i.status})`
+      ),
+      "",
+      "— Prototype export.",
+    ],
+  },
+  {
+    title: "SWMS Sign-off Report",
+    file: "swms-signoff-report.txt",
+    desc: "Sign-off status per trade template",
+    build: ({ workers }) => {
+      const signed = workers.filter((w) => w.swms === "Verified").length;
+      return [
+        `${org.name} — SWMS Sign-off Report`,
+        `Generated: ${new Date().toLocaleString("en-AU")}`,
+        "",
+        `Signed: ${signed} / ${workers.length} stakeholders`,
+        "",
+        ...workers.map((w) => `${w.name} (${w.trade}): ${w.swms}`),
+        "",
+        "— Prototype export.",
+      ];
+    },
+  },
 ];
 
 export default function Reports() {
   const { projects } = useProjects();
   const { workers } = useWorkers();
+  const { incidents } = useIncidents();
   const toast = useToast();
+
+  const exportReport = (r) => {
+    const lines = r.build({ projects, workers, incidents });
+    downloadReport(r.file, lines);
+    toast(`${r.file} downloaded`, "success");
+  };
 
   return (
     <div className="space-y-6">
@@ -102,9 +158,9 @@ export default function Reports() {
                 <p className="mt-1 flex-1 text-sm text-slate-500">{r.desc}</p>
                 <Button
                   className="mt-4 w-full"
-                  onClick={() => toast(`${r.file} exported`, "success")}
+                  onClick={() => exportReport(r)}
                 >
-                  Export PDF
+                  Download Report
                 </Button>
               </CardBody>
             </Card>

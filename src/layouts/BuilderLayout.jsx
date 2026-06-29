@@ -1,23 +1,23 @@
 import { useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate, useLocation, Navigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useNotifications } from "../hooks/useNotifications";
 import Logo from "../components/shared/Logo";
 import RoleBadge from "../components/shared/RoleBadge";
 import { NotificationItem } from "../components/ui/Notification";
-import { org } from "../data/mockData";
+import { org, rolePermissions } from "../data/mockData";
 
 const NAV = [
-  { to: "/builder/dashboard", label: "Dashboard", icon: "📊" },
-  { to: "/builder/projects", label: "Projects", icon: "🏗️" },
-  { to: "/builder/compliance", label: "Compliance", icon: "✅" },
-  { to: "/builder/swms", label: "SWMS", icon: "📋" },
-  { to: "/builder/diary", label: "Site Diary", icon: "📓" },
-  { to: "/builder/incidents", label: "Incidents", icon: "⚠️" },
-  { to: "/builder/toolbox", label: "Toolbox Meetings", icon: "🧰" },
-  { to: "/builder/reports", label: "Reports", icon: "📈" },
-  { to: "/builder/admin", label: "Admin Portal", icon: "🛡️", adminOnly: true },
-  { to: "/builder/settings", label: "Settings", icon: "⚙️" },
+  { to: "/builder/dashboard", label: "Dashboard", icon: "📊", perm: "dashboard" },
+  { to: "/builder/projects", label: "Projects", icon: "🏗️", perm: "projects" },
+  { to: "/builder/compliance", label: "Compliance", icon: "✅", perm: "compliance" },
+  { to: "/builder/swms", label: "SWMS", icon: "📋", perm: "swms" },
+  { to: "/builder/diary", label: "Site Diary", icon: "📓", perm: "diary" },
+  { to: "/builder/incidents", label: "Incidents", icon: "⚠️", perm: "incidents" },
+  { to: "/builder/toolbox", label: "Toolbox Meetings", icon: "🧰", perm: "toolbox" },
+  { to: "/builder/reports", label: "Reports", icon: "📈", perm: "reports" },
+  { to: "/builder/admin", label: "Admin Portal", icon: "🛡️", perm: "admin" },
+  { to: "/builder/settings", label: "Settings", icon: "⚙️", perm: "settings" },
 ];
 
 export default function BuilderLayout() {
@@ -25,13 +25,20 @@ export default function BuilderLayout() {
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
   const [bellOpen, setBellOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSignOut = () => {
     logout();
     navigate("/login");
   };
 
-  const visibleNav = NAV.filter((n) => !n.adminOnly || role === "builder_admin");
+  const perms = rolePermissions[role] || rolePermissions.builder_admin;
+  const visibleNav = NAV.filter((n) => perms[n.perm]);
+
+  const currentPerm = NAV.find((n) => location.pathname.startsWith(n.to))?.perm;
+  if (currentPerm && !perms[currentPerm]) {
+    return <Navigate to="/builder/dashboard" replace />;
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">

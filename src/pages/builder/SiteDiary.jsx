@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import Card, { CardBody, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
@@ -15,6 +15,10 @@ export default function SiteDiary() {
   const { entries, addEntry } = useDiary(projectId);
   const toast = useToast();
   const [selectedTags, setSelectedTags] = useState([]);
+  const [recording, setRecording] = useState(false);
+  const [audioNote, setAudioNote] = useState(null);
+  const mediaRef = useRef(null);
+  const chunksRef = useRef([]);
 
   const {
     register,
@@ -46,10 +50,40 @@ export default function SiteDiary() {
       workersPresent: Number(data.workersPresent),
       tags: selectedTags,
       author: "You",
+      audioNote: audioNote ? "Voice note attached" : null,
     });
     toast("Diary entry saved");
     reset();
     setSelectedTags([]);
+    setAudioNote(null);
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      chunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size) chunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        setAudioNote(URL.createObjectURL(blob));
+        stream.getTracks().forEach((t) => t.stop());
+      };
+      mediaRef.current = recorder;
+      recorder.start();
+      setRecording(true);
+      toast("Recording site note…", "warning");
+    } catch {
+      toast("Microphone access denied or unavailable", "warning");
+    }
+  };
+
+  const stopRecording = () => {
+    mediaRef.current?.stop();
+    setRecording(false);
+    toast("Voice note saved to this entry", "success");
   };
 
   return (
@@ -203,19 +237,19 @@ export default function SiteDiary() {
                 >
                   📎 Attach Photo
                 </Button>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="danger"
-                    onClick={() =>
-                      toast("Recording feature applied for — coming soon", "warning")
-                    }
-                  >
-                    🎙️ Record Site Note
-                  </Button>
-                  <span className="text-xs text-slate-400">
-                    Recording feature applied for — coming soon
-                  </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {!recording ? (
+                    <Button type="button" variant="danger" onClick={startRecording}>
+                      🎙️ Record Site Note
+                    </Button>
+                  ) : (
+                    <Button type="button" variant="danger" onClick={stopRecording}>
+                      ⏹ Stop Recording
+                    </Button>
+                  )}
+                  {audioNote && (
+                    <audio controls src={audioNote} className="h-8 max-w-xs" />
+                  )}
                 </div>
               </div>
 

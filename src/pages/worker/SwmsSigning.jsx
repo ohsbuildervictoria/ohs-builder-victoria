@@ -7,7 +7,7 @@ import { findSwms } from "../../data/swmsLibrary";
 
 export default function SwmsSigning() {
   const { user } = useAuth();
-  const { getWorker } = useWorkers();
+  const { getWorker, updateCompliance } = useWorkers();
   const worker = getWorker(user?.workerId ?? 1);
   const { templates } = useSWMS();
 
@@ -156,7 +156,10 @@ export default function SwmsSigning() {
 
         <button
           disabled={!canSign}
-          onClick={() => setSigned(true)}
+          onClick={() => {
+            if (worker?.id) updateCompliance(worker.id, "swms", "Verified");
+            setSigned(true);
+          }}
           className="mt-4 w-full rounded-lg bg-green-600 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           Sign SWMS

@@ -456,12 +456,12 @@ export const activityFeed = [
 // Worker Portal — Induction & Quiz
 // ---------------------------------------------------------------------------
 export const inductionModules = [
-  { id: 1, title: "Welcome & Site Rules", mins: 4, done: true },
-  { id: 2, title: "Site Hazards & Emergency Procedures", mins: 6, done: true },
-  { id: 3, title: "PPE Requirements", mins: 3, done: true },
-  { id: 4, title: "High-Risk Work & Permits", mins: 5, done: false },
-  { id: 5, title: "Reporting Incidents & Near Misses", mins: 3, done: false },
-  { id: 6, title: "OH&S Knowledge Check", mins: 5, done: false },
+  { id: 1, title: "Welcome & Site Rules", mins: 4, done: true, summary: "Site rules, PPE zones, and reporting lines." },
+  { id: 2, title: "Site Hazards & Emergency Procedures", mins: 6, done: true, summary: "Muster points, fire warden, and emergency contacts." },
+  { id: 3, title: "PPE Requirements", mins: 3, done: true, summary: "Hard hat, boots, hi-vis, and trade-specific PPE." },
+  { id: 4, title: "High-Risk Work & Permits", mins: 5, done: false, summary: "Hot works, heights, and permit-to-work process." },
+  { id: 5, title: "Reporting Incidents & Near Misses", mins: 3, done: false, summary: "How to log hazards before someone gets hurt." },
+  { id: 6, title: "OH&S Knowledge Check", mins: 5, done: false, summary: "Prepare for the safety quiz." },
 ];
 
 export const quizQuestions = [
@@ -529,14 +529,91 @@ export const projectName = (id, projectsArr) => {
 };
 
 // ---------------------------------------------------------------------------
-// Permission matrix (role → feature access)
+// Role permissions (enforced in BuilderLayout nav)
 // ---------------------------------------------------------------------------
-export const permissionMatrix = {
-  builder_admin:    { projects: true,  workers: true,  compliance: true,  incidents: true,  swms: true,  diary: true,  toolbox: true,  reports: true,  admin: true,  settings: true  },
-  hse_manager:      { projects: false, workers: true,  compliance: true,  incidents: true,  swms: true,  diary: false, toolbox: true,  reports: true,  admin: false, settings: false },
-  site_supervisor:  { projects: false, workers: true,  compliance: false, incidents: true,  swms: false, diary: true,  toolbox: true,  reports: false, admin: false, settings: false },
-  worker:           { projects: false, workers: false, compliance: false, incidents: false, swms: true,  diary: false, toolbox: false, reports: false, admin: false, settings: false },
+export const rolePermissions = {
+  builder_admin: {
+    dashboard: true,
+    projects: true,
+    compliance: true,
+    swms: true,
+    diary: true,
+    incidents: true,
+    toolbox: true,
+    reports: true,
+    admin: true,
+    settings: true,
+  },
+  hse_manager: {
+    dashboard: true,
+    projects: false,
+    compliance: true,
+    swms: true,
+    diary: false,
+    incidents: true,
+    toolbox: true,
+    reports: true,
+    admin: false,
+    settings: false,
+  },
+  site_supervisor: {
+    dashboard: true,
+    projects: false,
+    compliance: false,
+    swms: false,
+    diary: true,
+    incidents: true,
+    toolbox: true,
+    reports: false,
+    admin: false,
+    settings: false,
+  },
+  worker: {
+    dashboard: false,
+    projects: false,
+    compliance: false,
+    swms: false,
+    diary: false,
+    incidents: false,
+    toolbox: false,
+    reports: false,
+    admin: false,
+    settings: false,
+  },
 };
+
+// Admin Portal permission matrix table
+const matrixRoles = ["builder_admin", "hse_manager", "site_supervisor"];
+const matrixFeatureMap = {
+  Projects: "projects",
+  Compliance: "compliance",
+  SWMS: "swms",
+  "Site Diary": "diary",
+  Incidents: "incidents",
+  Toolbox: "toolbox",
+  Reports: "reports",
+  Admin: "admin",
+  Settings: "settings",
+};
+
+export const permissionMatrix = {
+  roles: matrixRoles,
+  features: Object.keys(matrixFeatureMap),
+  grid: Object.fromEntries(
+    Object.entries(matrixFeatureMap).map(([label, key]) => [
+      label,
+      matrixRoles.map((r) => rolePermissions[r][key]),
+    ])
+  ),
+};
+
+// Demo login shortcuts shown on the login screen
+export const demoLoginRoles = [
+  { role: "builder_admin", label: "Builder Admin", user: "David Caruana" },
+  { role: "hse_manager", label: "HSE Manager", user: "Rebecca Lawson" },
+  { role: "site_supervisor", label: "Site Supervisor", user: "Tom Wallace" },
+  { role: "worker", label: "Stakeholder / Tradie", user: "Liam Nguyen" },
+];
 export const roleCounts = {
   builder_admin:   1,
   hse_manager:     2,

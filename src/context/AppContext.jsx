@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useMemo } from "react";
+import { createContext, useContext, useState, useMemo, useEffect } from "react";
 import {
   projects as seedProjects,
   workers as seedWorkers,
@@ -8,19 +8,59 @@ import {
   diaryEntries as seedDiary,
   toolboxMeetings as seedToolbox,
 } from "../data/mockData";
+import { loadAppState, saveAppState } from "../utils/storage";
 
 const AppContext = createContext(null);
 
-// Central in-memory store for the prototype. Seeded from mockData; all
-// mutations live here so screens share one source of truth during a session.
+const defaultState = {
+  projects: seedProjects,
+  workers: seedWorkers,
+  incidents: seedIncidents,
+  templates: seedSwms,
+  entries: seedDiary,
+  meetings: seedToolbox,
+  readNotifications: [],
+};
+
+function hydrateState() {
+  const saved = loadAppState(null);
+  if (!saved) return defaultState;
+  return {
+    projects: saved.projects ?? seedProjects,
+    workers: saved.workers ?? seedWorkers,
+    incidents: saved.incidents ?? seedIncidents,
+    templates: saved.templates ?? seedSwms,
+    entries: saved.entries ?? seedDiary,
+    meetings: saved.meetings ?? seedToolbox,
+    readNotifications: saved.readNotifications ?? [],
+  };
+}
+
+// Central store for the prototype. Persisted to localStorage so demo data
+// survives refresh without a backend.
 export function AppProvider({ children }) {
-  const [projects, setProjects] = useState(seedProjects);
-  const [workers, setWorkers] = useState(seedWorkers);
-  const [incidents, setIncidents] = useState(seedIncidents);
-  const [templates, setTemplates] = useState(seedSwms);
-  const [entries, setEntries] = useState(seedDiary);
-  const [meetings, setMeetings] = useState(seedToolbox);
-  const [readNotifications, setReadNotifications] = useState(() => new Set());
+  const initial = hydrateState();
+  const [projects, setProjects] = useState(initial.projects);
+  const [workers, setWorkers] = useState(initial.workers);
+  const [incidents, setIncidents] = useState(initial.incidents);
+  const [templates, setTemplates] = useState(initial.templates);
+  const [entries, setEntries] = useState(initial.entries);
+  const [meetings, setMeetings] = useState(initial.meetings);
+  const [readNotifications, setReadNotifications] = useState(
+    () => new Set(initial.readNotifications)
+  );
+
+  useEffect(() => {
+    saveAppState({
+      projects,
+      workers,
+      incidents,
+      templates,
+      entries,
+      meetings,
+      readNotifications: [...readNotifications],
+    });
+  }, [projects, workers, incidents, templates, entries, meetings, readNotifications]);
 
   const value = useMemo(
     () => ({

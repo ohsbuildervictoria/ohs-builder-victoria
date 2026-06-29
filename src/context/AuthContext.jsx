@@ -1,21 +1,27 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useCallback, useMemo } from "react";
+import { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react";
 import { users, demoCredentials } from "../data/mockData";
+import { loadAuthUser, saveAuthUser } from "../utils/storage";
 
 const AuthContext = createContext(null);
 
 // Simulated authentication — no real backend, no tokens.
-// The "password" is accepted as-is; only the email is matched to a demo user.
+// Session persisted in localStorage for prototype continuity.
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    const saved = loadAuthUser();
+    return saved ? users.find((u) => u.id === saved.id) || null : null;
+  });
+
+  useEffect(() => {
+    saveAuthUser(user);
+  }, [user]);
 
   const login = useCallback((email, _password, fallbackRole = "builder_admin") => {
     const key = (email || "").trim().toLowerCase();
     const matchedId = demoCredentials[key];
     let nextUser = matchedId ? users.find((u) => u.id === matchedId) : null;
 
-    // Unknown email → spin up a demo user for the selected role so the
-    // prototype is always navigable.
     if (!nextUser) {
       nextUser =
         users.find((u) => u.role === fallbackRole) ||
@@ -25,7 +31,6 @@ export function AuthProvider({ children }) {
     return nextUser;
   }, []);
 
-  // Demo bypass — logs in as the given role with the matching demo user.
   const loginDemo = useCallback((role) => {
     const nextUser =
       users.find((u) => u.role === role) ||
