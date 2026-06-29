@@ -50,7 +50,7 @@ export default function Policies() {
       <div>
         <h1 className="text-2xl font-bold text-slate-800">Policies</h1>
         <p className="text-sm text-slate-500">
-          WHS policy register, notifications, organisation details and platform
+          OHS policy register, notifications, organisation details and platform
           terms — pushed to all stakeholders on site.
         </p>
       </div>

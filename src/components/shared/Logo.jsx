@@ -1,6 +1,6 @@
 import { brand } from "../../data/mockData";
 
-function LogoMark({ className = "h-9 w-9" }) {
+function LogoMark({ className = "h-10 w-10" }) {
   return (
     <svg
       viewBox="0 0 40 40"
@@ -14,14 +14,14 @@ function LogoMark({ className = "h-9 w-9" }) {
       />
       <text
         x="20"
-        y="23"
+        y="22.5"
         textAnchor="middle"
         fill="#1e3a8a"
         fontFamily="Arial,Helvetica,sans-serif"
-        fontSize="8.5"
+        fontSize="7"
         fontWeight="700"
       >
-        WHS
+        OHS
       </text>
     </svg>
   );

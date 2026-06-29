@@ -202,7 +202,7 @@ export default function Login() {
             </p>
           </div>
           <ul className="list-inside list-disc space-y-1 text-sm text-slate-600">
-            <li>Read the {org.name} WHS Management Plan</li>
+            <li>Read the {org.name} OHS Management Plan</li>
             <li>Understand emergency procedures and muster points</li>
             <li>Confirm PPE requirements for your trade</li>
             <li>Report hazards before work commences</li>

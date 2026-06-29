@@ -29,12 +29,12 @@ export default function Dashboard() {
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
           <p className="text-sm text-slate-500">
-            Organisation-wide WHS overview ·{" "}
+            Organisation-wide OHS overview ·{" "}
             <span className="font-medium text-slate-400">READ ONLY</span>
           </p>
         </div>
         <Button variant="gold" onClick={() => setPolicyOpen(true)}>
-          WHS MGMT PLAN / POLICY / LEGISLATION
+          OHS MGMT PLAN / POLICY / LEGISLATION
         </Button>
       </div>
 
@@ -143,7 +143,7 @@ export default function Dashboard() {
       <Modal
         open={policyOpen}
         onClose={() => setPolicyOpen(false)}
-        title="WHS Management Plan / Policy / Legislation"
+        title="OHS Management Plan / Policy / Legislation"
         size="lg"
         footer={
           <Button variant="secondary" onClick={() => setPolicyOpen(false)}>

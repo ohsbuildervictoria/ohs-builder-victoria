@@ -28,11 +28,11 @@ function projectCompliance(workers, projectId) {
 
 const REPORTS = [
   {
-    title: "Monthly WHS Summary",
-    file: "whs-monthly-summary.txt",
+    title: "Monthly OHS Summary",
+    file: "ohs-monthly-summary.txt",
     desc: "Org-wide compliance, incidents and toolbox activity",
     build: (ctx) => [
-      `${org.name} — Monthly WHS Summary`,
+      `${org.name} — Monthly OHS Summary`,
       `Platform: ${brand.fullName}`,
       `Generated: ${new Date().toLocaleString("en-AU")}`,
       "",

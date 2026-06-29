@@ -18,10 +18,10 @@ export const org = {
 };
 
 export const brand = {
-  productName: "WHS Builder",
+  productName: "OHS Builder",
   region: "Victoria",
   domain: "ohsbuildervictoria.com.au",
-  fullName: "WHS Builder Victoria",
+  fullName: "OHS Builder Victoria",
 };
 
 // ---------------------------------------------------------------------------
@@ -314,7 +314,7 @@ export const incidentsByType = [
 // Policies (Settings)
 // ---------------------------------------------------------------------------
 export const policies = [
-  { id: 1, name: "WHS Management Plan", version: "v4.1", category: "WHS Mgmt Plan", status: "Active", updated: "2026-05-18" },
+  { id: 1, name: "OHS Management Plan", version: "v4.1", category: "OHS Mgmt Plan", status: "Active", updated: "2026-05-18" },
   { id: 2, name: "Alcohol & Drugs Policy", version: "v2.0", category: "Workplace Conduct", status: "Active", updated: "2026-03-02" },
   { id: 3, name: "Emergency Response Procedure", version: "v3.2", category: "Fire Emergency", status: "Active", updated: "2026-04-22" },
   { id: 4, name: "Environmental Management Plan", version: "v1.8", category: "Auditing/Environment", status: "Active", updated: "2026-02-15" },
@@ -325,7 +325,7 @@ export const policies = [
 ];
 
 export const policyCategories = [
-  "WHS Mgmt Plan",
+  "OHS Mgmt Plan",
   "Hazard ID & Risk",
   "Auditing / Environment / Maintenance",
   "First Aid / Accident & Investigation",
@@ -468,7 +468,7 @@ export const inductionModules = [
   { id: 3, title: "PPE Requirements", mins: 3, done: true, summary: "Hard hat, boots, hi-vis, and trade-specific PPE." },
   { id: 4, title: "High-Risk Work & Permits", mins: 5, done: false, summary: "Hot works, heights, and permit-to-work process." },
   { id: 5, title: "Reporting Incidents & Near Misses", mins: 3, done: false, summary: "How to log hazards before someone gets hurt." },
-  { id: 6, title: "WHS Knowledge Check", mins: 5, done: false, summary: "Prepare for the safety quiz." },
+  { id: 6, title: "OHS Knowledge Check", mins: 5, done: false, summary: "Prepare for the safety quiz." },
 ];
 
 export const quizQuestions = [
