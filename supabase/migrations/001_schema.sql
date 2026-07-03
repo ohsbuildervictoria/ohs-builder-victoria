@@ -314,3 +314,17 @@ create policy "toolbox: staff write" on public.toolbox_meetings for all to authe
 create policy "policies: read" on public.policies for select to authenticated using (true);
 create policy "policies: staff write" on public.policies for all to authenticated
   using (public.is_builder_staff()) with check (public.is_builder_staff());
+
+-- ---------- invitations recorded from the Admin Portal ----------
+create table public.invites (
+  id bigint generated always as identity primary key,
+  name text not null default '',
+  email text not null,
+  role text not null default 'worker'
+    check (role in ('builder_admin','hse_manager','site_supervisor','worker')),
+  created_at timestamptz not null default now()
+);
+alter table public.invites enable row level security;
+create policy "invites read" on public.invites for select to authenticated using (true);
+create policy "invites admin write" on public.invites for all to authenticated
+  using (public.my_role() = 'builder_admin') with check (public.my_role() = 'builder_admin');
