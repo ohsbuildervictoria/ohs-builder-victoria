@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useAppContext } from "../context/AppContext";
-import { complianceCategories } from "../data/mockData";
+import { complianceCategories } from "../data/constants";
+import { updateWorkerComplianceRow } from "../lib/api";
 
 // Derives a worker's overall status from their 6 compliance categories.
 export function deriveStatus(worker) {
@@ -27,17 +28,19 @@ export function useWorkers(projectId = null) {
     [workers]
   );
 
+  // Staff path: HSE/admin verifying any worker's compliance category.
   const updateCompliance = useCallback(
-    (id, category, value) => {
+    async (id, category, value) => {
+      const current = workers.find((w) => w.id === Number(id));
+      if (!current) return;
+      const updated = { ...current, [category]: value };
+      const status = deriveStatus(updated);
+      await updateWorkerComplianceRow(Number(id), category, value, status);
       setWorkers((prev) =>
-        prev.map((w) => {
-          if (w.id !== Number(id)) return w;
-          const updated = { ...w, [category]: value };
-          return { ...updated, status: deriveStatus(updated) };
-        })
+        prev.map((w) => (w.id === Number(id) ? { ...updated, status } : w))
       );
     },
-    [setWorkers]
+    [workers, setWorkers]
   );
 
   const filterByStatus = useCallback(

@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useWorkers } from "../../hooks/useWorkers";
+import { useCompliance } from "../../hooks/useCompliance";
 import ProgressBar from "../../components/ui/ProgressBar";
-import { inductionModules as seedModules } from "../../data/mockData";
+import { inductionModules as seedModules } from "../../data/constants";
 
 function buildModuleState() {
   const firstOpen = seedModules.findIndex((m) => !m.done);
@@ -16,18 +17,19 @@ function buildModuleState() {
 
 export default function Induction() {
   const { user } = useAuth();
-  const { getWorker, updateCompliance } = useWorkers();
-  const worker = getWorker(user?.workerId ?? 1);
+  const { getWorker, workers } = useWorkers();
+  const worker = getWorker(user?.workerId ?? workers[0]?.id);
+  const { updateCategory } = useCompliance(worker?.id);
   const [modules, setModules] = useState(buildModuleState);
 
   const completedCount = modules.filter((m) => m.status === "Complete").length;
   const firstLockedIndex = modules.findIndex((m) => m.status !== "Complete");
 
   useEffect(() => {
-    if (completedCount === modules.length && worker?.id) {
-      updateCompliance(worker.id, "induction", "Verified");
+    if (completedCount === modules.length && worker?.id && worker.induction !== "Verified") {
+      updateCategory("induction", "Verified").catch(() => {});
     }
-  }, [completedCount, modules.length, worker?.id, updateCompliance]);
+  }, [completedCount, modules.length, worker?.id, worker?.induction, updateCategory]);
 
   const startModule = (id, index) => {
     if (index !== firstLockedIndex) return;

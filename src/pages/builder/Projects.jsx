@@ -6,7 +6,7 @@ import Button from "../../components/ui/Button";
 import Tabs from "../../components/ui/Tabs";
 import ProgressBar from "../../components/ui/ProgressBar";
 import { useProjects } from "../../hooks/useProjects";
-import { formatAUD } from "../../data/mockData";
+import { formatAUD } from "../../data/constants";
 
 const TABS = ["All", "Active", "Planning", "On Hold", "Closed"];
 

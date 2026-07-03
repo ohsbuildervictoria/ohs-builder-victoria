@@ -9,45 +9,69 @@ import RoleBadge from "../../components/shared/RoleBadge";
 import { Table, THead, TBody, TR, TD } from "../../components/ui/Table";
 import { useToast } from "../../components/ui/Notification";
 import { useProjects } from "../../hooks/useProjects";
-import {
-  users as seedUsers,
-  roleCounts,
-  roleLabels,
-  permissionMatrix,
-} from "../../data/mockData";
+import { useAppContext } from "../../context/AppContext";
+import { roleLabels, permissionMatrix } from "../../data/constants";
+import { updateProfileStatus, insertInvite } from "../../lib/api";
+
+const formatLastLogin = (iso) => {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("en-AU", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+};
 
 export default function AdminPortal() {
   const { projects } = useProjects();
+  const { profiles, setProfiles, invites, setInvites } = useAppContext();
   const toast = useToast();
-  const [users, setUsers] = useState(seedUsers);
   const [inviteOpen, setInviteOpen] = useState(false);
   const { register, handleSubmit, reset } = useForm();
 
-  const toggleStatus = (id) =>
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === id
-          ? { ...u, status: u.status === "Active" ? "Deactivated" : "Active" }
-          : u
-      )
-    );
+  // Real accounts + recorded invitations, shown together.
+  const users = [
+    ...profiles.map((p) => ({ ...p, lastLogin: formatLastLogin(p.lastLogin) })),
+    ...invites,
+  ];
 
-  const onInvite = (data) => {
-    setUsers((prev) => [
-      ...prev,
-      {
-        id: prev.reduce((m, u) => Math.max(m, u.id), 0) + 1,
+  const roleCounts = users.reduce(
+    (acc, u) => ({ ...acc, [u.role]: (acc[u.role] || 0) + 1 }),
+    {}
+  );
+
+  const toggleStatus = async (u) => {
+    if (String(u.id).startsWith("invite-")) {
+      toast("This person hasn't accepted their invite yet", "warning");
+      return;
+    }
+    const status = u.status === "Active" ? "Deactivated" : "Active";
+    try {
+      await updateProfileStatus(u.id, status);
+      setProfiles((prev) =>
+        prev.map((p) => (p.id === u.id ? { ...p, status } : p))
+      );
+      toast(`${u.name} ${status.toLowerCase()}`);
+    } catch (err) {
+      toast(err.message || "Update failed", "error");
+    }
+  };
+
+  const onInvite = async (data) => {
+    try {
+      const created = await insertInvite({
         name: data.name,
         email: data.email,
         role: data.role,
-        status: "Invited",
-        lastLogin: "—",
-        projects: data.project === "All" ? "All" : [Number(data.project)],
-      },
-    ]);
-    toast(`Invitation sent to ${data.email}`);
-    reset();
-    setInviteOpen(false);
+      });
+      setInvites((prev) => [...prev, created]);
+      toast(
+        `Invitation recorded for ${data.email} — account is provisioned by your administrator`
+      );
+      reset();
+      setInviteOpen(false);
+    } catch (err) {
+      toast(err.message || "Could not record invitation", "error");
+    }
   };
 
   return (
@@ -64,10 +88,10 @@ export default function AdminPortal() {
 
       {/* Roles summary */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard label="Builder Admin" value={roleCounts.builder_admin} tone="blue" />
-        <StatCard label="HSE Manager" value={roleCounts.hse_manager} tone="blue" />
-        <StatCard label="Site Supervisor" value={roleCounts.site_supervisor} tone="blue" />
-        <StatCard label="Stakeholder / Tradie" value={roleCounts.worker} tone="green" />
+        <StatCard label="Builder Admin" value={roleCounts.builder_admin || 0} tone="blue" />
+        <StatCard label="HSE Manager" value={roleCounts.hse_manager || 0} tone="blue" />
+        <StatCard label="Site Supervisor" value={roleCounts.site_supervisor || 0} tone="blue" />
+        <StatCard label="Stakeholder / Tradie" value={roleCounts.worker || 0} tone="green" />
       </div>
 
       {/* Users table */}
@@ -100,7 +124,7 @@ export default function AdminPortal() {
                       <Button
                         size="sm"
                         variant={u.status === "Active" ? "danger" : "success"}
-                        onClick={() => toggleStatus(u.id)}
+                        onClick={() => toggleStatus(u)}
                       >
                         {u.status === "Active" ? "Deactivate" : "Activate"}
                       </Button>

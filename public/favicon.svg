@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
   <rect width="64" height="64" rx="14" fill="#1e3a8a"/>
-  <path d="M32 12L14 22v4c0 11 7.5 21.3 18 24 10.5-2.7 18-13 18-24v-4L32 12z" fill="#fbbf24"/>
-  <text x="32" y="36" text-anchor="middle" fill="#1e3a8a" font-family="Arial,Helvetica,sans-serif" font-size="11" font-weight="700">OHS</text>
+  <path d="M32 10.4L48.8 17.3v12.6c0 11.8-7.2 20.6-16.8 23.7-9.6-3.1-16.8-11.9-16.8-23.7V17.3L32 10.4z" fill="#fbbf24"/>
+  <path d="M23.4 32.6l6.2 6.2 11.2-13.1" fill="none" stroke="#1e3a8a" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

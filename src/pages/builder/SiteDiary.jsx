@@ -5,13 +5,16 @@ import Button from "../../components/ui/Button";
 import { useDiary } from "../../hooks/useDiary";
 import { useProjects } from "../../hooks/useProjects";
 import { useToast } from "../../components/ui/Notification";
-import { weatherOptions, diaryTags } from "../../data/mockData";
+import { useAuth } from "../../hooks/useAuth";
+import { weatherOptions, diaryTags } from "../../data/constants";
 
-const TODAY = "2026-06-10";
+const TODAY = new Date().toISOString().slice(0, 10);
 
 export default function SiteDiary() {
   const { projects } = useProjects();
-  const [projectId, setProjectId] = useState(projects[0]?.id ?? 1);
+  const { user } = useAuth();
+  const [selectedProject, setSelectedProject] = useState(null);
+  const projectId = selectedProject ?? projects[0]?.id ?? null;
   const { entries, addEntry } = useDiary(projectId);
   const toast = useToast();
   const [selectedTags, setSelectedTags] = useState([]);
@@ -28,7 +31,7 @@ export default function SiteDiary() {
   } = useForm({
     defaultValues: {
       date: TODAY,
-      weather: "Fine",
+      weather: "Sunny",
       hours: 8,
       workersPresent: 20,
       contacts: "",
@@ -42,20 +45,28 @@ export default function SiteDiary() {
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
     );
 
-  const onSubmit = (data) => {
-    addEntry({
-      ...data,
-      project: Number(projectId),
-      hours: Number(data.hours),
-      workersPresent: Number(data.workersPresent),
-      tags: selectedTags,
-      author: "You",
-      audioNote: audioNote ? "Voice note attached" : null,
-    });
-    toast("Diary entry saved");
-    reset();
-    setSelectedTags([]);
-    setAudioNote(null);
+  const onSubmit = async (data) => {
+    if (!projectId) {
+      toast("Create a project first", "warning");
+      return;
+    }
+    try {
+      await addEntry({
+        ...data,
+        project: Number(projectId),
+        hours: String(data.hours ?? ""),
+        labour: Number(data.workersPresent) || 0,
+        tags: selectedTags,
+        author: user?.name || "Unknown",
+        audioNote: audioNote ? "Voice note attached" : null,
+      });
+      toast("Diary entry saved");
+      reset();
+      setSelectedTags([]);
+      setAudioNote(null);
+    } catch (err) {
+      toast(err.message || "Could not save entry", "error");
+    }
   };
 
   const startRecording = async () => {
@@ -104,8 +115,8 @@ export default function SiteDiary() {
               Project
             </label>
             <select
-              value={projectId}
-              onChange={(e) => setProjectId(Number(e.target.value))}
+              value={projectId ?? ""}
+              onChange={(e) => setSelectedProject(Number(e.target.value))}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-900 focus:outline-none"
             >
               {projects.map((p) => (
@@ -233,7 +244,7 @@ export default function SiteDiary() {
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={() => toast("Photo attach simulated")}
+                  onClick={() => toast("Photo attachments are coming in the next release", "warning")}
                 >
                   📎 Attach Photo
                 </Button>
@@ -258,7 +269,7 @@ export default function SiteDiary() {
                 <Button
                   type="button"
                   variant="gold"
-                  onClick={() => toast("Diary entry emailed (simulated)")}
+                  onClick={() => toast("Email delivery is coming in the next release", "warning")}
                 >
                   ✉️ Email diary entry
                 </Button>

@@ -1,40 +1,53 @@
 import { useCallback, useMemo } from "react";
 import { useAppContext } from "../context/AppContext";
-import { projectName } from "../data/mockData";
+import {
+  insertIncident,
+  updateIncidentStatusRow,
+  insertCorrectiveAction,
+} from "../lib/api";
 
 // { incidents, addIncident, updateStatus, addCorrectiveAction, getByType }
 export function useIncidents(projectId = null) {
-  const { incidents, setIncidents } = useAppContext();
+  const { incidents, setIncidents, projects } = useAppContext();
 
   const scoped = useMemo(() => {
     if (projectId == null) return incidents;
-    const name = projectName(Number(projectId));
-    return incidents.filter((i) => i.project === name);
+    return incidents.filter((i) => i.projectId === Number(projectId));
   }, [incidents, projectId]);
 
   const addIncident = useCallback(
-    (incident) => {
-      setIncidents((prev) => {
-        const id = prev.reduce((max, i) => Math.max(max, i.id), 0) + 1;
-        return [
-          {
-            id,
-            status: "Open",
-            notifiable:
-              incident.type === "Notifiable (WorkSafe)" ||
-              incident.severity === "Critical",
-            correctiveActions: [],
-            ...incident,
-          },
-          ...prev,
-        ];
-      });
+    async (incident) => {
+      const notifiable =
+        incident.type === "Notifiable (WorkSafe)" ||
+        incident.severity === "Critical";
+      const row = await insertIncident({ ...incident, notifiable });
+      const project = projects.find((p) => p.id === row.project_id);
+      const created = {
+        id: row.id,
+        type: row.type,
+        description: row.description,
+        projectId: row.project_id,
+        project: project?.name || "—",
+        reportedBy: row.reported_by,
+        date: row.date,
+        status: row.status,
+        severity: row.severity,
+        location: row.location,
+        involved: row.involved,
+        witnesses: row.witnesses,
+        immediateAction: row.immediate_action,
+        notifiable: row.notifiable,
+        correctiveActions: [],
+      };
+      setIncidents((prev) => [created, ...prev]);
+      return created;
     },
-    [setIncidents]
+    [setIncidents, projects]
   );
 
   const updateStatus = useCallback(
-    (id, status) => {
+    async (id, status) => {
+      await updateIncidentStatusRow(Number(id), status);
       setIncidents((prev) =>
         prev.map((i) => (i.id === Number(id) ? { ...i, status } : i))
       );
@@ -43,15 +56,14 @@ export function useIncidents(projectId = null) {
   );
 
   const addCorrectiveAction = useCallback(
-    (id, action) => {
+    async (id, action) => {
+      const created = await insertCorrectiveAction(Number(id), action);
       setIncidents((prev) =>
         prev.map((i) => {
           if (i.id !== Number(id)) return i;
-          const actions = i.correctiveActions || [];
-          const actionId = actions.reduce((m, a) => Math.max(m, a.id), 0) + 1;
           return {
             ...i,
-            correctiveActions: [...actions, { id: actionId, status: "Open", ...action }],
+            correctiveActions: [...(i.correctiveActions || []), created],
           };
         })
       );

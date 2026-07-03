@@ -8,7 +8,8 @@ import { useWorkers } from "../../hooks/useWorkers";
 import { useIncidents } from "../../hooks/useIncidents";
 import { useToast } from "../../components/ui/Notification";
 import { downloadReport } from "../../utils/export";
-import { complianceCategories, dashboardKpis, org, brand } from "../../data/mockData";
+import { useAppContext } from "../../context/AppContext";
+import { complianceCategories, brand } from "../../data/constants";
 
 // Per-project, per-category compliance %, derived from worker records.
 function projectCompliance(workers, projectId) {
@@ -31,50 +32,50 @@ const REPORTS = [
     title: "Monthly OHS Summary",
     file: "ohs-monthly-summary.txt",
     desc: "Org-wide compliance, incidents and toolbox activity",
-    build: (ctx) => [
-      `${org.name} — Monthly OHS Summary`,
-      `Platform: ${brand.fullName}`,
+    build: ({ org, projects, workers, incidents, overall }) => [
+      `${org?.name || brand.fullName} — Monthly OHS Summary`,
+      `Platform: ${brand.fullName} · ${brand.domain}`,
       `Generated: ${new Date().toLocaleString("en-AU")}`,
       "",
-      `Organisation compliance: ${dashboardKpis.compliance}%`,
-      `Active projects: ${dashboardKpis.activeProjects}`,
-      `Active stakeholders: ${dashboardKpis.activeWorkers}`,
-      `Open incidents: ${dashboardKpis.openIncidents}`,
+      `Organisation compliance: ${overall}%`,
+      `Active projects: ${projects.filter((p) => p.status === "Active").length}`,
+      `Active stakeholders: ${workers.filter((w) => w.status === "Active").length}`,
+      `Open incidents: ${incidents.filter((i) => i.status !== "Closed").length}`,
       "",
-      "— Prototype export. Full PDF generation after agreement.",
+      `Contact: ${brand.supportEmail}`,
     ],
   },
   {
     title: "WorkSafe Incident Register",
     file: "worksafe-incident-register.txt",
     desc: "All notifiable and recordable incidents",
-    build: ({ incidents, projects }) => [
-      `${org.name} — WorkSafe Incident Register`,
+    build: ({ org, incidents }) => [
+      `${org?.name || brand.fullName} — WorkSafe Incident Register`,
       `Generated: ${new Date().toLocaleString("en-AU")}`,
       "",
       ...incidents.map(
         (i) =>
-          `[${i.type}] ${i.description} — ${i.project} (${i.status})`
+          `[${i.type}] ${i.description} — ${i.project} (${i.status})${i.notifiable ? " · NOTIFIABLE" : ""}`
       ),
       "",
-      "— Prototype export.",
+      `Contact: ${brand.supportEmail}`,
     ],
   },
   {
     title: "SWMS Sign-off Report",
     file: "swms-signoff-report.txt",
     desc: "Sign-off status per trade template",
-    build: ({ workers }) => {
+    build: ({ org, workers }) => {
       const signed = workers.filter((w) => w.swms === "Verified").length;
       return [
-        `${org.name} — SWMS Sign-off Report`,
+        `${org?.name || brand.fullName} — SWMS Sign-off Report`,
         `Generated: ${new Date().toLocaleString("en-AU")}`,
         "",
         `Signed: ${signed} / ${workers.length} stakeholders`,
         "",
         ...workers.map((w) => `${w.name} (${w.trade}): ${w.swms}`),
         "",
-        "— Prototype export.",
+        `Contact: ${brand.supportEmail}`,
       ];
     },
   },
@@ -84,10 +85,19 @@ export default function Reports() {
   const { projects } = useProjects();
   const { workers } = useWorkers();
   const { incidents } = useIncidents();
+  const { org } = useAppContext();
   const toast = useToast();
 
+  // Org-wide compliance: % of Verified cells across all workers/categories.
+  const totalCells = workers.length * complianceCategories.length;
+  const verifiedCells = workers.reduce(
+    (s, w) => s + complianceCategories.filter((c) => w[c.key] === "Verified").length,
+    0
+  );
+  const overall = totalCells ? Math.round((verifiedCells / totalCells) * 100) : 100;
+
   const exportReport = (r) => {
-    const lines = r.build({ projects, workers, incidents });
+    const lines = r.build({ org, projects, workers, incidents, overall });
     downloadReport(r.file, lines);
     toast(`${r.file} downloaded`, "success");
   };
@@ -137,7 +147,7 @@ export default function Reports() {
           <CardHeader title="Org-wide Compliance" />
           <CardBody className="flex items-center justify-center">
             <div className="w-56">
-              <ComplianceDonut percent={dashboardKpis.compliance} label="Overall" height={240} />
+              <ComplianceDonut percent={overall} label="Overall" height={240} />
             </div>
           </CardBody>
         </Card>

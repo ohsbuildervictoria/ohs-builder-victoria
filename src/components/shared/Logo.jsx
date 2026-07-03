@@ -1,28 +1,22 @@
-import { brand } from "../../data/mockData";
+import { brand } from "../../data/constants";
 
+// OHS Builder Victoria mark — navy tile, amber safety shield, navy tick.
 function LogoMark({ className = "h-10 w-10" }) {
   return (
-    <svg
-      viewBox="0 0 40 40"
-      className={`shrink-0 ${className}`}
-      aria-hidden
-    >
+    <svg viewBox="0 0 40 40" className={`shrink-0 ${className}`} aria-hidden>
       <rect width="40" height="40" rx="9" fill="#1e3a8a" />
       <path
-        d="M20 8L9 15.5v3c0 8.2 5.6 15.8 11 17.5 5.4-1.7 11-9.3 11-17.5v-3L20 8z"
+        d="M20 6.5L30.5 10.8v7.9c0 7.4-4.5 12.9-10.5 14.8-6-1.9-10.5-7.4-10.5-14.8v-7.9L20 6.5z"
         fill="#fbbf24"
       />
-      <text
-        x="20"
-        y="22.5"
-        textAnchor="middle"
-        fill="#1e3a8a"
-        fontFamily="Arial,Helvetica,sans-serif"
-        fontSize="7"
-        fontWeight="700"
-      >
-        OHS
-      </text>
+      <path
+        d="M14.6 20.4l3.9 3.9 7-8.2"
+        fill="none"
+        stroke="#1e3a8a"
+        strokeWidth="2.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

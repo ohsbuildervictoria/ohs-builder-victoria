@@ -8,17 +8,19 @@ import Modal from "../../components/ui/Modal";
 import { useIncidents } from "../../hooks/useIncidents";
 import { useProjects } from "../../hooks/useProjects";
 import { useToast } from "../../components/ui/Notification";
+import { useAuth } from "../../hooks/useAuth";
 import {
   incidentTypes,
   incidentSeverities,
   incidentLifecycle,
-} from "../../data/mockData";
+} from "../../data/constants";
 
 const TABS = ["All Incidents", "Near Miss", "WorkSafe Notifiable"];
 
 export default function Incidents() {
   const { incidents, addIncident, updateStatus, addCorrectiveAction } = useIncidents();
   const { projects } = useProjects();
+  const { user } = useAuth();
   const toast = useToast();
   const [tab, setTab] = useState("All Incidents");
   const [typeFilter, setTypeFilter] = useState("All");
@@ -36,26 +38,35 @@ export default function Incidents() {
 
   const hasNotifiable = incidents.some((i) => i.notifiable);
 
-  const onCreate = (data) => {
-    addIncident({
-      ...data,
-      project: data.project,
-      reportedBy: "You",
-    });
-    toast("Incident logged");
-    reset();
-    setCreateOpen(false);
+  const onCreate = async (data) => {
+    try {
+      await addIncident({
+        ...data,
+        date: (data.date || "").slice(0, 10),
+        projectId: Number(data.project) || null,
+        reportedBy: user?.name || "Unknown",
+      });
+      toast("Incident logged");
+      reset();
+      setCreateOpen(false);
+    } catch (err) {
+      toast(err.message || "Could not log incident", "error");
+    }
   };
 
-  const onAddAction = (data) => {
-    addCorrectiveAction(actionFor, {
-      description: data.description,
-      assignedTo: data.assignedTo,
-      due: data.due,
-    });
-    toast("Corrective action assigned");
-    actionForm.reset();
-    setActionFor(null);
+  const onAddAction = async (data) => {
+    try {
+      await addCorrectiveAction(actionFor, {
+        description: data.description,
+        assignedTo: data.assignedTo,
+        due: data.due,
+      });
+      toast("Corrective action assigned");
+      actionForm.reset();
+      setActionFor(null);
+    } catch (err) {
+      toast(err.message || "Could not assign action", "error");
+    }
   };
 
   return (
@@ -123,7 +134,11 @@ export default function Incidents() {
                   <div className="flex flex-col items-end gap-2">
                     <select
                       value={i.status}
-                      onChange={(e) => updateStatus(i.id, e.target.value)}
+                      onChange={(e) =>
+                        updateStatus(i.id, e.target.value).catch((err) =>
+                          toast(err.message || "Update failed", "error")
+                        )
+                      }
                       className="rounded-lg border border-slate-300 px-2 py-1 text-xs focus:outline-none"
                     >
                       {incidentLifecycle.map((s) => (
@@ -197,7 +212,9 @@ export default function Incidents() {
           <Field label="Project">
             <select className="modal-input" {...register("project", { required: true })}>
               {projects.map((p) => (
-                <option key={p.id}>{p.name}</option>
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
               ))}
             </select>
           </Field>
@@ -240,7 +257,7 @@ export default function Incidents() {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => toast("Photo attach simulated")}
+              onClick={() => toast("Photo attachments are coming in the next release", "warning")}
             >
               📎 Attach photos
             </Button>

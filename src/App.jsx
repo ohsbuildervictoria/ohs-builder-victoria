@@ -28,8 +28,28 @@ import Quiz from "./pages/worker/Quiz";
 import SwmsSigning from "./pages/worker/SwmsSigning";
 import Registration from "./pages/worker/Registration";
 
+// Blocks rendering until the Supabase session has been restored.
+function AuthGate({ children }) {
+  const { initialising } = useAuth();
+  if (initialising) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-900">
+        <p className="text-sm text-slate-400">Loading…</p>
+      </div>
+    );
+  }
+  return children;
+}
+
 // Gates builder routes; redirects to /login when no session.
 function RequireBuilder({ children }) {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
+}
+
+// Any authenticated user (stakeholder portal).
+function RequireAuth({ children }) {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
   return children;
@@ -82,7 +102,14 @@ function AppRoutes() {
       </Route>
 
       {/* Worker mobile */}
-      <Route path="/worker" element={<WorkerLayout />}>
+      <Route
+        path="/worker"
+        element={
+          <RequireAuth>
+            <WorkerLayout />
+          </RequireAuth>
+        }
+      >
         <Route index element={<Navigate to="/worker/home" replace />} />
         <Route path="home" element={<WorkerHome />} />
         <Route path="induction" element={<Induction />} />
@@ -101,7 +128,9 @@ export default function App() {
     <AuthProvider>
       <AppProvider>
         <ToastProvider>
-          <AppRoutes />
+          <AuthGate>
+            <AppRoutes />
+          </AuthGate>
         </ToastProvider>
       </AppProvider>
     </AuthProvider>

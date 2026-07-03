@@ -1,12 +1,17 @@
 import { useCallback, useMemo } from "react";
 import { useAppContext } from "../context/AppContext";
-import { complianceCategories } from "../data/mockData";
+import { useAuthContext } from "../context/AuthContext";
+import { complianceCategories } from "../data/constants";
 import { deriveStatus } from "./useWorkers";
+import { updateMyCompliance, updateWorkerComplianceRow } from "../lib/api";
 
 // { compliance, updateCategory, overallStatus, canAccessSite, missingItems }
 // RULE: canAccessSite = all 6 categories === "Verified"
+// Worker (stakeholder) sessions write via the update_my_compliance RPC so RLS
+// stays strict; builder staff write directly.
 export function useCompliance(workerId) {
   const { workers, setWorkers } = useAppContext();
+  const { isWorker } = useAuthContext();
 
   const worker = useMemo(
     () => workers.find((w) => w.id === Number(workerId)) || null,
@@ -22,16 +27,21 @@ export function useCompliance(workerId) {
   }, [worker]);
 
   const updateCategory = useCallback(
-    (category, value) => {
+    async (category, value) => {
+      const current = workers.find((w) => w.id === Number(workerId));
+      if (!current) return;
+      const updated = { ...current, [category]: value };
+      const status = deriveStatus(updated);
+      if (isWorker) {
+        await updateMyCompliance(category, value);
+      } else {
+        await updateWorkerComplianceRow(Number(workerId), category, value, status);
+      }
       setWorkers((prev) =>
-        prev.map((w) => {
-          if (w.id !== Number(workerId)) return w;
-          const updated = { ...w, [category]: value };
-          return { ...updated, status: deriveStatus(updated) };
-        })
+        prev.map((w) => (w.id === Number(workerId) ? { ...updated, status } : w))
       );
     },
-    [setWorkers, workerId]
+    [workers, setWorkers, workerId, isWorker]
   );
 
   const missingItems = useMemo(

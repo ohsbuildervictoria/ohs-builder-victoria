@@ -17,8 +17,8 @@ const DOCUMENTS = [
 
 export default function Registration() {
   const { user } = useAuth();
-  const { getWorker } = useWorkers();
-  const worker = getWorker(user?.workerId ?? 1);
+  const { getWorker, workers } = useWorkers();
+  const worker = getWorker(user?.workerId ?? workers[0]?.id);
   const toast = useToast();
   const [tab, setTab] = useState("Personal");
 
@@ -114,14 +114,14 @@ export default function Registration() {
           <div className="space-y-2">
             <button
               type="button"
-              onClick={() => toast("Upload simulated — document queued for review")}
+              onClick={() => toast("Document upload is coming in the next release", "warning")}
               className="flex w-full flex-col items-center rounded-xl border-2 border-dashed border-slate-300 py-8 text-center hover:border-blue-900"
             >
               <span className="text-2xl">📤</span>
               <span className="mt-1 text-sm font-medium text-slate-700">
                 Upload Document
               </span>
-              <span className="text-xs text-slate-400">Mock upload</span>
+              <span className="text-xs text-slate-400">Coming in the next release</span>
             </button>
             {DOCUMENTS.map((d) => (
               <div

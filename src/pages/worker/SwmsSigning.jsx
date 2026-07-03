@@ -1,15 +1,17 @@
 import { useState, useRef } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { useWorkers } from "../../hooks/useWorkers";
+import { useCompliance } from "../../hooks/useCompliance";
 import { useSWMS } from "../../hooks/useSWMS";
 import Badge from "../../components/ui/Badge";
 import { findSwms } from "../../data/swmsLibrary";
 
 export default function SwmsSigning() {
   const { user } = useAuth();
-  const { getWorker, updateCompliance } = useWorkers();
-  const worker = getWorker(user?.workerId ?? 1);
-  const { templates } = useSWMS();
+  const { getWorker, workers } = useWorkers();
+  const worker = getWorker(user?.workerId ?? workers[0]?.id);
+  const { updateCategory } = useCompliance(worker?.id);
+  const { templates, signSWMS } = useSWMS();
 
   const template =
     templates.find((t) => t.trade === worker?.trade) || templates[0];
@@ -35,7 +37,7 @@ export default function SwmsSigning() {
   };
 
   const canSign = scrolledToEnd && agreed && typedName.trim().length > 1;
-  const today = "2026-06-10";
+  const today = new Date().toISOString().slice(0, 10);
 
   if (signed) {
     return (
@@ -156,9 +158,18 @@ export default function SwmsSigning() {
 
         <button
           disabled={!canSign}
-          onClick={() => {
-            if (worker?.id) updateCompliance(worker.id, "swms", "Verified");
-            setSigned(true);
+          onClick={async () => {
+            try {
+              if (worker?.id && worker.swms !== "Verified") {
+                await updateCategory("swms", "Verified");
+              }
+              if (template?.id && template.signed < template.total) {
+                await signSWMS(template.id);
+              }
+              setSigned(true);
+            } catch {
+              setSigned(true); // record locally; sync issue surfaced elsewhere
+            }
           }}
           className="mt-4 w-full rounded-lg bg-green-600 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
         >

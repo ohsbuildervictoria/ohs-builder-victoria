@@ -6,7 +6,9 @@ import Tabs from "../../components/ui/Tabs";
 import Modal from "../../components/ui/Modal";
 import { Table, THead, TBody, TR, TD } from "../../components/ui/Table";
 import { useToast } from "../../components/ui/Notification";
-import { policies, policyCategories, org, brand } from "../../data/mockData";
+import { useAppContext } from "../../context/AppContext";
+import { brand, policyCategories } from "../../data/constants";
+import { bumpPolicyVersion, updateOrgNotifications } from "../../lib/api";
 
 const TABS = ["Policy Register", "Notifications", "Organisation", "Platform"];
 
@@ -19,30 +21,63 @@ const NOTIFICATION_TOGGLES = [
 ];
 
 const PLATFORM_LINKS = [
-  { key: "privacy", label: "Privacy Policy" },
-  { key: "terms", label: "Terms & Conditions" },
-  { key: "refund", label: "Refund Policy" },
-  { key: "security", label: "Security Policy" },
+  {
+    key: "privacy",
+    label: "Privacy Policy",
+    body: `${brand.fullName} collects only the information needed to manage workplace health and safety records: user accounts, site personnel compliance records, incident reports, site diaries and toolbox meeting records. Data is stored securely in Australia-region cloud infrastructure and is never sold or shared with third parties. Access is restricted by role. For privacy queries or data requests contact ${brand.supportEmail}.`,
+  },
+  {
+    key: "terms",
+    label: "Terms & Conditions",
+    body: `${brand.fullName} is provided to licensed builders and their nominated stakeholders for managing OHS obligations on Victorian construction sites. The platform assists with record keeping and does not replace your legal duties under the OHS Act 2004 (Vic) and OHS Regulations 2017 (Vic). You remain responsible for the accuracy of records entered. Questions: ${brand.supportEmail}.`,
+  },
+  {
+    key: "refund",
+    label: "Refund Policy",
+    body: `Subscription fees are billed in advance. If ${brand.fullName} does not perform as described, contact ${brand.supportEmail} within 30 days of billing and we will work with you on a remedy, including pro-rata refunds where required under Australian Consumer Law.`,
+  },
+  {
+    key: "security",
+    label: "Security Policy",
+    body: `All access to ${brand.fullName} requires an authenticated account with role-based permissions. Data is encrypted in transit (TLS) and at rest. Database access is protected by row-level security. Report security concerns to ${brand.supportEmail} — we treat reports as priority incidents.`,
+  },
 ];
 
 export default function Policies() {
   const toast = useToast();
+  const { policies, setPolicies, org, setOrg } = useAppContext();
   const [tab, setTab] = useState("Policy Register");
-  const [toggles, setToggles] = useState({
-    incident: true,
-    compliance: true,
-    swms: true,
-    toolbox: true,
-    worksafe: true,
-  });
   const [modal, setModal] = useState(null);
 
-  const flip = (key, locked) => {
+  // Source of truth is org_settings.notifications; worksafe is always locked on.
+  const toggles = {
+    incident: true, compliance: true, swms: true, toolbox: false,
+    ...(org?.notifications || {}),
+    worksafe: true,
+  };
+
+  const flip = async (key, locked) => {
     if (locked) {
       toast("WorkSafe notifications cannot be disabled", "warning");
       return;
     }
-    setToggles((prev) => ({ ...prev, [key]: !prev[key] }));
+    const next = { ...toggles, [key]: !toggles[key] };
+    try {
+      await updateOrgNotifications(next);
+      setOrg((prev) => (prev ? { ...prev, notifications: next } : prev));
+    } catch (err) {
+      toast(err.message || "Could not save preference", "error");
+    }
+  };
+
+  const onUploadVersion = async (p) => {
+    try {
+      const updated = await bumpPolicyVersion(p);
+      setPolicies((prev) => prev.map((x) => (x.id === p.id ? updated : x)));
+      toast(`${p.name} updated to ${updated.version}`);
+    } catch (err) {
+      toast(err.message || "Could not update policy", "error");
+    }
   };
 
   return (
@@ -60,7 +95,10 @@ export default function Policies() {
       {tab === "Policy Register" && (
         <div className="space-y-4">
           <Card>
-            <CardHeader title="Active Policies" subtitle={`${org.name} · ${brand.region}`} />
+            <CardHeader
+              title="Active Policies"
+              subtitle={`${org?.name || brand.fullName} · ${brand.region}`}
+            />
             <CardBody className="pt-2">
               <Table>
                 <THead
@@ -78,10 +116,16 @@ export default function Policies() {
                       <TD>{p.updated}</TD>
                       <TD>
                         <div className="flex gap-2">
-                          <Button size="sm" variant="secondary" onClick={() => toast(`Editing ${p.name}`)}>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() =>
+                              toast("Policy editing opens in a future release", "warning")
+                            }
+                          >
                             Edit
                           </Button>
-                          <Button size="sm" onClick={() => toast(`New version uploaded for ${p.name}`)}>
+                          <Button size="sm" onClick={() => onUploadVersion(p)}>
                             Upload New Version
                           </Button>
                         </div>
@@ -149,12 +193,12 @@ export default function Policies() {
         <Card>
           <CardHeader title="Organisation Details" subtitle="Read-only" />
           <CardBody className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Info label="Organisation Name" value={org.name} />
-            <Info label="ABN" value={org.abn} />
-            <Info label="State" value={org.state} />
-            <Info label="Plan Tier" value={`${org.plan} (${org.users} users)`} />
-            <Info label="Billing Contact" value={org.billingContact} />
-            <Info label="Built By" value={org.builtBy} />
+            <Info label="Organisation Name" value={org?.name || "—"} />
+            <Info label="ABN" value={org?.abn || "—"} />
+            <Info label="State" value={org?.state || "Victoria"} />
+            <Info label="Plan Tier" value={org?.plan || "—"} />
+            <Info label="Billing Contact" value={org?.billingContact || brand.supportEmail} />
+            <Info label="Support" value={brand.supportEmail} />
             <Info label="Platform" value={brand.fullName} />
             <Info label="Domain" value={brand.domain} />
           </CardBody>
@@ -189,11 +233,7 @@ export default function Policies() {
           </Button>
         }
       >
-        <p className="text-sm leading-relaxed text-slate-600">
-          Placeholder content for the {modal?.label}. In production this document
-          governs use of {brand.fullName} by {org.name}. Refer to {org.builtBy}{" "}
-          for the authoritative version.
-        </p>
+        <p className="text-sm leading-relaxed text-slate-600">{modal?.body}</p>
       </Modal>
     </div>
   );

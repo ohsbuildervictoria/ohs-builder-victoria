@@ -2,10 +2,11 @@ import { useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation, Navigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useNotifications } from "../hooks/useNotifications";
+import { useAppContext } from "../context/AppContext";
 import Logo from "../components/shared/Logo";
 import RoleBadge from "../components/shared/RoleBadge";
 import { NotificationItem } from "../components/ui/Notification";
-import { org, rolePermissions } from "../data/mockData";
+import { brand, rolePermissions } from "../data/constants";
 
 const NAV = [
   { to: "/builder/dashboard", label: "Dashboard", icon: "📊", perm: "dashboard" },
@@ -23,17 +24,23 @@ const NAV = [
 export default function BuilderLayout() {
   const { user, role, logout } = useAuth();
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
+  const { org, loading, loadError, refresh } = useAppContext();
   const [bellOpen, setBellOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
-  const handleSignOut = () => {
-    logout();
+  const handleSignOut = async () => {
+    await logout();
     navigate("/login");
   };
 
   const perms = rolePermissions[role] || rolePermissions.builder_admin;
   const visibleNav = NAV.filter((n) => perms[n.perm]);
+
+  // Workers (stakeholders) have no builder workspace access at all.
+  if (role === "worker") {
+    return <Navigate to="/worker/home" replace />;
+  }
 
   const currentPerm = NAV.find((n) => location.pathname.startsWith(n.to))?.perm;
   if (currentPerm && !perms[currentPerm]) {
@@ -83,9 +90,9 @@ export default function BuilderLayout() {
           </button>
         </nav>
         <div className="border-t border-slate-800 px-5 py-3 text-[11px] text-slate-500">
-          {org.name}
+          {org?.name || brand.fullName}
           <br />
-          {org.tagline}
+          {org?.tagline || brand.tagline}
         </div>
       </aside>
 
@@ -98,7 +105,7 @@ export default function BuilderLayout() {
           </div>
           <div className="hidden lg:block">
             <p className="text-sm text-slate-500">
-              {org.name} · {org.state} · {org.plan} Plan
+              {org ? `${org.name} · ${org.state} · ${org.plan} Plan` : brand.fullName}
             </p>
           </div>
 
@@ -180,7 +187,24 @@ export default function BuilderLayout() {
         </div>
 
         <main className="flex-1 overflow-y-auto p-4 lg:p-6 scrollbar-thin">
-          <Outlet />
+          {loadError ? (
+            <div className="mx-auto max-w-md rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+              <p className="text-sm font-semibold text-red-700">Couldn't load your data</p>
+              <p className="mt-1 text-xs text-red-600">{loadError}</p>
+              <button
+                onClick={refresh}
+                className="mt-4 rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
+              >
+                Try again
+              </button>
+            </div>
+          ) : loading ? (
+            <div className="flex h-64 items-center justify-center text-sm text-slate-400">
+              Loading…
+            </div>
+          ) : (
+            <Outlet />
+          )}
         </main>
       </div>
     </div>

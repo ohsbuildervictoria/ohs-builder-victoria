@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useAppContext } from "../context/AppContext";
+import { insertDiaryEntry } from "../lib/api";
 
 // { entries, addEntry, getByProject, getByDate }
 export function useDiary(projectId = null) {
@@ -14,11 +15,10 @@ export function useDiary(projectId = null) {
   );
 
   const addEntry = useCallback(
-    (entry) => {
-      setEntries((prev) => {
-        const id = prev.reduce((max, e) => Math.max(max, e.id), 0) + 1;
-        return [{ id, tags: [], ...entry }, ...prev];
-      });
+    async (entry) => {
+      const created = await insertDiaryEntry(entry);
+      setEntries((prev) => [created, ...prev]);
+      return created;
     },
     [setEntries]
   );

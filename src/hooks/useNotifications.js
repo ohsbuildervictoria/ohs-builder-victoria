@@ -1,12 +1,16 @@
 import { useCallback, useMemo } from "react";
 import { useAppContext } from "../context/AppContext";
-import { complianceCategories } from "../data/mockData";
+import { useAuthContext } from "../context/AuthContext";
+import { complianceCategories } from "../data/constants";
+import { saveReadNotifications } from "../lib/api";
 
 // { notifications, unreadCount, markRead, markAllRead }
 // Auto-generates notifications from: incidents, compliance lapses, pending SWMS.
+// Read state persists per user in profiles.read_notifications.
 export function useNotifications() {
   const { incidents, workers, templates, readNotifications, setReadNotifications } =
     useAppContext();
+  const { user } = useAuthContext();
 
   const generated = useMemo(() => {
     const list = [];
@@ -85,20 +89,32 @@ export function useNotifications() {
     [notifications]
   );
 
+  const persist = useCallback(
+    (idSet) => {
+      if (user?.id) {
+        saveReadNotifications(user.id, [...idSet]).catch(() => {});
+      }
+    },
+    [user]
+  );
+
   const markRead = useCallback(
     (id) => {
       setReadNotifications((prev) => {
         const next = new Set(prev);
         next.add(id);
+        persist(next);
         return next;
       });
     },
-    [setReadNotifications]
+    [setReadNotifications, persist]
   );
 
   const markAllRead = useCallback(() => {
-    setReadNotifications(new Set(generated.map((n) => n.id)));
-  }, [generated, setReadNotifications]);
+    const next = new Set(generated.map((n) => n.id));
+    setReadNotifications(next);
+    persist(next);
+  }, [generated, setReadNotifications, persist]);
 
   return { notifications, unreadCount, markRead, markAllRead };
 }

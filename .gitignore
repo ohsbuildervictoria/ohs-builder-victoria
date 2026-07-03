@@ -7,3 +7,22 @@ dist-ssr
 .env
 .env.*
 npm-debug.log*
+
+.vercel
+
+# Local working documents & scratch (not part of the app)
+*.pdf
+*.docx
+*.pptx
+SWMS/
+docs/
+pdf_pages/
+pptx_slides/
+zoomed/
+ohs-builder-victoria/
+debug.log
+git_push*.bat
+git_push*.ps1
+git_push*.vbs
+git_output.log
+TIME_TRACKER.json

@@ -3,12 +3,14 @@ import { Link } from "react-router-dom";
 import ProgressBar from "../../components/ui/ProgressBar";
 import { useAuth } from "../../hooks/useAuth";
 import { useWorkers } from "../../hooks/useWorkers";
-import { quizQuestions } from "../../data/mockData";
+import { useCompliance } from "../../hooks/useCompliance";
+import { quizQuestions } from "../../data/constants";
 
 export default function Quiz() {
   const { user } = useAuth();
-  const { getWorker, updateCompliance } = useWorkers();
-  const worker = getWorker(user?.workerId ?? 1);
+  const { getWorker, workers } = useWorkers();
+  const worker = getWorker(user?.workerId ?? workers[0]?.id);
+  const { updateCategory } = useCompliance(worker?.id);
   const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState(null);
   const [revealed, setRevealed] = useState(false);
@@ -19,10 +21,10 @@ export default function Quiz() {
   const passed = finished && correctCount === quizQuestions.length;
 
   useEffect(() => {
-    if (passed && worker?.id) {
-      updateCompliance(worker.id, "quiz", "Verified");
+    if (passed && worker?.id && worker.quiz !== "Verified") {
+      updateCategory("quiz", "Verified").catch(() => {});
     }
-  }, [passed, worker?.id, updateCompliance]);
+  }, [passed, worker?.id, worker?.quiz, updateCategory]);
 
   const submit = () => {
     if (selected == null) return;

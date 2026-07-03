@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useAppContext } from "../context/AppContext";
+import { signSwmsRpc, updateTemplateRow } from "../lib/api";
 
 // Recomputes a template's status from its signed/total counts and lock flag.
 function computeStatus(t) {
@@ -24,30 +25,33 @@ export function useSWMS(trade = null) {
   );
 
   const signSWMS = useCallback(
-    (id) => {
+    async (id) => {
+      const current = templates.find((t) => t.id === Number(id));
+      if (!current) return;
+      await signSwmsRpc(Number(id));
+      const updated = { ...current, signed: current.signed + 1 };
+      const status = computeStatus(updated);
+      // keep the derived status in sync in the DB (best effort)
+      updateTemplateRow(updated.id, { status }).catch(() => {});
       setTemplates((prev) =>
-        prev.map((t) => {
-          if (t.id !== Number(id)) return t;
-          const signed = Math.min(t.signed + 1, t.total);
-          const updated = { ...t, signed };
-          return { ...updated, status: computeStatus(updated) };
-        })
+        prev.map((t) => (t.id === Number(id) ? { ...updated, status } : t))
       );
     },
-    [setTemplates]
+    [templates, setTemplates]
   );
 
   const lockTemplate = useCallback(
-    (id) => {
+    async (id) => {
+      const current = templates.find((t) => t.id === Number(id));
+      if (!current) return;
+      const updated = { ...current, locked: true };
+      const status = computeStatus(updated);
+      await updateTemplateRow(Number(id), { locked: true, status });
       setTemplates((prev) =>
-        prev.map((t) => {
-          if (t.id !== Number(id)) return t;
-          const updated = { ...t, locked: true };
-          return { ...updated, status: computeStatus(updated) };
-        })
+        prev.map((t) => (t.id === Number(id) ? { ...updated, status } : t))
       );
     },
-    [setTemplates]
+    [templates, setTemplates]
   );
 
   const signOffStats = useMemo(() => {

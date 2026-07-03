@@ -1,4 +1,4 @@
-import { roleLabels } from "../../data/mockData";
+import { roleLabels } from "../../data/constants";
 
 const STYLES = {
   builder_admin: "bg-blue-900 text-white",

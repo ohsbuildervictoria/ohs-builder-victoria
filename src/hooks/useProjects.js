@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useAppContext } from "../context/AppContext";
+import { insertProject, updateProjectRow } from "../lib/api";
 
 // { projects, getProject(id), addProject, updateProject, filterByStatus }
 export function useProjects() {
@@ -11,17 +12,17 @@ export function useProjects() {
   );
 
   const addProject = useCallback(
-    (project) => {
-      setProjects((prev) => {
-        const id = prev.reduce((max, p) => Math.max(max, p.id), 0) + 1;
-        return [...prev, { id, incidents: 0, workers: 0, ...project }];
-      });
+    async (project) => {
+      const created = await insertProject(project);
+      setProjects((prev) => [...prev, created]);
+      return created;
     },
     [setProjects]
   );
 
   const updateProject = useCallback(
-    (id, patch) => {
+    async (id, patch) => {
+      await updateProjectRow(Number(id), patch);
       setProjects((prev) =>
         prev.map((p) => (p.id === Number(id) ? { ...p, ...patch } : p))
       );

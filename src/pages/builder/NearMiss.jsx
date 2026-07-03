@@ -4,11 +4,17 @@ import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
 import StatCard from "../../components/ui/StatCard";
 import { useIncidents } from "../../hooks/useIncidents";
-import { dashboardKpis } from "../../data/mockData";
+
+// Evaluated once per page load — stable across re-renders.
+const THIRTY_DAYS_AGO = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
 export default function NearMiss() {
   const { getByType } = useIncidents();
   const nearMisses = getByType("Near Miss");
+  const last30d = nearMisses.filter(
+    (i) => new Date(i.date).getTime() >= THIRTY_DAYS_AGO
+  ).length;
+  const open = nearMisses.filter((i) => i.status !== "Closed").length;
 
   return (
     <div className="space-y-6">
@@ -25,9 +31,9 @@ export default function NearMiss() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-        <StatCard label="Near Misses (30d)" value={dashboardKpis.nearMisses30d} tone="amber" />
-        <StatCard label="Logged this view" value={nearMisses.length} tone="blue" />
-        <StatCard label="LTI Rate" value={dashboardKpis.ltiRate.toFixed(1)} tone="green" />
+        <StatCard label="Near Misses (30d)" value={last30d} tone="amber" />
+        <StatCard label="Total Logged" value={nearMisses.length} tone="blue" />
+        <StatCard label="Open" value={open} tone={open > 0 ? "amber" : "green"} />
       </div>
 
       <Card>

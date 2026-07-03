@@ -1,85 +1,103 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState, useMemo, useEffect } from "react";
-import {
-  projects as seedProjects,
-  workers as seedWorkers,
-  incidents as seedIncidents,
-  swmsTemplates as seedSwms,
-  diaryEntries as seedDiary,
-  toolboxMeetings as seedToolbox,
-} from "../data/mockData";
-import { loadAppState, saveAppState } from "../utils/storage";
+import { createContext, useContext, useState, useMemo, useEffect, useCallback } from "react";
+import { fetchAppData } from "../lib/api";
+import { useAuthContext } from "./AuthContext";
 
 const AppContext = createContext(null);
 
-const defaultState = {
-  projects: seedProjects,
-  workers: seedWorkers,
-  incidents: seedIncidents,
-  templates: seedSwms,
-  entries: seedDiary,
-  meetings: seedToolbox,
-  readNotifications: [],
+const emptyState = {
+  projects: [],
+  workers: [],
+  incidents: [],
+  templates: [],
+  entries: [],
+  meetings: [],
+  policies: [],
+  profiles: [],
+  invites: [],
+  org: null,
 };
 
-function hydrateState() {
-  const saved = loadAppState(null);
-  if (!saved) return defaultState;
-  return {
-    projects: saved.projects ?? seedProjects,
-    workers: saved.workers ?? seedWorkers,
-    incidents: saved.incidents ?? seedIncidents,
-    templates: saved.templates ?? seedSwms,
-    entries: saved.entries ?? seedDiary,
-    meetings: saved.meetings ?? seedToolbox,
-    readNotifications: saved.readNotifications ?? [],
-  };
-}
-
-// Central store for the prototype. Persisted to localStorage so demo data
-// survives refresh without a backend.
+// Central store, loaded from Supabase once a session exists.
+// Mutations happen through the hooks (src/hooks/*), which write to Supabase
+// first and then update this in-memory state.
 export function AppProvider({ children }) {
-  const initial = hydrateState();
-  const [projects, setProjects] = useState(initial.projects);
-  const [workers, setWorkers] = useState(initial.workers);
-  const [incidents, setIncidents] = useState(initial.incidents);
-  const [templates, setTemplates] = useState(initial.templates);
-  const [entries, setEntries] = useState(initial.entries);
-  const [meetings, setMeetings] = useState(initial.meetings);
-  const [readNotifications, setReadNotifications] = useState(
-    () => new Set(initial.readNotifications)
-  );
+  const { user } = useAuthContext();
+  const [projects, setProjects] = useState(emptyState.projects);
+  const [workers, setWorkers] = useState(emptyState.workers);
+  const [incidents, setIncidents] = useState(emptyState.incidents);
+  const [templates, setTemplates] = useState(emptyState.templates);
+  const [entries, setEntries] = useState(emptyState.entries);
+  const [meetings, setMeetings] = useState(emptyState.meetings);
+  const [policies, setPolicies] = useState(emptyState.policies);
+  const [profiles, setProfiles] = useState(emptyState.profiles);
+  const [invites, setInvites] = useState(emptyState.invites);
+  const [org, setOrg] = useState(emptyState.org);
+  const [readNotifications, setReadNotifications] = useState(() => new Set());
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const data = await fetchAppData();
+      setProjects(data.projects);
+      setWorkers(data.workers);
+      setIncidents(data.incidents);
+      setTemplates(data.templates);
+      setEntries(data.entries);
+      setMeetings(data.meetings);
+      setPolicies(data.policies);
+      setProfiles(data.profiles);
+      setInvites(data.invites);
+      setOrg(data.org);
+    } catch (err) {
+      setLoadError(err.message || "Failed to load data.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    saveAppState({
-      projects,
-      workers,
-      incidents,
-      templates,
-      entries,
-      meetings,
-      readNotifications: [...readNotifications],
-    });
-  }, [projects, workers, incidents, templates, entries, meetings, readNotifications]);
+    if (user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing store with the auth session is intentional
+      setReadNotifications(new Set(user.readNotifications || []));
+      refresh();
+    } else {
+      setProjects(emptyState.projects);
+      setWorkers(emptyState.workers);
+      setIncidents(emptyState.incidents);
+      setTemplates(emptyState.templates);
+      setEntries(emptyState.entries);
+      setMeetings(emptyState.meetings);
+      setPolicies(emptyState.policies);
+      setProfiles(emptyState.profiles);
+      setInvites(emptyState.invites);
+      setOrg(emptyState.org);
+      setReadNotifications(new Set());
+      setLoadError(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const value = useMemo(
     () => ({
-      projects,
-      setProjects,
-      workers,
-      setWorkers,
-      incidents,
-      setIncidents,
-      templates,
-      setTemplates,
-      entries,
-      setEntries,
-      meetings,
-      setMeetings,
-      readNotifications,
-      setReadNotifications,
+      projects, setProjects,
+      workers, setWorkers,
+      incidents, setIncidents,
+      templates, setTemplates,
+      entries, setEntries,
+      meetings, setMeetings,
+      policies, setPolicies,
+      profiles, setProfiles,
+      invites, setInvites,
+      org, setOrg,
+      readNotifications, setReadNotifications,
+      loading, loadError, refresh,
     }),
-    [projects, workers, incidents, templates, entries, meetings, readNotifications]
+    [projects, workers, incidents, templates, entries, meetings, policies,
+     profiles, invites, org, readNotifications, loading, loadError, refresh]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

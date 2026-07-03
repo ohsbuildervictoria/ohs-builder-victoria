@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useAppContext } from "../context/AppContext";
+import { insertToolboxMeeting, updateMeetingSignatures } from "../lib/api";
 
 // { meetings, addMeeting, recordAttendance, getStats }
 export function useToolbox(projectId = null) {
@@ -14,40 +15,36 @@ export function useToolbox(projectId = null) {
   );
 
   const addMeeting = useCallback(
-    (meeting) => {
-      setMeetings((prev) => {
-        const id = prev.reduce((max, m) => Math.max(max, m.id), 0) + 1;
-        return [
-          { id, attendance: 0, signatures: 0, status: "Scheduled", ...meeting },
-          ...prev,
-        ];
-      });
+    async (meeting) => {
+      const created = await insertToolboxMeeting(meeting);
+      setMeetings((prev) => [created, ...prev]);
+      return created;
     },
     [setMeetings]
   );
 
   // Records (or removes) a digital signature for an attendee on a meeting.
   const recordAttendance = useCallback(
-    (id, delta = 1) => {
+    async (id, delta = 1) => {
+      const current = meetings.find((m) => m.id === Number(id));
+      if (!current) return;
+      const signatures = Math.max(0, current.signatures + delta);
+      await updateMeetingSignatures(Number(id), signatures);
       setMeetings((prev) =>
-        prev.map((m) => {
-          if (m.id !== Number(id)) return m;
-          const signatures = Math.max(0, m.signatures + delta);
-          return { ...m, signatures, status: signatures > 0 ? "Completed" : m.status };
-        })
+        prev.map((m) => (m.id === Number(id) ? { ...m, signatures } : m))
       );
     },
-    [setMeetings]
+    [meetings, setMeetings]
   );
 
   const getStats = useCallback(() => {
     const total = scoped.length;
     const signatures = scoped.reduce((s, m) => s + m.signatures, 0);
-    const withAttendance = scoped.filter((m) => m.attendance > 0);
+    const withAttendance = scoped.filter((m) => m.attendees > 0);
     const avgAttendance = withAttendance.length
       ? Math.round(
           withAttendance.reduce(
-            (s, m) => s + (m.signatures / m.attendance) * 100,
+            (s, m) => s + (Math.min(m.signatures, m.attendees) / m.attendees) * 100,
             0
           ) / withAttendance.length
         )

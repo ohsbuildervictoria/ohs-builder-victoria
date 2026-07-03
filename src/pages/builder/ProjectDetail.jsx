@@ -11,12 +11,9 @@ import { useProjects } from "../../hooks/useProjects";
 import { useWorkers } from "../../hooks/useWorkers";
 import { useIncidents } from "../../hooks/useIncidents";
 import { useDiary } from "../../hooks/useDiary";
+import { useAppContext } from "../../context/AppContext";
 import { useToast } from "../../components/ui/Notification";
-import {
-  formatAUD,
-  complianceCategories,
-  weatherOptions,
-} from "../../data/mockData";
+import { formatAUD, complianceCategories } from "../../data/constants";
 
 const TABS = ["Overview", "Stakeholders", "Compliance", "Incidents", "Documents", "Diary"];
 
@@ -26,6 +23,7 @@ export default function ProjectDetail() {
   const { workers, getComplianceStats } = useWorkers(id);
   const { incidents } = useIncidents(id);
   const { entries } = useDiary(id);
+  const { policies } = useAppContext();
   const toast = useToast();
   const [tab, setTab] = useState("Overview");
 
@@ -88,10 +86,19 @@ export default function ProjectDetail() {
           <Card>
             <CardHeader title="Site Location" />
             <CardBody>
-              <div className="flex h-48 flex-col items-center justify-center rounded-lg bg-slate-100 text-center text-slate-400">
-                <span className="text-3xl">🗺️</span>
-                <p className="mt-2 text-sm">Map placeholder</p>
-                <p className="px-4 text-xs">{project.address}</p>
+              <div className="flex h-48 flex-col items-center justify-center rounded-lg bg-slate-100 text-center">
+                <span className="text-3xl">📍</span>
+                <p className="mt-2 px-4 text-sm font-medium text-slate-700">
+                  {project.address}
+                </p>
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(project.address)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 text-xs font-medium text-blue-700 hover:underline"
+                >
+                  Open in Google Maps →
+                </a>
               </div>
             </CardBody>
           </Card>
@@ -196,7 +203,9 @@ export default function ProjectDetail() {
           <CardHeader title="Project Documents" />
           <CardBody>
             <div
-              onClick={() => toast("Upload simulated — document queued for review")}
+              onClick={() =>
+                toast("Document upload is coming in the next release", "warning")
+              }
               className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 py-12 text-center hover:border-blue-900 hover:bg-slate-50"
             >
               <span className="text-3xl">📤</span>
@@ -204,21 +213,26 @@ export default function ProjectDetail() {
                 Drag & drop or click to upload
               </p>
               <p className="text-xs text-slate-400">
-                Mock upload — no file is actually stored
+                File storage arrives in the next release
               </p>
             </div>
-            <div className="mt-4 space-y-2">
-              {["OHS Management Plan.pdf", "SWMS Register.xlsx", "Site Layout Plan.pdf"].map(
-                (doc) => (
+            <div className="mt-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Organisation Policies (apply to all projects)
+              </p>
+              <div className="space-y-2">
+                {policies.map((p) => (
                   <div
-                    key={doc}
+                    key={p.id}
                     className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-2.5 text-sm"
                   >
-                    <span className="text-slate-700">📄 {doc}</span>
-                    <Badge status="Verified">Verified</Badge>
+                    <span className="text-slate-700">
+                      📄 {p.name} · {p.version}
+                    </span>
+                    <Badge status="Active">{p.status}</Badge>
                   </div>
-                )
-              )}
+                ))}
+              </div>
             </div>
           </CardBody>
         </Card>
@@ -243,8 +257,7 @@ export default function ProjectDetail() {
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold text-slate-800">{e.date}</p>
                     <span className="text-xs text-slate-500">
-                      {weatherOptions.includes(e.weather) ? e.weather : e.weather} ·{" "}
-                      {e.workersPresent} stakeholders
+                      {e.weather} · {e.labour} stakeholders
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-slate-600">{e.notes}</p>

@@ -1,4 +1,4 @@
-import { complianceCategories } from "../../data/mockData";
+import { complianceCategories } from "../../data/constants";
 import Badge from "../ui/Badge";
 import { Table, THead, TBody, TR, TD } from "../ui/Table";
 

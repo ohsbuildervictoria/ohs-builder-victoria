@@ -8,17 +8,18 @@ import ProgressBar from "../../components/ui/ProgressBar";
 import ComplianceMatrix from "../../components/shared/ComplianceMatrix";
 import { useWorkers } from "../../hooks/useWorkers";
 import { useToast } from "../../components/ui/Notification";
-import { complianceCategories, complianceSummary } from "../../data/mockData";
+import { complianceCategories } from "../../data/constants";
 import { downloadCsv } from "../../utils/export";
 
 const TABS = ["Stakeholders", "Subcontractors", "Suppliers", "Developer", "Other"];
 const STATUSES = ["Verified", "Pending", "Missing"];
 
 export default function Compliance() {
-  const { workers, updateCompliance } = useWorkers();
+  const { workers, updateCompliance, getComplianceStats } = useWorkers();
   const toast = useToast();
   const [tab, setTab] = useState("Stakeholders");
   const [cell, setCell] = useState(null); // { worker, category }
+  const complianceSummary = getComplianceStats();
 
   // Workers with any Missing item — surfaced as a banner.
   const blocked = workers.filter((w) =>
@@ -54,7 +55,7 @@ export default function Compliance() {
         <div className="flex gap-2">
           <Button
             variant="secondary"
-            onClick={() => toast("Upload simulated — document queued for review")}
+            onClick={() => toast("Document upload is coming in the next release", "warning")}
           >
             Upload Documents
           </Button>
@@ -134,9 +135,13 @@ export default function Compliance() {
                 <Button
                   key={s}
                   variant={s === "Verified" ? "success" : s === "Missing" ? "danger" : "secondary"}
-                  onClick={() => {
-                    updateCompliance(cell.worker.id, cell.category, s);
-                    toast(`${cell.worker.name} · ${cell.category} → ${s}`);
+                  onClick={async () => {
+                    try {
+                      await updateCompliance(cell.worker.id, cell.category, s);
+                      toast(`${cell.worker.name} · ${cell.category} → ${s}`);
+                    } catch (err) {
+                      toast(err.message || "Update failed", "error");
+                    }
                     setCell(null);
                   }}
                 >

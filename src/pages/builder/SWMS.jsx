@@ -126,7 +126,7 @@ export default function SWMS() {
           </Card>
         ))}
       </div>
-      {/* SWMS Library — all 49 trades */}
+      {/* SWMS Library — complete A–Z trade library */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <div>

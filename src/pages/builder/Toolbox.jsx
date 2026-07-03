@@ -10,35 +10,50 @@ import { useToolbox } from "../../hooks/useToolbox";
 import { useProjects } from "../../hooks/useProjects";
 import { useWorkers } from "../../hooks/useWorkers";
 import { useToast } from "../../components/ui/Notification";
-import { toolboxStats, projectName } from "../../data/mockData";
+import { useAuth } from "../../hooks/useAuth";
+
+// Evaluated once per page load — stable across re-renders.
+const THIRTY_DAYS_AGO = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
 export default function Toolbox() {
-  const { meetings, addMeeting, recordAttendance } = useToolbox();
-  const { projects } = useProjects();
+  const { meetings, addMeeting, recordAttendance, getStats } = useToolbox();
+  const { projects, getProject } = useProjects();
   const { workers } = useWorkers();
+  const { user } = useAuth();
   const toast = useToast();
   const [createOpen, setCreateOpen] = useState(false);
   const [attendees, setAttendees] = useState([]);
   const { register, handleSubmit, reset } = useForm();
+
+  const stats = getStats();
+  const meetings30d = meetings.filter(
+    (m) => new Date(m.date).getTime() >= THIRTY_DAYS_AGO
+  ).length;
 
   const toggleAttendee = (id) =>
     setAttendees((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
 
-  const onCreate = (data) => {
-    addMeeting({
-      title: data.title,
-      project: Number(data.project),
-      date: data.date,
-      topic: data.topic,
-      attendance: attendees.length,
-      signatures: 0,
-    });
-    toast("Toolbox meeting created");
-    reset();
-    setAttendees([]);
-    setCreateOpen(false);
+  const onCreate = async (data) => {
+    try {
+      await addMeeting({
+        topic: data.title,
+        points: data.topic ? [data.topic] : [],
+        project: Number(data.project),
+        date: (data.date || "").slice(0, 10),
+        presenter: user?.name || "",
+        attendees: attendees.length,
+        total: attendees.length,
+        signatures: 0,
+      });
+      toast("Toolbox meeting created");
+      reset();
+      setAttendees([]);
+      setCreateOpen(false);
+    } catch (err) {
+      toast(err.message || "Could not create meeting", "error");
+    }
   };
 
   return (
@@ -54,9 +69,9 @@ export default function Toolbox() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <StatCard label="Total Meetings (30d)" value={toolboxStats.meetings30d} tone="blue" />
-        <StatCard label="Avg Attendance" value={`${toolboxStats.avgAttendance}%`} tone="green" />
-        <StatCard label="Digital Signatures" value={toolboxStats.signatures} tone="blue" />
+        <StatCard label="Total Meetings (30d)" value={meetings30d} tone="blue" />
+        <StatCard label="Avg Sign-off Rate" value={`${stats.avgAttendance}%`} tone="green" />
+        <StatCard label="Digital Signatures" value={stats.signatures} tone="blue" />
       </div>
 
       <Card>
@@ -78,26 +93,31 @@ export default function Toolbox() {
             <TBody>
               {meetings.map((m) => (
                 <TR key={m.id}>
-                  <TD className="font-medium text-slate-800">{m.title}</TD>
-                  <TD>{projectName(m.project)}</TD>
+                  <TD className="font-medium text-slate-800">{m.topic}</TD>
+                  <TD>{getProject(m.project)?.name || "—"}</TD>
                   <TD>{m.date}</TD>
-                  <TD className="max-w-xs text-slate-600">{m.topic}</TD>
-                  <TD>{m.attendance}</TD>
+                  <TD className="max-w-xs text-slate-600">
+                    {m.points?.join("; ") || m.topic}
+                  </TD>
+                  <TD>{m.attendees}</TD>
                   <TD>
-                    {m.signatures} / {m.attendance}
+                    {m.signatures} / {m.attendees}
                   </TD>
                   <TD>
-                    <Badge status={m.status} />
+                    <Badge
+                      status={m.signatures >= m.attendees && m.attendees > 0 ? "Completed" : "Scheduled"}
+                    />
                   </TD>
                   <TD>
-                    {m.signatures < m.attendance && (
+                    {m.signatures < m.attendees && (
                       <Button
                         size="sm"
                         variant="success"
-                        onClick={() => {
-                          recordAttendance(m.id, 1);
-                          toast("Signature collected");
-                        }}
+                        onClick={() =>
+                          recordAttendance(m.id, 1)
+                            .then(() => toast("Signature collected"))
+                            .catch((err) => toast(err.message || "Failed", "error"))
+                        }
                       >
                         + Sign
                       </Button>
