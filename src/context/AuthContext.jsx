@@ -2,6 +2,9 @@
 import { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { fetchProfile, touchLastLogin } from "../lib/api";
+// TEMPORARY pilot bypass — see src/lib/pilotBypass.js. Disable before any
+// other real client's data enters this system.
+import { PILOT_CREDENTIALS, isPilotBypassEnabled } from "../lib/pilotBypass";
 
 const AuthContext = createContext(null);
 
@@ -30,7 +33,25 @@ export function AuthProvider({ children }) {
       }
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      // TEMPORARY pilot bypass: with app_config.bypass_auth = true, a visitor
+      // with no session is signed straight in as the Builder Admin account.
+      // Real session, real writes. Flag off → this block is a no-op and the
+      // normal login screen is shown. See src/lib/pilotBypass.js.
+      if (!session?.user && !cancelled) {
+        try {
+          if (await isPilotBypassEnabled()) {
+            const { data, error } =
+              await supabase.auth.signInWithPassword(PILOT_CREDENTIALS);
+            if (!error && data?.session) {
+              session = data.session;
+              touchLastLogin(data.session.user.id);
+            }
+          }
+        } catch {
+          // fail closed — fall through to the normal login screen
+        }
+      }
       loadProfileFor(session).finally(() => {
         if (!cancelled) setInitialising(false);
       });

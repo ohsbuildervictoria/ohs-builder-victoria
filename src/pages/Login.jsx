@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../hooks/useAuth";
@@ -14,8 +14,18 @@ export default function Login() {
   const [authError, setAuthError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [resetSent, setResetSent] = useState(false);
-  const { login, resetPassword } = useAuth();
+  const { login, resetPassword, user } = useAuth();
   const navigate = useNavigate();
+
+  // Already signed in (including via the temporary pilot bypass —
+  // see src/lib/pilotBypass.js): go straight to the workspace.
+  useEffect(() => {
+    if (user) {
+      navigate(user.role === "worker" ? "/worker/home" : "/builder/dashboard", {
+        replace: true,
+      });
+    }
+  }, [user, navigate]);
   const {
     register,
     handleSubmit,

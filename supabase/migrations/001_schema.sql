@@ -328,3 +328,15 @@ alter table public.invites enable row level security;
 create policy "invites read" on public.invites for select to authenticated using (true);
 create policy "invites admin write" on public.invites for all to authenticated
   using (public.my_role() = 'builder_admin') with check (public.my_role() = 'builder_admin');
+
+-- ---------- TEMPORARY pilot bypass flag (see src/lib/pilotBypass.js) ----------
+-- bypass_auth=true auto-signs visitors in as Builder Admin (2-3 week pilot).
+-- MUST be set back to false before any other real client's data enters
+-- this system. Readable pre-login; writable only via the dashboard.
+create table public.app_config (
+  id int primary key default 1 check (id = 1),
+  bypass_auth boolean not null default false,
+  note text not null default ''
+);
+alter table public.app_config enable row level security;
+create policy "config readable pre-login" on public.app_config for select to anon, authenticated using (true);
