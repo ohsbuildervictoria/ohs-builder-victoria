@@ -72,7 +72,14 @@ export function clearPilotWorker() {
 }
 
 // Reads the kill switch. Fails closed: any error → bypass off → real login.
+// auth-billing branch: the bypass is HARD-DISABLED here regardless of the
+// app_config flag — this branch always shows the real login screen.
 export async function isPilotBypassEnabled() {
+  return false;
+}
+
+// (kept for reference while the pilot branch exists)
+export async function isPilotBypassFlagSet() {
   try {
     const { data, error } = await supabase
       .from("app_config")

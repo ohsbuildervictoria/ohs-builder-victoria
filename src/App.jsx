@@ -7,8 +7,10 @@ import { useAuth } from "./hooks/useAuth";
 import BuilderLayout from "./layouts/BuilderLayout";
 import WorkerLayout from "./layouts/WorkerLayout";
 
+import { useEffect, useState } from "react";
 import Login from "./pages/Login";
-import StakeholderLogin from "./pages/StakeholderLogin";
+import Billing from "./pages/Billing";
+import { fetchSubscription, BILLING_ENFORCED } from "./lib/billing";
 
 import Dashboard from "./pages/builder/Dashboard";
 import Projects from "./pages/builder/Projects";
@@ -49,6 +51,29 @@ function RequireBuilder({ children }) {
   return children;
 }
 
+// Subscription paywall for the builder workspace (auth-billing branch).
+// Enforced only when VITE_BILLING_ENFORCED=true so the branch is testable
+// before Stripe keys exist. Fails open on "unknown" (network/table missing).
+function RequireSubscription({ children }) {
+  const { user } = useAuth();
+  const [sub, setSub] = useState(null);
+  useEffect(() => {
+    if (BILLING_ENFORCED && user) {
+      fetchSubscription().then(setSub);
+    }
+  }, [user]);
+  if (!BILLING_ENFORCED) return children;
+  if (!sub) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-900">
+        <p className="text-sm text-slate-400">Checking subscription…</p>
+      </div>
+    );
+  }
+  if (sub.status === "inactive") return <Navigate to="/billing" replace />;
+  return children;
+}
+
 // Any authenticated user (stakeholder portal).
 function RequireAuth({ children }) {
   const { user } = useAuth();
@@ -69,15 +94,25 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<Login />} />
-      {/* PILOT: lightweight tradie sign-in (see src/lib/pilotBypass.js) */}
-      <Route path="/stakeholder" element={<StakeholderLogin />} />
+      {/* auth-billing branch: everyone signs in with a real account */}
+      <Route path="/stakeholder" element={<Navigate to="/login" replace />} />
+      <Route
+        path="/billing"
+        element={
+          <RequireAuth>
+            <Billing />
+          </RequireAuth>
+        }
+      />
 
       {/* Builder web */}
       <Route
         path="/builder"
         element={
           <RequireBuilder>
-            <BuilderLayout />
+            <RequireSubscription>
+              <BuilderLayout />
+            </RequireSubscription>
           </RequireBuilder>
         }
       >
