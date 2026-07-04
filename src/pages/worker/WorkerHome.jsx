@@ -5,7 +5,7 @@ import { useCompliance } from "../../hooks/useCompliance";
 import { useProjects } from "../../hooks/useProjects";
 import ProgressBar from "../../components/ui/ProgressBar";
 
-// Resolves the signed-in worker, defaulting to the demo worker (Liam Nguyen).
+// Resolves the signed-in worker (builders previewing fall back to the first record).
 function useCurrentWorker() {
   const { user, isBuilder } = useAuth();
   const { getWorker, workers } = useWorkers();

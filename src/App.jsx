@@ -49,10 +49,11 @@ function RequireBuilder({ children }) {
   return children;
 }
 
-// Any authenticated user (stakeholder portal).
+// Any authenticated user (stakeholder portal). Signed-out visitors go to the
+// stakeholder sign-in — that's the front door for tradies during the pilot.
 function RequireAuth({ children }) {
   const { user } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/stakeholder" replace />;
   return children;
 }
 

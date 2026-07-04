@@ -26,8 +26,10 @@ export default function WorkerLayout() {
       navigate("/builder/dashboard");
       return;
     }
-    await logout();
+    // Navigate first: once the session clears, RequireAuth would bounce a
+    // worker route to /login before we could reach /stakeholder.
     navigate("/stakeholder");
+    await logout();
   };
 
   return (

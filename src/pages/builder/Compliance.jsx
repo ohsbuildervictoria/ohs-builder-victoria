@@ -149,7 +149,7 @@ export default function Compliance() {
             />
           ) : (
             <p className="py-10 text-center text-sm text-slate-400">
-              No {tab.toLowerCase()} records in the demo dataset.
+              No {tab.toLowerCase()} records yet.
             </p>
           )}
         </CardBody>
