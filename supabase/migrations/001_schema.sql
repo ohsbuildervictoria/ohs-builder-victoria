@@ -340,3 +340,38 @@ create table public.app_config (
 );
 alter table public.app_config enable row level security;
 create policy "config readable pre-login" on public.app_config for select to anon, authenticated using (true);
+
+-- ---------- Pilot go-live additions (2026-07-04) ----------
+-- Per-tradie pilot usernames; project management fields; LTIFR inputs.
+alter table public.workers add column login_handle text unique;
+alter table public.projects add column project_manager text not null default '';
+alter table public.projects add column start_date date;
+alter table public.projects drop constraint projects_status_check;
+alter table public.projects add constraint projects_status_check
+  check (status in ('Planning','Active','On Hold','Completed','Archived'));
+alter table public.incidents add column lost_time boolean not null default false;
+alter table public.diary_entries alter column hours type numeric using coalesce(nullif(hours,''),'0')::numeric;
+
+-- PILOT ONLY: tradies share one auth account, so worker id is explicit.
+-- Same category restrictions as update_my_compliance. Remove after pilot.
+create or replace function public.pilot_update_compliance(wid bigint, category text, value text)
+returns void
+language plpgsql security definer
+set search_path = public
+as $fn$
+begin
+  if auth.uid() is null then raise exception 'not authenticated'; end if;
+  if category not in ('induction','quiz','swms') then raise exception 'category not allowed'; end if;
+  if value not in ('Verified','Pending','Missing') then raise exception 'value not allowed'; end if;
+  execute format('update public.workers set %I = $1 where id = $2', category) using value, wid;
+  update public.workers w set status =
+    case
+      when (select count(*) from (values (w.induction),(w.quiz),(w.white_card),(w.insurance),(w.medical),(w.swms)) v(s) where v.s = 'Missing') > 0
+        then 'Site Access Pending'
+      when (select count(*) from (values (w.induction),(w.quiz),(w.white_card),(w.insurance),(w.medical),(w.swms)) v(s) where v.s <> 'Verified') > 0
+        then 'Action Required'
+      else 'Active'
+    end
+  where w.id = wid;
+end;
+$fn$;

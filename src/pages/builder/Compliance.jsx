@@ -7,19 +7,56 @@ import Badge from "../../components/ui/Badge";
 import ProgressBar from "../../components/ui/ProgressBar";
 import ComplianceMatrix from "../../components/shared/ComplianceMatrix";
 import { useWorkers } from "../../hooks/useWorkers";
+import { useProjects } from "../../hooks/useProjects";
+import { useAppContext } from "../../context/AppContext";
 import { useToast } from "../../components/ui/Notification";
+import { useForm } from "react-hook-form";
 import { complianceCategories } from "../../data/constants";
 import { downloadCsv } from "../../utils/export";
+import { swmsLibrary } from "../../data/swmsLibrary";
 
 const TABS = ["Stakeholders", "Subcontractors", "Suppliers", "Developer", "Other"];
 const STATUSES = ["Verified", "Pending", "Missing"];
 
+// Suggest a simple pilot username from the person's first name.
+const suggestHandle = (name, taken) => {
+  const base = (name || "").trim().split(/\s+/)[0]?.toLowerCase().replace(/[^a-z0-9]/g, "") || "";
+  if (!base) return "";
+  if (!taken.includes(base)) return base;
+  let n = 2;
+  while (taken.includes(`${base}${n}`)) n += 1;
+  return `${base}${n}`;
+};
+
 export default function Compliance() {
-  const { workers, updateCompliance, getComplianceStats } = useWorkers();
+  const { workers, updateCompliance, addWorker, getComplianceStats } = useWorkers();
+  const { projects } = useProjects();
+  const { refresh } = useAppContext();
   const toast = useToast();
   const [tab, setTab] = useState("Stakeholders");
   const [cell, setCell] = useState(null); // { worker, category }
+  const [addOpen, setAddOpen] = useState(false);
+  const [newLogin, setNewLogin] = useState(null); // credentials to show after create
+  const addForm = useForm();
   const complianceSummary = getComplianceStats();
+
+  const onAddStakeholder = async (data) => {
+    try {
+      const created = await addWorker({
+        name: data.name,
+        trade: data.trade,
+        employer: data.employer,
+        project: data.project ? Number(data.project) : null,
+        loginHandle: data.loginHandle,
+      });
+      setAddOpen(false);
+      addForm.reset();
+      setNewLogin({ name: created.name, handle: created.loginHandle });
+      refresh(); // pick up the SWMS template created/bumped for their trade
+    } catch (err) {
+      toast(err.message || "Could not add stakeholder", "error");
+    }
+  };
 
   // Workers with any Missing item — surfaced as a banner.
   const blocked = workers.filter((w) =>
@@ -54,12 +91,22 @@ export default function Compliance() {
         </div>
         <div className="flex gap-2">
           <Button
+            onClick={() => {
+              addForm.reset({
+                name: "", trade: "", employer: "", project: "", loginHandle: "",
+              });
+              setAddOpen(true);
+            }}
+          >
+            + Add Stakeholder
+          </Button>
+          <Button
             variant="secondary"
             onClick={() => toast("Document upload is coming in the next release", "warning")}
           >
             Upload Documents
           </Button>
-          <Button onClick={handleExport}>Export CSV</Button>
+          <Button variant="secondary" onClick={handleExport}>Export CSV</Button>
         </div>
       </div>
 
@@ -108,6 +155,118 @@ export default function Compliance() {
         </CardBody>
       </Card>
 
+      {/* Add stakeholder modal */}
+      <Modal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        title="Add Stakeholder"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setAddOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={addForm.handleSubmit(onAddStakeholder)}>
+              Add Stakeholder
+            </Button>
+          </>
+        }
+      >
+        <form className="space-y-4" onSubmit={addForm.handleSubmit(onAddStakeholder)}>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Full name *
+            </span>
+            <input
+              className="cmp-input"
+              {...addForm.register("name", {
+                required: true,
+                onChange: (e) => {
+                  const taken = workers.map((w) => w.loginHandle).filter(Boolean);
+                  addForm.setValue("loginHandle", suggestHandle(e.target.value, taken));
+                },
+              })}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Trade *
+            </span>
+            <input
+              className="cmp-input"
+              list="trade-options"
+              placeholder="e.g. Carpenter – Framer"
+              {...addForm.register("trade", { required: true })}
+            />
+            <datalist id="trade-options">
+              {swmsLibrary.map((s) => (
+                <option key={s.id} value={s.trade} />
+              ))}
+            </datalist>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Employer
+            </span>
+            <input className="cmp-input" {...addForm.register("employer")} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Assigned project
+            </span>
+            <select className="cmp-input" {...addForm.register("project")}>
+              <option value="">— Unassigned —</option>
+              {projects
+                .filter((p) => p.status !== "Archived")
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Sign-in username *
+            </span>
+            <input
+              className="cmp-input"
+              autoCapitalize="none"
+              {...addForm.register("loginHandle", { required: true })}
+            />
+            <span className="mt-1 block text-xs text-slate-400">
+              They sign in at /stakeholder with this username and the pilot
+              password 123.
+            </span>
+          </label>
+        </form>
+      </Modal>
+
+      {/* New login details */}
+      <Modal
+        open={!!newLogin}
+        onClose={() => setNewLogin(null)}
+        title="Stakeholder added"
+        footer={<Button onClick={() => setNewLogin(null)}>Done</Button>}
+      >
+        {newLogin && (
+          <div className="space-y-3 text-sm text-slate-700">
+            <p>
+              <span className="font-semibold">{newLogin.name}</span> can now sign
+              in to the site portal:
+            </p>
+            <div className="rounded-lg bg-slate-50 p-4 font-mono text-sm">
+              <p>Web address: {window.location.origin}/stakeholder</p>
+              <p>Username: {newLogin.handle}</p>
+              <p>Password: 123</p>
+            </div>
+            <p className="text-xs text-slate-500">
+              Pilot sign-in only — proper individual accounts arrive after the
+              pilot.
+            </p>
+          </div>
+        )}
+      </Modal>
+
       {/* Update compliance modal */}
       <Modal
         open={!!cell}
@@ -152,6 +311,11 @@ export default function Compliance() {
           </div>
         )}
       </Modal>
+
+      <style>{`
+        .cmp-input { width:100%; border-radius:0.5rem; border:1px solid #cbd5e1; padding:0.5rem 0.75rem; font-size:0.875rem; }
+        .cmp-input:focus { outline:none; border-color:#1e3a8a; box-shadow:0 0 0 1px #1e3a8a; }
+      `}</style>
     </div>
   );
 }

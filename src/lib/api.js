@@ -25,6 +25,8 @@ const mapProject = (r) => ({
   compliance: r.compliance,
   contractType: r.contract_type,
   contractValue: Number(r.contract_value),
+  projectManager: r.project_manager || "",
+  startDate: r.start_date,
   // annotated after fetch from live data:
   workers: 0,
   incidents: 0,
@@ -35,6 +37,7 @@ const mapWorker = (r) => ({
   name: r.name,
   trade: r.trade,
   employer: r.employer,
+  loginHandle: r.login_handle || "",
   project: r.project_id,
   induction: r.induction,
   quiz: r.quiz,
@@ -71,6 +74,7 @@ const mapAction = (r) => ({
 const mapIncident = (r, projectsById = {}) => ({
   id: r.id,
   type: r.type,
+  lostTime: r.lost_time,
   description: r.description,
   projectId: r.project_id,
   project: projectsById[r.project_id]?.name || "—",
@@ -93,7 +97,8 @@ const mapEntry = (r) => ({
   weather: r.weather,
   wind: r.wind,
   labour: r.labour,
-  hours: r.hours,
+  hours: Number(r.hours) || 0,
+  manHours: (Number(r.hours) || 0) * (r.labour || 0),
   contacts: r.contacts,
   deliveries: r.deliveries || [],
   notes: r.notes,
@@ -247,6 +252,8 @@ export async function insertProject(p) {
       compliance: p.compliance ?? 100,
       contract_type: p.contractType || "Lump Sum",
       contract_value: p.contractValue ?? 0,
+      project_manager: p.projectManager || "",
+      start_date: p.startDate || null,
     })
     .select()
     .single();
@@ -263,8 +270,81 @@ export async function updateProjectRow(id, patch) {
   if (patch.compliance !== undefined) row.compliance = patch.compliance;
   if (patch.contractType !== undefined) row.contract_type = patch.contractType;
   if (patch.contractValue !== undefined) row.contract_value = patch.contractValue;
+  if (patch.projectManager !== undefined) row.project_manager = patch.projectManager;
+  if (patch.startDate !== undefined) row.start_date = patch.startDate || null;
   const { error } = await supabase.from("projects").update(row).eq("id", id);
   if (error) fail(error, "Updating project");
+}
+
+// Creates a stakeholder (worker) record with a pilot login handle, and makes
+// sure a signable SWMS template exists for their trade (sourced counts only —
+// content comes from the static library).
+export async function insertWorker(w) {
+  const { data, error } = await supabase
+    .from("workers")
+    .insert({
+      name: w.name,
+      trade: w.trade || "",
+      employer: w.employer || "",
+      project_id: w.project ?? null,
+      login_handle: (w.loginHandle || "").trim().toLowerCase() || null,
+    })
+    .select()
+    .single();
+  if (error) {
+    if (/login_handle/.test(error.message) && /duplicate|unique/i.test(error.message)) {
+      fail(new Error("That username is already taken — pick another."), "Adding stakeholder");
+    }
+    fail(error, "Adding stakeholder");
+  }
+
+  // Ensure a SWMS template row exists for this trade; bump the required count.
+  if (w.trade) {
+    const { data: tmpl } = await supabase
+      .from("swms_templates")
+      .select("id, total")
+      .eq("trade", w.trade)
+      .maybeSingle();
+    if (tmpl) {
+      await supabase
+        .from("swms_templates")
+        .update({ total: (tmpl.total || 0) + 1 })
+        .eq("id", tmpl.id);
+    } else {
+      const ref = `SWMS-${w.trade.replace(/[^A-Za-z]+/g, "").slice(0, 8).toUpperCase() || "TRADE"}-01`;
+      await supabase.from("swms_templates").insert({
+        trade: w.trade,
+        ref: `${ref}-${data.id}`,
+        version: "v1.0",
+        signed: 0,
+        total: 1,
+        status: "Pending",
+        legislation: "OHS Act 2004 (Vic), OHS Regulations 2017 (Vic)",
+      });
+    }
+  }
+  return mapWorker(data);
+}
+
+export async function findWorkerByHandle(handle) {
+  const { data, error } = await supabase
+    .from("workers")
+    .select("*")
+    .eq("login_handle", handle.trim().toLowerCase())
+    .maybeSingle();
+  if (error) fail(error, "Looking up stakeholder");
+  return data ? mapWorker(data) : null;
+}
+
+// PILOT ONLY: tradies share one auth account, so the worker id is explicit.
+export async function pilotUpdateCompliance(workerId, categoryKey, value) {
+  const col = COMPLIANCE_COLS[categoryKey];
+  const { error } = await supabase.rpc("pilot_update_compliance", {
+    wid: workerId,
+    category: col,
+    value,
+  });
+  if (error) fail(error, "Updating your compliance");
 }
 
 // Staff path: direct update of any worker's compliance category.
@@ -304,6 +384,7 @@ export async function insertIncident(i) {
       witnesses: i.witnesses || "",
       immediate_action: i.immediateAction || "",
       notifiable: !!i.notifiable,
+      lost_time: !!i.lostTime,
     })
     .select("*, corrective_actions(*)")
     .single();
@@ -355,7 +436,7 @@ export async function insertDiaryEntry(e) {
       weather: e.weather || "",
       wind: e.wind || "",
       labour: Number(e.labour ?? e.workersPresent ?? 0) || 0,
-      hours: e.hours || "",
+      hours: Number(e.hours) || 0,
       contacts: e.contacts || "",
       deliveries: Array.isArray(e.deliveries)
         ? e.deliveries

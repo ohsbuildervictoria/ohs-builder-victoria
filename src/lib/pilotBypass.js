@@ -25,6 +25,52 @@ export const PILOT_CREDENTIALS = {
   password: "Arlington!Docklands2026",
 };
 
+// PILOT ONLY: all tradies share this one worker-role auth account under the
+// hood. The /stakeholder screen asks for their personal username (workers.
+// login_handle) + the pilot password "123", then attaches their own worker id
+// to the session so each tradie only ever sees their own site/tasks/SWMS.
+// No real security during the pilot — replace with per-user accounts after.
+export const PILOT_STAKEHOLDER_CREDENTIALS = {
+  email: "admin+stakeholder@ohsbuildervictoria.com.au",
+  password: "Arlington!Bendigo2026",
+};
+
+export const PILOT_STAKEHOLDER_PASSWORD = "123";
+
+// The stakeholder entry route must never be hijacked by the builder
+// auto-login, or tradies could never reach their own sign-in screen.
+export const STAKEHOLDER_LOGIN_PATH = "/stakeholder";
+
+const PILOT_WORKER_KEY = "ohsbv-pilot-worker";
+
+export function savePilotWorker(worker) {
+  try {
+    localStorage.setItem(
+      PILOT_WORKER_KEY,
+      JSON.stringify({ id: worker.id, name: worker.name })
+    );
+  } catch {
+    /* private mode — session just won't survive refresh */
+  }
+}
+
+export function loadPilotWorker() {
+  try {
+    const raw = localStorage.getItem(PILOT_WORKER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearPilotWorker() {
+  try {
+    localStorage.removeItem(PILOT_WORKER_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 // Reads the kill switch. Fails closed: any error → bypass off → real login.
 export async function isPilotBypassEnabled() {
   try {

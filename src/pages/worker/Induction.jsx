@@ -16,9 +16,9 @@ function buildModuleState() {
 }
 
 export default function Induction() {
-  const { user } = useAuth();
+  const { user, isBuilder } = useAuth();
   const { getWorker, workers } = useWorkers();
-  const worker = getWorker(user?.workerId ?? workers[0]?.id);
+  const worker = getWorker(user?.workerId ?? (isBuilder ? workers[0]?.id : null));
   const { updateCategory } = useCompliance(worker?.id);
   const [modules, setModules] = useState(buildModuleState);
 

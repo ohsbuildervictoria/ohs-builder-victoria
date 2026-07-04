@@ -67,6 +67,8 @@ export default function ProjectDetail() {
             <CardBody className="grid grid-cols-2 gap-4 text-sm">
               <Info label="Contract Type" value={project.contractType} />
               <Info label="Contract Value" value={formatAUD(project.contractValue)} />
+              <Info label="Project Manager" value={project.projectManager || "—"} />
+              <Info label="Start Date" value={project.startDate || "—"} />
               <Info label="Stakeholders on Site" value={project.workers} />
               <Info label="Active Incidents" value={project.incidents} />
               <div className="col-span-2">

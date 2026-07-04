@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useAppContext } from "../context/AppContext";
 import { complianceCategories } from "../data/constants";
-import { updateWorkerComplianceRow } from "../lib/api";
+import { updateWorkerComplianceRow, insertWorker } from "../lib/api";
 
 // Derives a worker's overall status from their 6 compliance categories.
 export function deriveStatus(worker) {
@@ -26,6 +26,15 @@ export function useWorkers(projectId = null) {
   const getWorker = useCallback(
     (id) => workers.find((w) => w.id === Number(id)) || null,
     [workers]
+  );
+
+  const addWorker = useCallback(
+    async (worker) => {
+      const created = await insertWorker(worker);
+      setWorkers((prev) => [...prev, created]);
+      return created;
+    },
+    [setWorkers]
   );
 
   // Staff path: HSE/admin verifying any worker's compliance category.
@@ -65,6 +74,7 @@ export function useWorkers(projectId = null) {
   return {
     workers: scoped,
     getWorker,
+    addWorker,
     updateCompliance,
     filterByStatus,
     getComplianceStats,

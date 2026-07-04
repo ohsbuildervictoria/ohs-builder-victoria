@@ -8,6 +8,7 @@ import BuilderLayout from "./layouts/BuilderLayout";
 import WorkerLayout from "./layouts/WorkerLayout";
 
 import Login from "./pages/Login";
+import StakeholderLogin from "./pages/StakeholderLogin";
 
 import Dashboard from "./pages/builder/Dashboard";
 import Projects from "./pages/builder/Projects";
@@ -68,6 +69,8 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<Login />} />
+      {/* PILOT: lightweight tradie sign-in (see src/lib/pilotBypass.js) */}
+      <Route path="/stakeholder" element={<StakeholderLogin />} />
 
       {/* Builder web */}
       <Route

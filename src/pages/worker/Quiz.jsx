@@ -7,9 +7,9 @@ import { useCompliance } from "../../hooks/useCompliance";
 import { quizQuestions } from "../../data/constants";
 
 export default function Quiz() {
-  const { user } = useAuth();
+  const { user, isBuilder } = useAuth();
   const { getWorker, workers } = useWorkers();
-  const worker = getWorker(user?.workerId ?? workers[0]?.id);
+  const worker = getWorker(user?.workerId ?? (isBuilder ? workers[0]?.id : null));
   const { updateCategory } = useCompliance(worker?.id);
   const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState(null);

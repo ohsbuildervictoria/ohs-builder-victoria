@@ -121,6 +121,7 @@ export default function Incidents() {
                       {i.notifiable && (
                         <Badge status="Critical">WorkSafe Notifiable</Badge>
                       )}
+                      {i.lostTime && <Badge status="High">Lost Time</Badge>}
                       <Badge status={i.status} />
                     </div>
                     <p className="mt-2 text-sm font-medium text-slate-800">
@@ -252,6 +253,15 @@ export default function Incidents() {
             <Field label="Immediate action taken">
               <textarea rows={2} className="modal-input" {...register("immediateAction")} />
             </Field>
+          </div>
+          <div className="col-span-2">
+            <label className="flex items-start gap-2 text-sm text-slate-700">
+              <input type="checkbox" className="mt-0.5" {...register("lostTime")} />
+              <span>
+                <span className="font-medium">Lost-time injury</span> — the person
+                could not return to their next scheduled shift (counts toward LTIFR)
+              </span>
+            </label>
           </div>
           <div className="col-span-2">
             <Button

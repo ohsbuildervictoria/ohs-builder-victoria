@@ -3,7 +3,11 @@ import { useAppContext } from "../context/AppContext";
 import { useAuthContext } from "../context/AuthContext";
 import { complianceCategories } from "../data/constants";
 import { deriveStatus } from "./useWorkers";
-import { updateMyCompliance, updateWorkerComplianceRow } from "../lib/api";
+import {
+  updateMyCompliance,
+  updateWorkerComplianceRow,
+  pilotUpdateCompliance,
+} from "../lib/api";
 
 // { compliance, updateCategory, overallStatus, canAccessSite, missingItems }
 // RULE: canAccessSite = all 6 categories === "Verified"
@@ -11,7 +15,7 @@ import { updateMyCompliance, updateWorkerComplianceRow } from "../lib/api";
 // stays strict; builder staff write directly.
 export function useCompliance(workerId) {
   const { workers, setWorkers } = useAppContext();
-  const { isWorker } = useAuthContext();
+  const { isWorker, user } = useAuthContext();
 
   const worker = useMemo(
     () => workers.find((w) => w.id === Number(workerId)) || null,
@@ -32,7 +36,10 @@ export function useCompliance(workerId) {
       if (!current) return;
       const updated = { ...current, [category]: value };
       const status = deriveStatus(updated);
-      if (isWorker) {
+      if (user?.pilotWorker) {
+        // PILOT: shared auth account — worker id must be explicit.
+        await pilotUpdateCompliance(Number(workerId), category, value);
+      } else if (isWorker) {
         await updateMyCompliance(category, value);
       } else {
         await updateWorkerComplianceRow(Number(workerId), category, value, status);
@@ -41,7 +48,7 @@ export function useCompliance(workerId) {
         prev.map((w) => (w.id === Number(workerId) ? { ...updated, status } : w))
       );
     },
-    [workers, setWorkers, workerId, isWorker]
+    [workers, setWorkers, workerId, isWorker, user?.pilotWorker]
   );
 
   const missingItems = useMemo(

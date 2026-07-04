@@ -4,7 +4,28 @@ import { supabase } from "../lib/supabase";
 import { fetchProfile, touchLastLogin } from "../lib/api";
 // TEMPORARY pilot bypass — see src/lib/pilotBypass.js. Disable before any
 // other real client's data enters this system.
-import { PILOT_CREDENTIALS, isPilotBypassEnabled } from "../lib/pilotBypass";
+import {
+  PILOT_CREDENTIALS,
+  PILOT_STAKEHOLDER_CREDENTIALS,
+  PILOT_STAKEHOLDER_PASSWORD,
+  STAKEHOLDER_LOGIN_PATH,
+  isPilotBypassEnabled,
+  savePilotWorker,
+  loadPilotWorker,
+  clearPilotWorker,
+} from "../lib/pilotBypass";
+import { findWorkerByHandle } from "../lib/api";
+
+// Attaches the pilot tradie identity to the shared stakeholder session so the
+// portal scopes to that tradie only.
+function withPilotWorker(profile) {
+  if (!profile || profile.email !== PILOT_STAKEHOLDER_CREDENTIALS.email) {
+    return profile;
+  }
+  const pilot = loadPilotWorker();
+  if (!pilot) return profile;
+  return { ...profile, workerId: pilot.id, name: pilot.name, pilotWorker: true };
+}
 
 const AuthContext = createContext(null);
 
@@ -26,7 +47,7 @@ export function AuthProvider({ children }) {
       try {
         const profile = await fetchProfile(session.user.id);
         if (!cancelled) {
-          setUser(profile ? { ...profile } : null);
+          setUser(profile ? withPilotWorker({ ...profile }) : null);
         }
       } catch {
         if (!cancelled) setUser(null);
@@ -38,7 +59,11 @@ export function AuthProvider({ children }) {
       // with no session is signed straight in as the Builder Admin account.
       // Real session, real writes. Flag off → this block is a no-op and the
       // normal login screen is shown. See src/lib/pilotBypass.js.
-      if (!session?.user && !cancelled) {
+      // Tradies must be able to reach their own sign-in screen, so the
+      // builder auto-login never fires on the stakeholder entry route.
+      const onStakeholderRoute =
+        window.location.pathname.startsWith(STAKEHOLDER_LOGIN_PATH);
+      if (!session?.user && !cancelled && !onStakeholderRoute) {
         try {
           if (await isPilotBypassEnabled()) {
             const { data, error } =
@@ -72,6 +97,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async (email, password) => {
+    clearPilotWorker();
     const { data, error } = await supabase.auth.signInWithPassword({
       email: (email || "").trim(),
       password,
@@ -88,7 +114,40 @@ export function AuthProvider({ children }) {
     return profile;
   }, []);
 
+  // PILOT ONLY: tradie sign-in by personal username + the shared pilot
+  // password. Uses one shared worker-role auth account under the hood and
+  // pins the tradie's own worker id to the session (per-user data scoping).
+  const loginStakeholder = useCallback(async (handle, password) => {
+    const username = (handle || "").trim();
+    if (!username) throw new Error("Enter your username.");
+    if (password !== PILOT_STAKEHOLDER_PASSWORD) {
+      throw new Error("Incorrect username or password.");
+    }
+    const { error } = await supabase.auth.signInWithPassword(
+      PILOT_STAKEHOLDER_CREDENTIALS
+    );
+    if (error) throw new Error("Sign-in is unavailable right now — try again shortly.");
+    const worker = await findWorkerByHandle(username);
+    if (!worker) {
+      await supabase.auth.signOut();
+      throw new Error("Incorrect username or password.");
+    }
+    savePilotWorker(worker);
+    const profile = await fetchProfile(
+      (await supabase.auth.getUser()).data.user.id
+    );
+    const pilotUser = {
+      ...profile,
+      workerId: worker.id,
+      name: worker.name,
+      pilotWorker: true,
+    };
+    setUser(pilotUser);
+    return pilotUser;
+  }, []);
+
   const logout = useCallback(async () => {
+    clearPilotWorker();
     await supabase.auth.signOut();
     setUser(null);
   }, []);
@@ -107,13 +166,14 @@ export function AuthProvider({ children }) {
       role,
       initialising,
       login,
+      loginStakeholder,
       logout,
       resetPassword,
       isBuilder: role === "builder_admin" || role === "hse_manager" || role === "site_supervisor",
       isWorker: role === "worker",
       hasRole: (roleName) => role === roleName,
     };
-  }, [user, initialising, login, logout, resetPassword]);
+  }, [user, initialising, login, loginStakeholder, logout, resetPassword]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

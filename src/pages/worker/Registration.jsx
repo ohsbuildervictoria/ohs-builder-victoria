@@ -16,9 +16,9 @@ const DOCUMENTS = [
 ];
 
 export default function Registration() {
-  const { user } = useAuth();
+  const { user, isBuilder } = useAuth();
   const { getWorker, workers } = useWorkers();
-  const worker = getWorker(user?.workerId ?? workers[0]?.id);
+  const worker = getWorker(user?.workerId ?? (isBuilder ? workers[0]?.id : null));
   const toast = useToast();
   const [tab, setTab] = useState("Personal");
 

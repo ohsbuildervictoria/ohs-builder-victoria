@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import Logo from "../components/shared/Logo";
 
@@ -10,12 +10,24 @@ const NAV = [
 ];
 
 export default function WorkerLayout() {
-  const { logout } = useAuth();
+  const { logout, isBuilder, isWorker, user } = useAuth();
   const navigate = useNavigate();
 
-  const handleExit = () => {
-    logout();
-    navigate("/login");
+  // A worker session that hasn't identified a tradie yet belongs on the
+  // stakeholder sign-in screen.
+  if (isWorker && !user?.workerId) {
+    return <Navigate to="/stakeholder" replace />;
+  }
+
+  // Builders previewing the stakeholder portal go back to their dashboard —
+  // never sign the whole session out. Tradies exit to their sign-in screen.
+  const handleExit = async () => {
+    if (isBuilder) {
+      navigate("/builder/dashboard");
+      return;
+    }
+    await logout();
+    navigate("/stakeholder");
   };
 
   return (
@@ -60,7 +72,7 @@ export default function WorkerLayout() {
             <span className="text-lg" aria-hidden>
               🚪
             </span>
-            Exit
+            {isBuilder ? "Back" : "Exit"}
           </button>
         </nav>
       </div>

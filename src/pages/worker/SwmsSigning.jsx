@@ -7,9 +7,9 @@ import Badge from "../../components/ui/Badge";
 import { findSwms } from "../../data/swmsLibrary";
 
 export default function SwmsSigning() {
-  const { user } = useAuth();
+  const { user, isBuilder } = useAuth();
   const { getWorker, workers } = useWorkers();
-  const worker = getWorker(user?.workerId ?? workers[0]?.id);
+  const worker = getWorker(user?.workerId ?? (isBuilder ? workers[0]?.id : null));
   const { updateCategory } = useCompliance(worker?.id);
   const { templates, signSWMS } = useSWMS();
 

@@ -25,6 +25,7 @@ export function useIncidents(projectId = null) {
       const created = {
         id: row.id,
         type: row.type,
+        lostTime: row.lost_time,
         description: row.description,
         projectId: row.project_id,
         project: project?.name || "—",

@@ -7,9 +7,9 @@ import ProgressBar from "../../components/ui/ProgressBar";
 
 // Resolves the signed-in worker, defaulting to the demo worker (Liam Nguyen).
 function useCurrentWorker() {
-  const { user } = useAuth();
+  const { user, isBuilder } = useAuth();
   const { getWorker, workers } = useWorkers();
-  return getWorker(user?.workerId ?? workers[0]?.id);
+  return getWorker(user?.workerId ?? (isBuilder ? workers[0]?.id : null));
 }
 
 export default function WorkerHome() {

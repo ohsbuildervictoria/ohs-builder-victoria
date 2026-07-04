@@ -52,6 +52,12 @@ export default function Dashboard() {
         s + (i.correctiveActions || []).filter((a) => a.status !== "Done").length,
       0
     );
+    // LTIFR (WorkSafe formula): lost-time injuries × 1,000,000 ÷ hours worked.
+    // Hours worked = Σ site-diary (hours on site × stakeholders present).
+    const totalHours = entries.reduce((s, e) => s + (e.manHours || 0), 0);
+    const lostTimeInjuries = incidents.filter((i) => i.lostTime).length;
+    const ltifr =
+      totalHours > 0 ? (lostTimeInjuries * 1_000_000) / totalHours : null;
     return {
       activeProjects,
       activeWorkers,
@@ -62,8 +68,11 @@ export default function Dashboard() {
       workSafeNotifications,
       nearMisses30d,
       openActions,
+      ltifr,
+      totalHours,
+      lostTimeInjuries,
     };
-  }, [projects, workers, incidents, templates]);
+  }, [projects, workers, incidents, templates, entries]);
 
   const incidentsByType = useMemo(() => {
     const counts = {};
@@ -133,7 +142,7 @@ export default function Dashboard() {
       </div>
 
       {/* Secondary KPI row */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
         <StatCard label="Pending SWMS Sign-offs" value={kpis.pendingSwms} tone="amber" />
         <StatCard
           label="WorkSafe Notifications"
@@ -143,6 +152,16 @@ export default function Dashboard() {
         />
         <StatCard label="Near Misses (30d)" value={kpis.nearMisses30d} />
         <StatCard label="Open Corrective Actions" value={kpis.openActions} tone="amber" />
+        <StatCard
+          label="LTIFR"
+          value={kpis.ltifr == null ? "—" : kpis.ltifr.toFixed(1)}
+          tone={kpis.ltifr == null || kpis.ltifr === 0 ? "green" : "red"}
+          sub={
+            kpis.ltifr == null
+              ? "per 1M hrs — record site diary hours to calculate"
+              : `per 1M hrs · ${kpis.lostTimeInjuries} LTI / ${Math.round(kpis.totalHours).toLocaleString()} hrs`
+          }
+        />
       </div>
 
       {/* Charts */}
