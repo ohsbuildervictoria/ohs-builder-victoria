@@ -7,6 +7,7 @@ import { useAuth } from "./hooks/useAuth";
 import BuilderLayout from "./layouts/BuilderLayout";
 import WorkerLayout from "./layouts/WorkerLayout";
 
+import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import StakeholderLogin from "./pages/StakeholderLogin";
 
@@ -68,7 +69,9 @@ function RequireAdmin({ children }) {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      {/* Public landing page — the front door. The workspace is the second
+          layer behind "Enter Builder Workspace" / the stakeholder sign-in. */}
+      <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       {/* PILOT: lightweight tradie sign-in (see src/lib/pilotBypass.js) */}
       <Route path="/stakeholder" element={<StakeholderLogin />} />
@@ -122,7 +125,7 @@ function AppRoutes() {
         <Route path="registration" element={<Registration />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

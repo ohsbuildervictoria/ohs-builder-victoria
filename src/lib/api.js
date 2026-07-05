@@ -166,6 +166,14 @@ const mapInvite = (r) => ({
   lastLogin: "—",
 });
 
+// Local calendar date (YYYY-MM-DD) — .toISOString() is the UTC date, which is
+// yesterday in Australia until mid-morning.
+function localDate() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 function fail(error, action) {
   const err = new Error(`${action}: ${error.message}`);
   err.cause = error;
@@ -199,10 +207,23 @@ export async function fetchAppData() {
   const workerList = (workers.data || []).map(mapWorker);
   const incidentList = (incidents.data || []).map((r) => mapIncident(r, projectsById));
 
-  // Annotate live counts onto projects
+  // Annotate live counts onto projects. Compliance % is derived from the
+  // assigned stakeholders' verified items (6 categories each) — a project
+  // with no stakeholders yet has nothing to be non-compliant about, so 100.
+  const categoryKeys = Object.keys(COMPLIANCE_COLS);
   projectList.forEach((p) => {
-    p.workers = workerList.filter((w) => w.project === p.id).length;
+    const crew = workerList.filter((w) => w.project === p.id);
+    p.workers = crew.length;
     p.incidents = incidentList.filter((i) => i.projectId === p.id).length;
+    if (crew.length) {
+      const verified = crew.reduce(
+        (s, w) => s + categoryKeys.filter((k) => w[k] === "Verified").length,
+        0
+      );
+      p.compliance = Math.round(
+        (verified / (crew.length * categoryKeys.length)) * 100
+      );
+    }
   });
 
   return {
@@ -376,7 +397,7 @@ export async function insertIncident(i) {
       description: i.description || "",
       project_id: i.projectId ?? null,
       reported_by: i.reportedBy || "",
-      date: i.date || new Date().toISOString().slice(0, 10),
+      date: i.date || localDate(),
       status: i.status || "Open",
       severity: i.severity || "Low",
       location: i.location || "",
@@ -416,6 +437,18 @@ export async function insertCorrectiveAction(incidentId, action) {
 export async function signSwmsRpc(templateId) {
   const { error } = await supabase.rpc("sign_swms", { template_id: templateId });
   if (error) fail(error, "Signing SWMS");
+}
+
+// Re-reads one template so callers can derive status from what the DB really
+// holds (the sign_swms RPC silently no-ops on locked templates).
+export async function fetchTemplateRow(id) {
+  const { data, error } = await supabase
+    .from("swms_templates")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) fail(error, "Loading SWMS template");
+  return data ? mapTemplate(data) : null;
 }
 
 export async function updateTemplateRow(id, patch) {
@@ -459,7 +492,7 @@ export async function insertToolboxMeeting(m) {
     .insert({
       project_id: m.project ?? null,
       topic: m.topic || m.title || "Toolbox Meeting",
-      date: m.date || new Date().toISOString().slice(0, 10),
+      date: m.date || localDate(),
       presenter: m.presenter || "",
       attendees: m.attendees ?? m.attendance ?? 0,
       total: m.total ?? m.attendees ?? m.attendance ?? 0,
@@ -486,7 +519,7 @@ export async function bumpPolicyVersion(policy) {
   const next = `v${(versionNum + 0.1).toFixed(1)}`;
   const { data, error } = await supabase
     .from("policies")
-    .update({ version: next, updated: new Date().toISOString().slice(0, 10) })
+    .update({ version: next, updated: localDate() })
     .eq("id", policy.id)
     .select()
     .single();

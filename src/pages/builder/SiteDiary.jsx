@@ -8,7 +8,10 @@ import { useToast } from "../../components/ui/Notification";
 import { useAuth } from "../../hooks/useAuth";
 import { weatherOptions, diaryTags } from "../../data/constants";
 
-const TODAY = new Date().toISOString().slice(0, 10);
+// Local date, not UTC — .toISOString() is yesterday in Australia each morning.
+const d = new Date();
+const pad = (n) => String(n).padStart(2, "0");
+const TODAY = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 export default function SiteDiary() {
   const { projects } = useProjects();
@@ -176,8 +179,16 @@ export default function SiteDiary() {
                   <input
                     type="date"
                     className="input"
-                    {...register("date", { required: true })}
+                    max={TODAY}
+                    {...register("date", {
+                      required: true,
+                      validate: (v) =>
+                        v <= TODAY || "Diary entries can't be dated in the future",
+                    })}
                   />
+                  {errors.date && (
+                    <p className="mt-1 text-xs text-red-500">{errors.date.message}</p>
+                  )}
                 </Field>
                 <Field label="Weather">
                   <select className="input" {...register("weather")}>

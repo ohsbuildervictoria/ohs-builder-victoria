@@ -40,7 +40,7 @@ export default function Projects() {
   const openNew = () => {
     reset({
       name: "", address: "", contractType: "Lump Sum", contractValue: "",
-      projectManager: "", startDate: "", status: "Planning",
+      projectManager: "", startDate: "", status: "Planning", buildPercent: 0,
     });
     setEditing("new");
   };
@@ -54,6 +54,7 @@ export default function Projects() {
       projectManager: p.projectManager,
       startDate: p.startDate || "",
       status: p.status === "Archived" ? "Planning" : p.status,
+      buildPercent: p.buildPercent ?? 0,
     });
     setEditing(p);
   };
@@ -67,6 +68,7 @@ export default function Projects() {
       projectManager: data.projectManager,
       startDate: data.startDate || null,
       status: data.status,
+      buildPercent: Math.min(100, Math.max(0, Number(data.buildPercent) || 0)),
     };
     try {
       if (editing === "new") {
@@ -271,6 +273,15 @@ export default function Projects() {
                 <option key={s}>{s}</option>
               ))}
             </select>
+          </Field>
+          <Field label="Build progress (%)">
+            <input
+              type="number"
+              min="0"
+              max="100"
+              className="prj-input"
+              {...register("buildPercent")}
+            />
           </Field>
         </form>
       </Modal>

@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useAppContext } from "../context/AppContext";
-import { signSwmsRpc, updateTemplateRow } from "../lib/api";
+import { signSwmsRpc, updateTemplateRow, fetchTemplateRow } from "../lib/api";
 
 // Recomputes a template's status from its signed/total counts and lock flag.
 function computeStatus(t) {
@@ -29,13 +29,22 @@ export function useSWMS(trade = null) {
       const current = templates.find((t) => t.id === Number(id));
       if (!current) return;
       await signSwmsRpc(Number(id));
-      const updated = { ...current, signed: current.signed + 1 };
-      const status = computeStatus(updated);
-      // keep the derived status in sync in the DB (best effort)
-      updateTemplateRow(updated.id, { status }).catch(() => {});
+      // The RPC no-ops on locked templates, so status must come from what the
+      // DB actually holds — never from an optimistic local increment.
+      const fresh = await fetchTemplateRow(Number(id));
+      if (!fresh) return;
+      const status = computeStatus(fresh);
+      if (status !== fresh.status) {
+        updateTemplateRow(fresh.id, { status }).catch(() => {});
+      }
       setTemplates((prev) =>
-        prev.map((t) => (t.id === Number(id) ? { ...updated, status } : t))
+        prev.map((t) => (t.id === fresh.id ? { ...fresh, status } : t))
       );
+      if (fresh.signed === current.signed) {
+        throw new Error(
+          "No signature recorded — this SWMS is locked for sign-off. Unlock it first."
+        );
+      }
     },
     [templates, setTemplates]
   );

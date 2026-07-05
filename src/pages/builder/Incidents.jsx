@@ -17,6 +17,13 @@ import {
 
 const TABS = ["All Incidents", "Near Miss", "WorkSafe Notifiable"];
 
+// Evaluated once per page load. Incidents are reports of things that already
+// happened — cap the picker at the end of today (local time).
+const now = new Date();
+const pad = (n) => String(n).padStart(2, "0");
+const TODAY_LOCAL = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+const MAX_INCIDENT_DATETIME = `${TODAY_LOCAL}T23:59`;
+
 export default function Incidents() {
   const { incidents, addIncident, updateStatus, addCorrectiveAction } = useIncidents();
   const { projects } = useProjects();
@@ -208,7 +215,20 @@ export default function Incidents() {
             </select>
           </Field>
           <Field label="Date / time">
-            <input type="datetime-local" className="modal-input" {...register("date", { required: true })} />
+            <input
+              type="datetime-local"
+              className="modal-input"
+              max={MAX_INCIDENT_DATETIME}
+              {...register("date", {
+                required: true,
+                validate: (v) =>
+                  (v || "").slice(0, 10) <= TODAY_LOCAL ||
+                  "Incident date can't be in the future",
+              })}
+            />
+            {errors.date && (
+              <p className="mt-1 text-xs text-red-500">{errors.date.message}</p>
+            )}
           </Field>
           <Field label="Project">
             <select className="modal-input" {...register("project", { required: true })}>
@@ -262,6 +282,12 @@ export default function Incidents() {
                 could not return to their next scheduled shift (counts toward LTIFR)
               </span>
             </label>
+            <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              If the incident involved death, immediate hospital treatment, or a
+              dangerous occurrence, it must be notified to WorkSafe Victoria
+              (13 23 60) immediately — set the type to{" "}
+              <span className="font-semibold">Notifiable (WorkSafe)</span>.
+            </p>
           </div>
           <div className="col-span-2">
             <Button

@@ -113,9 +113,13 @@ export default function SWMS() {
                   <Button
                     size="sm"
                     variant="success"
-                    onClick={() => {
-                      signSWMS(t.id);
-                      toast(`Signature recorded for ${t.trade}`);
+                    onClick={async () => {
+                      try {
+                        await signSWMS(t.id);
+                        toast(`Signature recorded for ${t.trade}`);
+                      } catch (err) {
+                        toast(err.message || "Could not record signature", "error");
+                      }
                     }}
                   >
                     + Sign
