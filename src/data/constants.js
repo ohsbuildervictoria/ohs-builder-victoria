@@ -21,15 +21,10 @@ export const roleLabels = {
   worker: "Stakeholder / Tradie",
 };
 
-// The 6 compliance categories used across the matrix
-export const complianceCategories = [
-  { key: "induction", label: "Induction" },
-  { key: "quiz", label: "Quiz" },
-  { key: "whiteCard", label: "White Card" },
-  { key: "insurance", label: "Insurance" },
-  { key: "medical", label: "Medical" },
-  { key: "swms", label: "SWMS" },
-];
+// The 6 compliance categories used across the matrix. Defined once in
+// src/lib/compliance.js (the single source of truth for compliance logic) and
+// re-exported here for the many modules that already import it from constants.
+export { complianceCategories } from "../lib/compliance";
 
 export const incidentTypes = [
   "Near Miss", "Low Risk", "Medium Risk", "High Risk",

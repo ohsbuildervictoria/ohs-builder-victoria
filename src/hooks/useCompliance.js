@@ -1,8 +1,14 @@
 import { useCallback, useMemo } from "react";
 import { useAppContext } from "../context/AppContext";
 import { useAuthContext } from "../context/AuthContext";
-import { complianceCategories } from "../data/constants";
 import { deriveStatus } from "./useWorkers";
+import {
+  complianceCategories,
+  categoryStatus,
+  overallStatus,
+  canAccessSite as canAccessSiteFn,
+  indexDocuments,
+} from "../lib/compliance";
 import {
   updateMyCompliance,
   updateWorkerComplianceRow,
@@ -14,7 +20,7 @@ import {
 // Worker (stakeholder) sessions write via the update_my_compliance RPC so RLS
 // stays strict; builder staff write directly.
 export function useCompliance(workerId) {
-  const { workers, setWorkers } = useAppContext();
+  const { workers, setWorkers, documents } = useAppContext();
   const { isWorker, user } = useAuthContext();
 
   const worker = useMemo(
@@ -22,13 +28,18 @@ export function useCompliance(workerId) {
     [workers, workerId]
   );
 
+  const workerDocs = useMemo(() => {
+    const byWorker = indexDocuments(documents);
+    return byWorker[Number(workerId)] || {};
+  }, [documents, workerId]);
+
   const compliance = useMemo(() => {
     if (!worker) return {};
     return complianceCategories.reduce((acc, c) => {
-      acc[c.key] = worker[c.key];
+      acc[c.key] = categoryStatus(worker, c.key, workerDocs[c.key]);
       return acc;
     }, {});
-  }, [worker]);
+  }, [worker, workerDocs]);
 
   const updateCategory = useCallback(
     async (category, value) => {
@@ -55,16 +66,17 @@ export function useCompliance(workerId) {
     () =>
       worker
         ? complianceCategories
-            .filter((c) => worker[c.key] === "Missing")
+            .filter((c) => {
+              const s = categoryStatus(worker, c.key, workerDocs[c.key]);
+              return s === "Missing" || s === "Expired";
+            })
             .map((c) => c.label)
         : [],
-    [worker]
+    [worker, workerDocs]
   );
 
-  const overallStatus = worker ? deriveStatus(worker) : "—";
-  const canAccessSite = worker
-    ? complianceCategories.every((c) => worker[c.key] === "Verified")
-    : false;
+  const status = worker ? overallStatus(worker, workerDocs) : "—";
+  const canAccessSite = worker ? canAccessSiteFn(worker, workerDocs) : false;
 
-  return { compliance, updateCategory, overallStatus, canAccessSite, missingItems };
+  return { compliance, updateCategory, overallStatus: status, canAccessSite, missingItems };
 }

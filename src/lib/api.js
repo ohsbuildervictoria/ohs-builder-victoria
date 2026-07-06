@@ -3,6 +3,12 @@
 // Maps between snake_case DB rows and the camelCase shapes the UI uses.
 // ============================================================================
 import { supabase } from "./supabase";
+import {
+  CATEGORY_DB,
+  DB_TO_KEY,
+  projectCompliancePercent,
+  indexDocuments,
+} from "./compliance";
 
 const COMPLIANCE_COLS = {
   induction: "induction",
@@ -12,6 +18,9 @@ const COMPLIANCE_COLS = {
   medical: "medical",
   swms: "swms",
 };
+
+// Private Supabase Storage bucket holding compliance evidence files.
+export const COMPLIANCE_BUCKET = "compliance-docs";
 
 // ---------------------------------------------------------------------------
 // Row mappers (DB → UI)
@@ -125,6 +134,16 @@ const mapMeeting = (r) => ({
   signatures: r.signatures,
 });
 
+const mapDocument = (r) => ({
+  id: r.id,
+  workerId: r.worker_id,
+  category: DB_TO_KEY[r.category] || r.category,
+  filePath: r.file_path,
+  fileName: r.file_name || "",
+  expiry: r.expiry_date || null,
+  uploadedAt: r.uploaded_at,
+});
+
 const mapPolicy = (r) => ({
   id: r.id,
   name: r.name,
@@ -185,7 +204,7 @@ function fail(error, action) {
 // Fetch everything the app needs after login
 // ---------------------------------------------------------------------------
 export async function fetchAppData() {
-  const [projects, workers, templates, incidents, entries, meetings, policies, org, profiles, invites] =
+  const [projects, workers, templates, incidents, entries, meetings, policies, org, profiles, invites, documents] =
     await Promise.all([
       supabase.from("projects").select("*").order("id"),
       supabase.from("workers").select("*").order("id"),
@@ -197,6 +216,7 @@ export async function fetchAppData() {
       supabase.from("org_settings").select("*").eq("id", 1).maybeSingle(),
       supabase.from("profiles").select("*").order("created_at"),
       supabase.from("invites").select("*").order("id"),
+      supabase.from("compliance_documents").select("*").order("id"),
     ]);
 
   for (const res of [projects, workers, templates, incidents, entries, meetings, policies, org, profiles]) {
@@ -207,29 +227,23 @@ export async function fetchAppData() {
   const projectsById = Object.fromEntries(projectList.map((p) => [p.id, p]));
   const workerList = (workers.data || []).map(mapWorker);
   const incidentList = (incidents.data || []).map((r) => mapIncident(r, projectsById));
+  const documentList = documents.error ? [] : (documents.data || []).map(mapDocument);
+  const docsByWorker = indexDocuments(documentList);
 
-  // Annotate live counts onto projects. Compliance % is derived from the
-  // assigned stakeholders' verified items (6 categories each) — a project
-  // with no stakeholders yet has nothing to be non-compliant about, so 100.
-  const categoryKeys = Object.keys(COMPLIANCE_COLS);
+  // Annotate live counts + evidence-based compliance % onto projects. Compliance
+  // is derived from the crew's effective per-category status (uploaded documents
+  // and their expiry for White Card/Insurance/Medical; completion for the rest).
   projectList.forEach((p) => {
     const crew = workerList.filter((w) => w.project === p.id);
     p.workers = crew.length;
     p.incidents = incidentList.filter((i) => i.projectId === p.id).length;
-    if (crew.length) {
-      const verified = crew.reduce(
-        (s, w) => s + categoryKeys.filter((k) => w[k] === "Verified").length,
-        0
-      );
-      p.compliance = Math.round(
-        (verified / (crew.length * categoryKeys.length)) * 100
-      );
-    }
+    p.compliance = projectCompliancePercent(crew, docsByWorker);
   });
 
   return {
     projects: projectList,
     workers: workerList,
+    documents: documentList,
     templates: (templates.data || []).map(mapTemplate),
     incidents: incidentList,
     entries: (entries.data || []).map(mapEntry),
@@ -346,6 +360,77 @@ export async function insertWorker(w) {
     }
   }
   return mapWorker(data);
+}
+
+// ---------------------------------------------------------------------------
+// Compliance evidence documents (Supabase Storage + compliance_documents)
+// ---------------------------------------------------------------------------
+
+const safeName = (name) =>
+  (name || "file").replace(/[^A-Za-z0-9._-]+/g, "_").slice(-60);
+
+// Uploads a file to the private bucket and upserts its compliance_documents
+// row (one row per worker+category; a re-upload replaces the file + metadata).
+export async function uploadComplianceDoc({ workerId, category, file, expiry }) {
+  const dbCat = CATEGORY_DB[category] || category;
+  const ext = (file.name?.split(".").pop() || "").toLowerCase();
+  const stamp = Date.now();
+  const path = `${workerId}/${dbCat}/${stamp}-${safeName(file.name)}`;
+
+  const up = await supabase.storage
+    .from(COMPLIANCE_BUCKET)
+    .upload(path, file, { upsert: false, contentType: file.type || undefined });
+  if (up.error) fail(up.error, "Uploading document");
+
+  const { data, error } = await supabase
+    .from("compliance_documents")
+    .upsert(
+      {
+        worker_id: workerId,
+        category: dbCat,
+        file_path: path,
+        file_name: file.name || `document.${ext || "bin"}`,
+        expiry_date: expiry || null,
+      },
+      { onConflict: "worker_id,category" }
+    )
+    .select()
+    .single();
+  if (error) fail(error, "Recording document");
+  return mapDocument(data);
+}
+
+// Updates just the expiry date on an existing document row.
+export async function updateDocExpiry(docId, expiry) {
+  const { data, error } = await supabase
+    .from("compliance_documents")
+    .update({ expiry_date: expiry || null })
+    .eq("id", docId)
+    .select()
+    .single();
+  if (error) fail(error, "Updating expiry date");
+  return mapDocument(data);
+}
+
+// Removes the file from storage and its metadata row.
+export async function deleteComplianceDoc(doc) {
+  if (doc.filePath) {
+    await supabase.storage.from(COMPLIANCE_BUCKET).remove([doc.filePath]);
+  }
+  const { error } = await supabase
+    .from("compliance_documents")
+    .delete()
+    .eq("id", doc.id);
+  if (error) fail(error, "Removing document");
+}
+
+// Short-lived signed URL so a builder/tradie can view or download a private file.
+export async function getDocUrl(filePath) {
+  const { data, error } = await supabase.storage
+    .from(COMPLIANCE_BUCKET)
+    .createSignedUrl(filePath, 120);
+  if (error) fail(error, "Opening document");
+  return data.signedUrl;
 }
 
 export async function findWorkerByHandle(handle) {

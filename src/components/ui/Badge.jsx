@@ -4,6 +4,9 @@ const STYLES = {
   Verified: "bg-green-100 text-green-700 ring-green-600/20",
   Pending: "bg-amber-100 text-amber-700 ring-amber-600/20",
   Missing: "bg-red-100 text-red-700 ring-red-600/20",
+  // document expiry states
+  Expiring: "bg-amber-100 text-amber-800 ring-amber-600/30",
+  Expired: "bg-red-100 text-red-700 ring-red-600/20",
   // worker overall status
   Active: "bg-green-100 text-green-700 ring-green-600/20",
   "Action Required": "bg-amber-100 text-amber-700 ring-amber-600/20",
@@ -35,6 +38,8 @@ const ICONS = {
   Verified: "✓",
   Pending: "⏳",
   Missing: "✕",
+  Expiring: "⚠",
+  Expired: "✕",
 };
 
 export default function Badge({ status, children, icon = false, className = "" }) {

@@ -2,7 +2,9 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useWorkers } from "../../hooks/useWorkers";
 import { useCompliance } from "../../hooks/useCompliance";
+import { useDocuments } from "../../hooks/useDocuments";
 import { useProjects } from "../../hooks/useProjects";
+import { categoryStatus, isCompliant } from "../../lib/compliance";
 import ProgressBar from "../../components/ui/ProgressBar";
 
 // Resolves the signed-in worker (builders previewing fall back to the first record).
@@ -16,16 +18,21 @@ export default function WorkerHome() {
   const worker = useCurrentWorker();
   const { getProject } = useProjects();
   const { canAccessSite } = useCompliance(worker?.id);
+  const { docsFor } = useDocuments();
   const project = getProject(worker?.project);
+  const docs = worker ? docsFor(worker.id) : {};
 
-  // Task checklist derived from the worker's compliance record.
+  // Task checklist derived from the worker's live compliance record.
+  const docsDone = ["whiteCard", "insurance", "medical"].every((k) =>
+    isCompliant(categoryStatus(worker, k, docs[k]))
+  );
   const tasks = [
     { label: "Complete Site Induction", done: worker?.induction === "Verified", to: "/worker/induction" },
     { label: "Pass Safety Quiz", done: worker?.quiz === "Verified", to: "/worker/quiz" },
     { label: "Sign SWMS", done: worker?.swms === "Verified", to: "/worker/swms" },
     {
-      label: "Upload Documents (White Card, Insurance)",
-      done: worker?.whiteCard === "Verified" && worker?.insurance === "Verified",
+      label: "Upload Documents (White Card, Insurance, Medical)",
+      done: docsDone,
       to: "/worker/registration",
     },
   ];

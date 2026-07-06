@@ -157,9 +157,18 @@ export default function Dashboard() {
           value={kpis.ltifr == null ? "—" : kpis.ltifr.toFixed(1)}
           tone={kpis.ltifr == null || kpis.ltifr === 0 ? "green" : "red"}
           sub={
-            kpis.ltifr == null
-              ? "per 1M hrs — record site diary hours to calculate"
-              : `per 1M hrs · ${kpis.lostTimeInjuries} LTI / ${Math.round(kpis.totalHours).toLocaleString()} hrs`
+            kpis.ltifr == null ? (
+              "per 1M hrs — record site diary hours to calculate"
+            ) : (
+              <>
+                {kpis.lostTimeInjuries} LTI / {Math.round(kpis.totalHours).toLocaleString()} hrs worked
+                <br />
+                <span className="text-slate-400">
+                  Industry benchmark: under ~10 is good. Early on, few logged
+                  hours make this read high.
+                </span>
+              </>
+            )
           }
         />
       </div>

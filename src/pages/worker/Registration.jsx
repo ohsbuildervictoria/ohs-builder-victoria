@@ -2,11 +2,22 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../../hooks/useAuth";
 import { useWorkers } from "../../hooks/useWorkers";
+import { useDocuments } from "../../hooks/useDocuments";
 import Tabs from "../../components/ui/Tabs";
 import Badge from "../../components/ui/Badge";
+import Button from "../../components/ui/Button";
 import { useToast } from "../../components/ui/Notification";
+import {
+  complianceCategories,
+  categoryStatus,
+  EXPIRY_CATEGORIES,
+} from "../../lib/compliance";
 
 const TABS = ["Personal", "Emergency", "Vehicle & Quals", "Documents"];
+
+// Order tradies see their documents in (expiry-bound ones first).
+const DOC_ORDER = ["whiteCard", "insurance", "medical", "induction", "swms"];
+const labelFor = (key) => complianceCategories.find((c) => c.key === key)?.label || key;
 
 export default function Registration() {
   const { user, isBuilder } = useAuth();
@@ -42,14 +53,6 @@ export default function Registration() {
       toast(err.message || "Could not save profile", "error");
     }
   };
-
-  // Document slots mirror the real compliance record — no uploads exist yet,
-  // so the file column is honest about that.
-  const documents = [
-    { name: "White Card", status: worker?.whiteCard },
-    { name: "Insurance Certificate", status: worker?.insurance },
-    { name: "Medical Clearance", status: worker?.medical },
-  ];
 
   return (
     <div className="p-4">
@@ -128,34 +131,7 @@ export default function Registration() {
         )}
 
         {tab === "Documents" && (
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={() => toast("Document upload is coming in the next release", "warning")}
-              className="flex w-full flex-col items-center rounded-xl border-2 border-dashed border-slate-300 py-8 text-center hover:border-blue-900"
-            >
-              <span className="text-2xl">📤</span>
-              <span className="mt-1 text-sm font-medium text-slate-700">
-                Upload Document
-              </span>
-              <span className="text-xs text-slate-400">Coming in the next release</span>
-            </button>
-            {documents.map((d) => (
-              <div
-                key={d.name}
-                className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3"
-              >
-                <div>
-                  <p className="text-sm font-medium text-slate-800">{d.name}</p>
-                  <p className="text-xs text-slate-500">
-                    No file uploaded — show the original to your builder to
-                    have it verified
-                  </p>
-                </div>
-                <Badge status={d.status || "Missing"} />
-              </div>
-            ))}
-          </div>
+          <DocumentsTab worker={worker} />
         )}
 
         {tab !== "Documents" && (
@@ -184,5 +160,116 @@ function Field({ label, children }) {
       </span>
       {children}
     </label>
+  );
+}
+
+// Tradie document list — reads the SAME records (useDocuments + categoryStatus)
+// that the builder compliance matrix reads, so the two views never diverge.
+function DocumentsTab({ worker }) {
+  const { docsFor, upload, open } = useDocuments();
+  const toast = useToast();
+  const docs = worker ? docsFor(worker.id) : {};
+
+  if (!worker) {
+    return <p className="py-8 text-center text-sm text-slate-400">No stakeholder record.</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-slate-500">
+        Upload a photo or PDF of each document. White Card, Insurance and Medical
+        need an expiry date so we can warn you before they lapse.
+      </p>
+      {DOC_ORDER.map((key) => (
+        <DocumentRow
+          key={key}
+          worker={worker}
+          categoryKey={key}
+          doc={docs[key] || null}
+          upload={upload}
+          open={open}
+          toast={toast}
+        />
+      ))}
+    </div>
+  );
+}
+
+function DocumentRow({ worker, categoryKey, doc, upload, open, toast }) {
+  const [file, setFile] = useState(null);
+  const [expiry, setExpiry] = useState("");
+  const [busy, setBusy] = useState(false);
+  const status = categoryStatus(worker, categoryKey, doc);
+  const isExpiryCat = EXPIRY_CATEGORIES.includes(categoryKey);
+  const today = new Date().toISOString().slice(0, 10);
+
+  const onUpload = async () => {
+    if (!file) return toast("Choose a file first", "warning");
+    if (isExpiryCat && !expiry) return toast("Add the expiry date shown on the document", "warning");
+    setBusy(true);
+    try {
+      await upload(worker.id, categoryKey, file, isExpiryCat ? expiry : null);
+      toast(`${labelFor(categoryKey)} uploaded`);
+      setFile(null);
+      setExpiry("");
+    } catch (err) {
+      toast(err.message || "Upload failed", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onView = async () => {
+    try {
+      window.open(await open(doc), "_blank", "noopener");
+    } catch (err) {
+      toast(err.message || "Could not open document", "error");
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-slate-800">{labelFor(categoryKey)}</p>
+          {doc ? (
+            <p className="text-xs text-slate-500">
+              {doc.fileName}
+              {doc.expiry ? ` · expires ${doc.expiry}` : ""}
+            </p>
+          ) : (
+            <p className="text-xs text-slate-400">No file uploaded yet</p>
+          )}
+        </div>
+        <Badge status={status} icon />
+      </div>
+
+      <div className="mt-3 space-y-2">
+        {doc && (
+          <Button type="button" size="sm" variant="secondary" onClick={onView}>
+            View / Download
+          </Button>
+        )}
+        <input
+          type="file"
+          accept="image/*,application/pdf"
+          onChange={(e) => setFile(e.target.files?.[0] || null)}
+          className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-900 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white"
+        />
+        {isExpiryCat && (
+          <input
+            type="date"
+            min={today}
+            value={expiry}
+            onChange={(e) => setExpiry(e.target.value)}
+            className="w-input"
+            aria-label={`${labelFor(categoryKey)} expiry date`}
+          />
+        )}
+        <Button type="button" size="sm" onClick={onUpload} disabled={busy}>
+          {busy ? "Uploading…" : doc ? "Replace" : "Upload"}
+        </Button>
+      </div>
+    </div>
   );
 }

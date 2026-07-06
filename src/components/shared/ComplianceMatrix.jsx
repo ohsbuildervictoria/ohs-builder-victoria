@@ -1,10 +1,17 @@
-import { complianceCategories } from "../../data/constants";
+import {
+  complianceCategories,
+  categoryStatus,
+  overallStatus,
+  isBlocking,
+} from "../../lib/compliance";
 import Badge from "../ui/Badge";
 import { Table, THead, TBody, TR, TD } from "../ui/Table";
 
-// Worker × 6-category compliance grid.
-// CRITICAL RULE: a worker with ANY "Missing" item is flagged red (no site access).
-export default function ComplianceMatrix({ workers, onCellClick }) {
+// Worker × 6-category compliance grid. Status per cell comes from the shared
+// categoryStatus() in src/lib/compliance.js — the same function the tradie
+// Documents tab uses — so the two views can never disagree.
+// CRITICAL RULE: any "Missing" or "Expired" item blocks site access (red).
+export default function ComplianceMatrix({ workers, docsFor, onCellClick }) {
   const columns = [
     "Stakeholder",
     "Trade",
@@ -17,7 +24,12 @@ export default function ComplianceMatrix({ workers, onCellClick }) {
       <THead columns={columns} />
       <TBody>
         {workers.map((w) => {
-          const blocked = complianceCategories.some((c) => w[c.key] === "Missing");
+          const docs = docsFor?.(w.id) || {};
+          const statuses = complianceCategories.map((c) => ({
+            key: c.key,
+            status: categoryStatus(w, c.key, docs[c.key]),
+          }));
+          const blocked = statuses.some((s) => isBlocking(s.status));
           return (
             <TR
               key={w.id}
@@ -28,27 +40,27 @@ export default function ComplianceMatrix({ workers, onCellClick }) {
                   {w.name}
                   {blocked && (
                     <span
-                      title="Site access blocked — missing compliance item"
+                      title="Site access blocked — missing or expired item"
                       className="inline-flex h-2 w-2 rounded-full bg-red-500"
                     />
                   )}
                 </div>
               </TD>
               <TD>{w.trade}</TD>
-              {complianceCategories.map((c) => (
-                <TD key={c.key}>
+              {statuses.map(({ key, status }) => (
+                <TD key={key}>
                   <button
                     type="button"
-                    onClick={() => onCellClick?.(w, c.key)}
+                    onClick={() => onCellClick?.(w, key)}
                     className="focus:outline-none"
-                    title={onCellClick ? "Click to update" : undefined}
+                    title={onCellClick ? "Click to manage" : undefined}
                   >
-                    <Badge status={w[c.key]} icon />
+                    <Badge status={status} icon />
                   </button>
                 </TD>
               ))}
               <TD>
-                <Badge status={w.status} />
+                <Badge status={overallStatus(w, docs)} />
               </TD>
             </TR>
           );

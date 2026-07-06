@@ -105,9 +105,9 @@ export default function SWMS() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => toast(`SWMS-${t.trade}-${t.version}.pdf downloaded`)}
+                  onClick={() => toast("PDF export is coming soon", "warning")}
                 >
-                  Download PDF
+                  Download PDF (soon)
                 </Button>
                 {t.signed < t.total && (
                   <Button
@@ -197,9 +197,9 @@ export default function SWMS() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => toast(`Downloading ${s.id}.pdf`)}
+                    onClick={() => toast("PDF export is coming soon", "warning")}
                   >
-                    Download PDF
+                    Download PDF (soon)
                   </Button>
                 </div>
               </CardBody>

@@ -392,3 +392,47 @@ begin
   update public.workers set profile = coalesce(p, '{}'::jsonb) where id = wid;
 end;
 $fn$;
+
+-- ---------- Compliance evidence documents (2026-07-06) ----------
+-- Uploaded files (photo/PDF) per stakeholder per category, with expiry dates
+-- for time-bound documents (White Card / Insurance / Medical). Files live in
+-- the private 'compliance-docs' Storage bucket; this table holds the metadata.
+-- The app derives compliance status from these rows (see src/lib/compliance.js):
+-- Missing (no file) -> Verified (valid) -> Expiring (<=30d) -> Expired.
+create table public.compliance_documents (
+  id bigint generated always as identity primary key,
+  worker_id bigint not null references public.workers(id) on delete cascade,
+  category text not null
+    check (category in ('induction','white_card','insurance','medical','swms')),
+  file_path text not null,
+  file_name text not null default '',
+  expiry_date date,
+  uploaded_at timestamptz not null default now(),
+  unique (worker_id, category)
+);
+alter table public.compliance_documents enable row level security;
+
+-- PILOT: tradies share one auth account, so per-tradie isolation is enforced
+-- app-side (each tradie only queries their own worker id), consistent with the
+-- rest of the pilot data. Any authenticated user may read/write. Tighten to
+-- per-user ownership when real per-tradie auth replaces the shared account.
+create policy "compliance_documents read" on public.compliance_documents
+  for select to authenticated using (true);
+create policy "compliance_documents write" on public.compliance_documents
+  for all to authenticated using (true) with check (true);
+
+-- Private Storage bucket for the actual files.
+insert into storage.buckets (id, name, public)
+values ('compliance-docs', 'compliance-docs', false)
+on conflict (id) do nothing;
+
+-- Storage RLS (pilot-level: any authenticated user). Post-pilot, scope by the
+-- {worker_id}/ path prefix once tradies have individual accounts.
+create policy "compliance-docs read" on storage.objects
+  for select to authenticated using (bucket_id = 'compliance-docs');
+create policy "compliance-docs insert" on storage.objects
+  for insert to authenticated with check (bucket_id = 'compliance-docs');
+create policy "compliance-docs update" on storage.objects
+  for update to authenticated using (bucket_id = 'compliance-docs');
+create policy "compliance-docs delete" on storage.objects
+  for delete to authenticated using (bucket_id = 'compliance-docs');
