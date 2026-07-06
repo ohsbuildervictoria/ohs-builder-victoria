@@ -8,31 +8,48 @@ import { useToast } from "../../components/ui/Notification";
 
 const TABS = ["Personal", "Emergency", "Vehicle & Quals", "Documents"];
 
-const DOCUMENTS = [
-  { name: "White Card", file: "white-card.jpg", date: "2026-05-20", status: "Verified" },
-  { name: "Insurance Certificate", file: "insurance.pdf", date: "2026-05-22", status: "Verified" },
-  { name: "Medical Clearance", file: "medical.pdf", date: "2026-06-01", status: "Pending" },
-  { name: "Other", file: "", date: "—", status: "Pending" },
-];
-
 export default function Registration() {
   const { user, isBuilder } = useAuth();
-  const { getWorker, workers } = useWorkers();
+  const { getWorker, workers, saveProfile } = useWorkers();
   const worker = getWorker(user?.workerId ?? (isBuilder ? workers[0]?.id : null));
   const toast = useToast();
   const [tab, setTab] = useState("Personal");
 
+  // Saved profile values win, but blanks never clobber the worker-record
+  // defaults. `values` (not defaultValues) so the form fills in once the
+  // worker record loads; keepDirtyValues protects in-progress edits.
+  const savedProfile = Object.fromEntries(
+    Object.entries(worker?.profile || {}).filter(([, v]) => v !== "")
+  );
   const { register, handleSubmit } = useForm({
-    defaultValues: {
+    values: {
       firstName: worker?.name?.split(" ")[0] || "",
       surname: worker?.name?.split(" ").slice(1).join(" ") || "",
       trade: worker?.trade || "",
       employer: worker?.employer || "",
       email: user?.email || "",
+      ...savedProfile,
     },
+    resetOptions: { keepDirtyValues: true },
   });
 
-  const onSave = () => toast("Profile saved");
+  const onSave = async (data) => {
+    if (!worker?.id) return;
+    try {
+      await saveProfile(worker.id, data);
+      toast("Profile saved");
+    } catch (err) {
+      toast(err.message || "Could not save profile", "error");
+    }
+  };
+
+  // Document slots mirror the real compliance record — no uploads exist yet,
+  // so the file column is honest about that.
+  const documents = [
+    { name: "White Card", status: worker?.whiteCard },
+    { name: "Insurance Certificate", status: worker?.insurance },
+    { name: "Medical Clearance", status: worker?.medical },
+  ];
 
   return (
     <div className="p-4">
@@ -123,7 +140,7 @@ export default function Registration() {
               </span>
               <span className="text-xs text-slate-400">Coming in the next release</span>
             </button>
-            {DOCUMENTS.map((d) => (
+            {documents.map((d) => (
               <div
                 key={d.name}
                 className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3"
@@ -131,12 +148,11 @@ export default function Registration() {
                 <div>
                   <p className="text-sm font-medium text-slate-800">{d.name}</p>
                   <p className="text-xs text-slate-500">
-                    {d.file || "Not uploaded"} {d.file ? `· ${d.date}` : ""}
+                    No file uploaded — show the original to your builder to
+                    have it verified
                   </p>
                 </div>
-                <Badge status={d.status === "Verified" ? "Verified" : "Pending"}>
-                  {d.status === "Verified" ? "Verified" : "Pending review"}
-                </Badge>
+                <Badge status={d.status || "Missing"} />
               </div>
             ))}
           </div>

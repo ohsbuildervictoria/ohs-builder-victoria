@@ -38,6 +38,7 @@ const mapWorker = (r) => ({
   trade: r.trade,
   employer: r.employer,
   loginHandle: r.login_handle || "",
+  profile: r.profile || {},
   project: r.project_id,
   induction: r.induction,
   quiz: r.quiz,
@@ -377,6 +378,24 @@ export async function updateWorkerComplianceRow(workerId, categoryKey, value, ne
     .update({ [col]: value, status: newStatus })
     .eq("id", workerId);
   if (error) fail(error, "Updating compliance");
+}
+
+// Staff path: save a worker's registration details (contact, emergency, quals).
+export async function saveWorkerProfileRow(workerId, profile) {
+  const { error } = await supabase
+    .from("workers")
+    .update({ profile })
+    .eq("id", workerId);
+  if (error) fail(error, "Saving profile");
+}
+
+// PILOT ONLY: tradies share one auth account, so the worker id is explicit.
+export async function pilotSaveProfile(workerId, profile) {
+  const { error } = await supabase.rpc("pilot_save_profile", {
+    wid: workerId,
+    p: profile,
+  });
+  if (error) fail(error, "Saving your profile");
 }
 
 // Worker self-service path (RLS-safe RPC; only induction/quiz/swms allowed).

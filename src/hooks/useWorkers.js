@@ -1,7 +1,13 @@
 import { useCallback, useMemo } from "react";
 import { useAppContext } from "../context/AppContext";
+import { useAuthContext } from "../context/AuthContext";
 import { complianceCategories } from "../data/constants";
-import { updateWorkerComplianceRow, insertWorker } from "../lib/api";
+import {
+  updateWorkerComplianceRow,
+  insertWorker,
+  saveWorkerProfileRow,
+  pilotSaveProfile,
+} from "../lib/api";
 
 // Derives a worker's overall status from their 6 compliance categories.
 export function deriveStatus(worker) {
@@ -14,6 +20,7 @@ export function deriveStatus(worker) {
 // { workers, getWorker(id), updateCompliance, filterByStatus, getComplianceStats }
 export function useWorkers(projectId = null) {
   const { workers, setWorkers } = useAppContext();
+  const { user } = useAuthContext();
 
   const scoped = useMemo(
     () =>
@@ -52,6 +59,22 @@ export function useWorkers(projectId = null) {
     [workers, setWorkers]
   );
 
+  // Registration form details (contact, emergency, quals). Pilot tradies go
+  // through the RPC because they share one auth account.
+  const saveProfile = useCallback(
+    async (id, profile) => {
+      if (user?.pilotWorker) {
+        await pilotSaveProfile(Number(id), profile);
+      } else {
+        await saveWorkerProfileRow(Number(id), profile);
+      }
+      setWorkers((prev) =>
+        prev.map((w) => (w.id === Number(id) ? { ...w, profile } : w))
+      );
+    },
+    [setWorkers, user?.pilotWorker]
+  );
+
   const filterByStatus = useCallback(
     (status) =>
       !status || status === "All"
@@ -76,6 +99,7 @@ export function useWorkers(projectId = null) {
     getWorker,
     addWorker,
     updateCompliance,
+    saveProfile,
     filterByStatus,
     getComplianceStats,
   };

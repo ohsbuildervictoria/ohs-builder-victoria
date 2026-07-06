@@ -375,3 +375,20 @@ begin
   where w.id = wid;
 end;
 $fn$;
+
+-- ---------- Registration profile (2026-07-06) ----------
+-- The stakeholder "My Profile" form (contact, emergency, quals) persists here.
+alter table public.workers add column profile jsonb not null default '{}'::jsonb;
+
+-- PILOT ONLY: shared tradie auth account, so the worker id is explicit.
+-- Remove with the other pilot RPCs after the pilot.
+create or replace function public.pilot_save_profile(wid bigint, p jsonb)
+returns void
+language plpgsql security definer
+set search_path = public
+as $fn$
+begin
+  if auth.uid() is null then raise exception 'not authenticated'; end if;
+  update public.workers set profile = coalesce(p, '{}'::jsonb) where id = wid;
+end;
+$fn$;
