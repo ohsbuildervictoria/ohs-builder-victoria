@@ -1,14 +1,13 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { fetchProfile, touchLastLogin } from "../lib/api";
+import { fetchProfile, touchLastLogin, signUpBuilder } from "../lib/api";
 // TEMPORARY pilot bypass — see src/lib/pilotBypass.js. Disable before any
 // other real client's data enters this system.
 import {
   PILOT_CREDENTIALS,
   PILOT_STAKEHOLDER_CREDENTIALS,
   PILOT_STAKEHOLDER_PASSWORD,
-  STAKEHOLDER_LOGIN_PATH,
   isPilotBypassEnabled,
   savePilotWorker,
   loadPilotWorker,
@@ -54,29 +53,11 @@ export function AuthProvider({ children }) {
       }
     }
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      // TEMPORARY pilot bypass: with app_config.bypass_auth = true, a visitor
-      // with no session is signed straight in as the Builder Admin account.
-      // Real session, real writes. Flag off → this block is a no-op and the
-      // normal login screen is shown. See src/lib/pilotBypass.js.
-      // Tradies must be able to reach their own sign-in screen, so the
-      // builder auto-login never fires on the stakeholder entry route.
-      const onStakeholderRoute =
-        window.location.pathname.startsWith(STAKEHOLDER_LOGIN_PATH);
-      if (!session?.user && !cancelled && !onStakeholderRoute) {
-        try {
-          if (await isPilotBypassEnabled()) {
-            const { data, error } =
-              await supabase.auth.signInWithPassword(PILOT_CREDENTIALS);
-            if (!error && data?.session) {
-              session = data.session;
-              touchLastLogin(data.session.user.id);
-            }
-          }
-        } catch {
-          // fail closed — fall through to the normal login screen
-        }
-      }
+    // Multi-tenant: no more auto-login. A visitor with no session sees the
+    // landing page / real signup+login. David's demo workspace is entered
+    // explicitly via enterDemo() (the "View live demo" link), which still uses
+    // the pilot bypass while app_config.bypass_auth is true.
+    supabase.auth.getSession().then(({ data: { session } }) => {
       loadProfileFor(session).finally(() => {
         if (!cancelled) setInitialising(false);
       });
@@ -159,6 +140,33 @@ export function AuthProvider({ children }) {
     if (error) throw new Error(error.message);
   }, []);
 
+  // Real builder signup → new organisation → Builder Admin of that org.
+  const signup = useCallback(async ({ email, password, name, orgName }) => {
+    clearPilotWorker();
+    await signUpBuilder({ email, password, name, orgName });
+    const { data } = await supabase.auth.getUser();
+    const profile = await fetchProfile(data.user.id);
+    if (!profile) throw new Error("Account created but profile is missing.");
+    touchLastLogin(data.user.id);
+    setUser(profile);
+    return profile;
+  }, []);
+
+  // Enter David's existing pilot/demo workspace with no password. Only works
+  // while the pilot bypass flag is on; retired for everyone else.
+  const enterDemo = useCallback(async () => {
+    clearPilotWorker();
+    if (!(await isPilotBypassEnabled())) {
+      throw new Error("The demo is not available right now.");
+    }
+    const { data, error } = await supabase.auth.signInWithPassword(PILOT_CREDENTIALS);
+    if (error) throw new Error("The demo is unavailable right now — try again shortly.");
+    const profile = await fetchProfile(data.user.id);
+    touchLastLogin(data.user.id);
+    setUser(profile);
+    return profile;
+  }, []);
+
   const value = useMemo(() => {
     const role = user?.role || null;
     return {
@@ -166,6 +174,8 @@ export function AuthProvider({ children }) {
       role,
       initialising,
       login,
+      signup,
+      enterDemo,
       loginStakeholder,
       logout,
       resetPassword,
@@ -173,7 +183,7 @@ export function AuthProvider({ children }) {
       isWorker: role === "worker",
       hasRole: (roleName) => role === roleName,
     };
-  }, [user, initialising, login, loginStakeholder, logout, resetPassword]);
+  }, [user, initialising, login, signup, enterDemo, loginStakeholder, logout, resetPassword]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

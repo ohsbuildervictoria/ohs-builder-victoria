@@ -9,6 +9,7 @@ import WorkerLayout from "./layouts/WorkerLayout";
 
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
+import Signup from "./pages/Signup";
 import StakeholderLogin from "./pages/StakeholderLogin";
 
 import Dashboard from "./pages/builder/Dashboard";
@@ -73,6 +74,7 @@ function AppRoutes() {
           layer behind "Enter Builder Workspace" / the stakeholder sign-in. */}
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
       {/* PILOT: lightweight tradie sign-in (see src/lib/pilotBypass.js) */}
       <Route path="/stakeholder" element={<StakeholderLogin />} />
 

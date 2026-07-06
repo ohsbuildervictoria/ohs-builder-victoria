@@ -63,7 +63,7 @@ export default function Policies() {
     }
     const next = { ...toggles, [key]: !toggles[key] };
     try {
-      await updateOrgNotifications(next);
+      await updateOrgNotifications(org.id, next);
       setOrg((prev) => (prev ? { ...prev, notifications: next } : prev));
     } catch (err) {
       toast(err.message || "Could not save preference", "error");

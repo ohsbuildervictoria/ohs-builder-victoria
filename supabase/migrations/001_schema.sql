@@ -436,3 +436,136 @@ create policy "compliance-docs update" on storage.objects
   for update to authenticated using (bucket_id = 'compliance-docs');
 create policy "compliance-docs delete" on storage.objects
   for delete to authenticated using (bucket_id = 'compliance-docs');
+
+-- ============================================================================
+-- Multi-tenant organisations (2026-07-06)
+-- Every builder-scoped row belongs to exactly one organization. RLS scopes all
+-- reads/writes to the signed-in user's organization_id (public.my_org()), so a
+-- builder's queries structurally cannot return another org's rows. David's
+-- existing pilot data was backfilled into the seed org (Arlington Homes).
+-- ============================================================================
+create table public.organizations (
+  id bigint generated always as identity primary key,
+  name text not null,
+  plan text not null default 'Trial',
+  state text not null default 'Victoria',
+  abn text not null default '',
+  tagline text not null default '',
+  built_by text not null default '',
+  billing_contact text not null default '',
+  notifications jsonb not null default '{"incident":true,"compliance":true,"swms":true,"toolbox":false,"worksafe":true}',
+  created_by uuid references auth.users(id),
+  created_at timestamptz not null default now()
+);
+alter table public.organizations enable row level security;
+
+-- Seed org from the legacy single org_settings row (David / Arlington Homes).
+insert into public.organizations (name, plan, state, abn, tagline, built_by, billing_contact, notifications)
+select name, plan, state, abn, tagline, built_by, billing_contact, notifications
+from public.org_settings where id = 1
+and not exists (select 1 from public.organizations);
+
+-- Current user's org (security definer avoids RLS recursion).
+alter table public.profiles add column if not exists organization_id bigint references public.organizations(id);
+update public.profiles set organization_id = (select id from public.organizations order by id limit 1) where organization_id is null;
+
+create or replace function public.my_org()
+returns bigint language sql stable security definer set search_path = public as $$
+  select organization_id from public.profiles where id = auth.uid()
+$$;
+grant execute on function public.my_org() to authenticated, anon;
+
+-- organization_id on every builder-scoped table. Backfilled to the seed org,
+-- then defaulted to my_org() so app inserts are auto-stamped, and made NOT NULL.
+do $$
+declare t text; seed bigint := (select id from public.organizations order by id limit 1);
+begin
+  foreach t in array array['projects','workers','swms_templates','incidents','corrective_actions',
+    'diary_entries','toolbox_meetings','policies','compliance_documents','invites']
+  loop
+    execute format('alter table public.%I add column if not exists organization_id bigint references public.organizations(id)', t);
+    execute format('update public.%I set organization_id = %L where organization_id is null', t, seed);
+    execute format('alter table public.%I alter column organization_id set default public.my_org()', t);
+    execute format('alter table public.%I alter column organization_id set not null', t);
+  end loop;
+end $$;
+
+-- Replace all data-table policies with org-scoped ones (clean slate).
+do $$
+declare r record;
+begin
+  for r in select policyname, tablename from pg_policies where schemaname='public'
+    and tablename in ('organizations','profiles','org_settings','projects','workers','swms_templates',
+      'incidents','corrective_actions','diary_entries','toolbox_meetings','policies','compliance_documents','invites')
+  loop
+    execute format('drop policy if exists %I on public.%I', r.policyname, r.tablename);
+  end loop;
+end $$;
+
+create policy "orgs: read own" on public.organizations for select to authenticated
+  using (id = public.my_org() or created_by = auth.uid());
+create policy "orgs: create" on public.organizations for insert to authenticated
+  with check (created_by = auth.uid());
+create policy "orgs: admin update" on public.organizations for update to authenticated
+  using (id = public.my_org() and public.my_role() = 'builder_admin')
+  with check (id = public.my_org() and public.my_role() = 'builder_admin');
+
+create policy "profiles: read same org" on public.profiles for select to authenticated
+  using (organization_id = public.my_org() or id = auth.uid());
+create policy "profiles: update own" on public.profiles for update to authenticated
+  using (id = auth.uid()) with check (id = auth.uid());
+create policy "profiles: admin manage" on public.profiles for all to authenticated
+  using (public.my_role() = 'builder_admin' and organization_id = public.my_org())
+  with check (public.my_role() = 'builder_admin' and organization_id = public.my_org());
+
+-- Org-read + builder-staff-write for the standard data tables.
+do $$
+declare t text;
+begin
+  foreach t in array array['projects','workers','swms_templates','diary_entries','toolbox_meetings','policies','corrective_actions']
+  loop
+    execute format('create policy %I on public.%I for select to authenticated using (organization_id = public.my_org())', t||': read org', t);
+    execute format('create policy %I on public.%I for all to authenticated using (public.is_builder_staff() and organization_id = public.my_org()) with check (public.is_builder_staff() and organization_id = public.my_org())', t||': staff write', t);
+  end loop;
+end $$;
+
+create policy "incidents: read org" on public.incidents for select to authenticated
+  using (organization_id = public.my_org());
+create policy "incidents: staff write" on public.incidents for all to authenticated
+  using (public.is_builder_staff() and organization_id = public.my_org())
+  with check (public.is_builder_staff() and organization_id = public.my_org());
+create policy "incidents: anyone report" on public.incidents for insert to authenticated
+  with check (organization_id = public.my_org());
+
+create policy "compliance_documents: read org" on public.compliance_documents for select to authenticated
+  using (organization_id = public.my_org());
+create policy "compliance_documents: write org" on public.compliance_documents for all to authenticated
+  using (organization_id = public.my_org()) with check (organization_id = public.my_org());
+
+create policy "invites: read org" on public.invites for select to authenticated
+  using (organization_id = public.my_org());
+create policy "invites: admin write" on public.invites for all to authenticated
+  using (public.my_role() = 'builder_admin' and organization_id = public.my_org())
+  with check (public.my_role() = 'builder_admin' and organization_id = public.my_org());
+
+-- Signup: create an org and make the caller its Builder Admin (atomic + safe).
+create or replace function public.signup_create_org(org_name text)
+returns bigint language plpgsql security definer set search_path = public as $fn$
+declare new_org bigint; existing bigint;
+begin
+  if auth.uid() is null then raise exception 'not authenticated'; end if;
+  select organization_id into existing from public.profiles where id = auth.uid();
+  if existing is not null then return existing; end if;
+  insert into public.organizations (name, created_by)
+    values (coalesce(nullif(trim(org_name),''), 'My Company'), auth.uid())
+    returning id into new_org;
+  update public.profiles set organization_id = new_org, role = 'builder_admin', status = 'Active'
+    where id = auth.uid();
+  return new_org;
+end $fn$;
+grant execute on function public.signup_create_org(text) to authenticated;
+
+-- NOTE: Supabase Auth email auto-confirm was enabled (mailer_autoconfirm=true)
+-- so trial signups get an immediate session. The pilot bypass now fires ONLY
+-- via the explicit "View live demo" entry (David's Arlington org); it no longer
+-- auto-logs-in every visitor. See src/context/AuthContext.jsx + src/lib/pilotBypass.js.

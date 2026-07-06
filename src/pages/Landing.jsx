@@ -1,10 +1,12 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import Logo from "../components/shared/Logo";
+import { useAuth } from "../hooks/useAuth";
 import { brand } from "../data/constants";
 
 // Public front door at "/" — explains the product, then hands off to the
 // workspace (builders) or the stakeholder portal (tradies). While the pilot
-// bypass is on, "Enter Builder Workspace" goes straight in with no password;
+// bypass is on, "View live demo" enters David's workspace with no password;
 // with the bypass off the same button lands on the real login screen.
 
 const FEATURES = [
@@ -59,6 +61,21 @@ const STEPS = [
 ];
 
 export default function Landing() {
+  const { enterDemo } = useAuth();
+  const navigate = useNavigate();
+  const [demoBusy, setDemoBusy] = useState(false);
+
+  const onDemo = async () => {
+    setDemoBusy(true);
+    try {
+      await enterDemo();
+      navigate("/builder/dashboard");
+    } catch {
+      setDemoBusy(false);
+      navigate("/login");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
       {/* Header */}
@@ -66,16 +83,16 @@ export default function Landing() {
         <Logo light />
         <nav className="flex items-center gap-3">
           <Link
-            to="/stakeholder"
+            to="/login"
             className="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:text-white"
           >
-            Stakeholder sign-in
+            Log in
           </Link>
           <Link
-            to="/builder/dashboard"
+            to="/signup"
             className="rounded-lg bg-yellow-500 px-4 py-2 text-sm font-bold text-blue-950 transition hover:bg-yellow-400"
           >
-            Enter Workspace
+            Start free trial
           </Link>
         </nav>
       </header>
@@ -97,18 +114,26 @@ export default function Landing() {
         </p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link
-            to="/builder/dashboard"
+            to="/signup"
             className="w-full rounded-xl bg-yellow-500 px-8 py-3.5 text-base font-bold text-blue-950 shadow-lg transition hover:bg-yellow-400 sm:w-auto"
           >
-            Enter Builder Workspace →
+            Start your free trial →
           </Link>
-          <Link
-            to="/stakeholder"
-            className="w-full rounded-xl border border-slate-600 px-8 py-3.5 text-base font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white sm:w-auto"
+          <button
+            type="button"
+            onClick={onDemo}
+            disabled={demoBusy}
+            className="w-full rounded-xl border border-slate-600 px-8 py-3.5 text-base font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white disabled:opacity-60 sm:w-auto"
           >
-            I&apos;m a tradie — sign in
-          </Link>
+            {demoBusy ? "Loading demo…" : "View live demo"}
+          </button>
         </div>
+        <p className="mt-4 text-center text-sm text-slate-400">
+          Tradesperson with a sign-in?{" "}
+          <Link to="/stakeholder" className="font-medium text-slate-200 hover:text-white">
+            Stakeholder portal →
+          </Link>
+        </p>
       </section>
 
       {/* Features */}
@@ -164,10 +189,10 @@ export default function Landing() {
           </div>
           <div className="mt-12 text-center">
             <Link
-              to="/builder/dashboard"
+              to="/signup"
               className="inline-block rounded-xl bg-yellow-500 px-8 py-3.5 text-base font-bold text-blue-950 shadow-lg transition hover:bg-yellow-400"
             >
-              Enter Builder Workspace →
+              Start your free trial →
             </Link>
           </div>
         </div>

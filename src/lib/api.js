@@ -166,6 +166,7 @@ const mapProfile = (r) => ({
 });
 
 const mapOrg = (r) => ({
+  id: r.id,
   name: r.name,
   abn: r.abn,
   state: r.state,
@@ -213,7 +214,8 @@ export async function fetchAppData() {
       supabase.from("diary_entries").select("*").order("date", { ascending: false }),
       supabase.from("toolbox_meetings").select("*").order("date", { ascending: false }),
       supabase.from("policies").select("*").order("id"),
-      supabase.from("org_settings").select("*").eq("id", 1).maybeSingle(),
+      // Organisation branding/settings — RLS returns only the caller's own org.
+      supabase.from("organizations").select("*").limit(1).maybeSingle(),
       supabase.from("profiles").select("*").order("created_at"),
       supabase.from("invites").select("*").order("id"),
       supabase.from("compliance_documents").select("*").order("id"),
@@ -631,12 +633,33 @@ export async function bumpPolicyVersion(policy) {
   return mapPolicy(data);
 }
 
-export async function updateOrgNotifications(notifications) {
+export async function updateOrgNotifications(orgId, notifications) {
   const { error } = await supabase
-    .from("org_settings")
+    .from("organizations")
     .update({ notifications })
-    .eq("id", 1);
+    .eq("id", orgId);
   if (error) fail(error, "Saving notification settings");
+}
+
+// Real builder signup: create an auth user, then (via a security-definer RPC)
+// create their organisation and make them its Builder Admin. Returns the new
+// org id. Requires the project's email auto-confirm so a session exists.
+export async function signUpBuilder({ email, password, name, orgName }) {
+  const { data, error } = await supabase.auth.signUp({
+    email: (email || "").trim(),
+    password,
+    options: { data: { name } },
+  });
+  if (error) fail(error, "Creating your account");
+  if (!data.session) {
+    // Auto-confirm is off — user must confirm by email before continuing.
+    throw new Error("Check your email to confirm your account, then log in.");
+  }
+  const { error: rpcError } = await supabase.rpc("signup_create_org", {
+    org_name: orgName,
+  });
+  if (rpcError) fail(rpcError, "Setting up your workspace");
+  return data.user.id;
 }
 
 export async function updateProfileStatus(id, status) {

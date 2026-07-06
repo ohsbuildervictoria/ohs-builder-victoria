@@ -188,12 +188,14 @@ export default function Login() {
           </button>
 
           <p className="mt-6 text-center text-xs text-slate-400">
-            Need an account? Contact your administrator at{" "}
-            <a
-              className="font-medium text-blue-700 hover:underline"
-              href={`mailto:${brand.supportEmail}`}
-            >
-              {brand.supportEmail}
+            New builder?{" "}
+            <a className="font-medium text-blue-700 hover:underline" href="/signup">
+              Start a free trial
+            </a>
+            {" · "}
+            Stakeholders sign in{" "}
+            <a className="font-medium text-blue-700 hover:underline" href="/stakeholder">
+              here
             </a>
           </p>
         </div>
