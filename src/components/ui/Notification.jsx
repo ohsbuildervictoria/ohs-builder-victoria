@@ -60,20 +60,24 @@ const DOT = {
   low: "bg-slate-400",
 };
 
-export function NotificationItem({ notification, onRead }) {
-  const { severity, title, message, read } = notification;
+export function NotificationItem({ notification, onRead, onOpen }) {
+  const { severity, title, message, read, link } = notification;
   return (
     <button
-      onClick={() => onRead?.(notification.id)}
+      onClick={() => {
+        onRead?.(notification.id);
+        if (link) onOpen?.(link);
+      }}
       className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 ${
         read ? "opacity-60" : ""
       }`}
     >
       <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${DOT[severity] || DOT.low}`} />
-      <span className="min-w-0">
+      <span className="min-w-0 flex-1">
         <span className="block text-sm font-medium text-slate-800">{title}</span>
         <span className="block truncate text-xs text-slate-500">{message}</span>
       </span>
+      {link && <span className="mt-1 shrink-0 text-xs text-blue-600">View →</span>}
     </button>
   );
 }

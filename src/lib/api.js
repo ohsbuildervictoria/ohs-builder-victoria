@@ -50,6 +50,7 @@ const mapWorker = (r) => ({
   email: r.email || "",
   inviteToken: r.invite_token || null,
   accountStatus: r.account_status || "legacy",
+  createdAt: r.created_at,
   profile: r.profile || {},
   project: r.project_id,
   induction: r.induction,

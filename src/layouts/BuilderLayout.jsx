@@ -148,6 +148,10 @@ export default function BuilderLayout() {
                           key={n.id}
                           notification={n}
                           onRead={markRead}
+                          onOpen={(link) => {
+                            setBellOpen(false);
+                            navigate(link);
+                          }}
                         />
                       ))
                     )}
