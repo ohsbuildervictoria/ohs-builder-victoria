@@ -6,9 +6,11 @@ import Modal from "../../components/ui/Modal";
 import AuditTrail from "../../components/shared/AuditTrail";
 import { useDiary } from "../../hooks/useDiary";
 import { useProjects } from "../../hooks/useProjects";
+import { useAppContext } from "../../context/AppContext";
 import { useToast } from "../../components/ui/Notification";
 import { useAuth } from "../../hooks/useAuth";
 import { weatherOptions, diaryTags } from "../../data/constants";
+import { exportDiaryRange } from "../../lib/pdf";
 
 // Local date, not UTC — .toISOString() is yesterday in Australia each morning.
 const d = new Date();
@@ -21,8 +23,20 @@ export default function SiteDiary() {
   const [selectedProject, setSelectedProject] = useState(null);
   const projectId = selectedProject ?? projects[0]?.id ?? null;
   const { entries, addEntry, editEntry } = useDiary(projectId);
+  const { org } = useAppContext();
   const toast = useToast();
+  const [exportMonth, setExportMonth] = useState(TODAY.slice(0, 7));
   const [selectedTags, setSelectedTags] = useState([]);
+
+  const onExportMonth = () => {
+    const project = projects.find((p) => p.id === projectId);
+    if (!project) return toast("Create a project first", "warning");
+    const from = `${exportMonth}-01`;
+    const [yy, mm] = exportMonth.split("-").map(Number);
+    const to = `${exportMonth}-${String(new Date(yy, mm, 0).getDate()).padStart(2, "0")}`;
+    exportDiaryRange({ org, project, entries, from, to });
+    toast(`Site diary for ${exportMonth} downloaded`);
+  };
   const [recording, setRecording] = useState(false);
   const [audioNote, setAudioNote] = useState(null);
   const [editing, setEditing] = useState(null); // diary entry being corrected
@@ -127,11 +141,22 @@ export default function SiteDiary() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Site Diary</h1>
-        <p className="text-sm text-slate-500">
-          Daily site records — weather, attendance, deliveries and observations
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Site Diary</h1>
+          <p className="text-sm text-slate-500">
+            Daily site records — weather, attendance, deliveries and observations
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="month"
+            value={exportMonth}
+            onChange={(e) => setExportMonth(e.target.value)}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-900 focus:outline-none"
+          />
+          <Button variant="secondary" onClick={onExportMonth}>Export Month (PDF)</Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

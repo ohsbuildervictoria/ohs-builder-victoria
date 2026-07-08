@@ -6,14 +6,29 @@ import ProgressBar from "../../components/ui/ProgressBar";
 import StatCard from "../../components/ui/StatCard";
 import ComplianceDonut from "../../components/charts/ComplianceDonut";
 import { useSWMS } from "../../hooks/useSWMS";
+import { useProjects } from "../../hooks/useProjects";
+import { useWorkers } from "../../hooks/useWorkers";
+import { useAppContext } from "../../context/AppContext";
 import { useToast } from "../../components/ui/Notification";
 import { swmsLibrary } from "../../data/swmsLibrary";
+import { exportSwmsPack, exportSwmsTemplate, exportSwmsLibrary } from "../../lib/pdf";
 
 export default function SWMS() {
   const { templates, signSWMS, lockTemplate, signOffStats } = useSWMS();
+  const { projects } = useProjects();
+  const { workers } = useWorkers();
+  const { org } = useAppContext();
   const toast = useToast();
   const [librarySearch, setLibrarySearch] = useState("");
   const [expandedRef, setExpandedRef] = useState(null);
+  const [packProject, setPackProject] = useState("");
+
+  const downloadPack = () => {
+    const project = projects.find((p) => p.id === Number(packProject)) || projects[0];
+    if (!project) return toast("Create a project first", "warning");
+    exportSwmsPack({ org, project, templates, workers, library: swmsLibrary });
+    toast(`SWMS pack for ${project.name} downloaded`);
+  };
 
   const filteredLibrary = swmsLibrary.filter((s) =>
     s.trade.toLowerCase().includes(librarySearch.toLowerCase()) ||
@@ -22,13 +37,28 @@ export default function SWMS() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">SWMS Management</h1>
-        <p className="text-sm text-slate-500">
-          Standardised, version-controlled Safe Work Method Statements — one
-          master template per trade. Stakeholders sign the assigned version; they
-          cannot edit it.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">SWMS Management</h1>
+          <p className="text-sm text-slate-500">
+            Standardised, version-controlled Safe Work Method Statements — one
+            master template per trade. Stakeholders sign the assigned version; they
+            cannot edit it.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            value={packProject}
+            onChange={(e) => setPackProject(e.target.value)}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-900 focus:outline-none"
+          >
+            <option value="">Project for pack…</option>
+            {projects.filter((p) => p.status !== "Archived").map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          <Button onClick={downloadPack}>Download SWMS Pack (PDF)</Button>
+        </div>
       </div>
 
       {/* Summary */}
@@ -105,9 +135,12 @@ export default function SWMS() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => toast("PDF export is coming soon", "warning")}
+                  onClick={() => {
+                    exportSwmsTemplate({ org, template: t, library: swmsLibrary });
+                    toast(`${t.trade} SWMS downloaded`);
+                  }}
                 >
-                  Download PDF (soon)
+                  Download PDF
                 </Button>
                 {t.signed < t.total && (
                   <Button
@@ -197,9 +230,12 @@ export default function SWMS() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => toast("PDF export is coming soon", "warning")}
+                    onClick={() => {
+                      exportSwmsLibrary({ org, entry: s });
+                      toast(`${s.trade} SWMS template downloaded`);
+                    }}
                   >
-                    Download PDF (soon)
+                    Download PDF
                   </Button>
                 </div>
               </CardBody>

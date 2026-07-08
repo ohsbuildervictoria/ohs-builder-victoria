@@ -8,8 +8,10 @@ import Modal from "../../components/ui/Modal";
 import AuditTrail from "../../components/shared/AuditTrail";
 import { useIncidents } from "../../hooks/useIncidents";
 import { useProjects } from "../../hooks/useProjects";
+import { useAppContext } from "../../context/AppContext";
 import { useToast } from "../../components/ui/Notification";
 import { useAuth } from "../../hooks/useAuth";
+import { exportIncidentReport } from "../../lib/pdf";
 import {
   incidentTypes,
   incidentSeverities,
@@ -28,6 +30,7 @@ const MAX_INCIDENT_DATETIME = `${TODAY_LOCAL}T23:59`;
 export default function Incidents() {
   const { incidents, addIncident, updateStatus, editIncident, addCorrectiveAction } = useIncidents();
   const { projects } = useProjects();
+  const { org, audits } = useAppContext();
   const { user } = useAuth();
   const toast = useToast();
   const [tab, setTab] = useState("All Incidents");
@@ -180,12 +183,22 @@ export default function Incidents() {
                         <option key={s}>{s}</option>
                       ))}
                     </select>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
                       <Button size="sm" variant="secondary" onClick={() => openEdit(i)}>
                         Edit
                       </Button>
                       <Button size="sm" variant="secondary" onClick={() => setActionFor(i.id)}>
                         + Corrective Action
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          exportIncidentReport({ org, incident: i, audits });
+                          toast("Incident report downloaded");
+                        }}
+                      >
+                        Download PDF
                       </Button>
                     </div>
                   </div>
