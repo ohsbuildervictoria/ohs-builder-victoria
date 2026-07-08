@@ -3,12 +3,29 @@ import { useAppContext } from "../context/AppContext";
 import {
   insertIncident,
   updateIncidentStatusRow,
+  updateIncidentRow,
   insertCorrectiveAction,
 } from "../lib/api";
+import { useAudit, diffFields } from "./useAudit";
 
-// { incidents, addIncident, updateStatus, addCorrectiveAction, getByType }
+// Incident fields that are editable + audited.
+export const INCIDENT_EDIT_FIELDS = [
+  { key: "type", label: "Type" },
+  { key: "date", label: "Date" },
+  { key: "severity", label: "Severity" },
+  { key: "status", label: "Status" },
+  { key: "description", label: "Description" },
+  { key: "location", label: "Location" },
+  { key: "involved", label: "Injured / involved" },
+  { key: "immediateAction", label: "Immediate action" },
+  { key: "notifiable", label: "WorkSafe notifiable" },
+  { key: "lostTime", label: "Lost-time injury" },
+];
+
+// { incidents, addIncident, updateStatus, editIncident, addCorrectiveAction, getByType }
 export function useIncidents(projectId = null) {
   const { incidents, setIncidents, projects } = useAppContext();
+  const { record } = useAudit();
 
   const scoped = useMemo(() => {
     if (projectId == null) return incidents;
@@ -56,6 +73,29 @@ export function useIncidents(projectId = null) {
     [setIncidents]
   );
 
+  // Correct an incident, recording the "edited by X, was: Y" trail first.
+  const editIncident = useCallback(
+    async (id, patch) => {
+      const before = incidents.find((i) => i.id === Number(id));
+      if (!before) return;
+      const notifiable =
+        patch.type === "Notifiable (WorkSafe)" ||
+        patch.severity === "Critical" ||
+        !!patch.notifiable;
+      const full = { ...patch, notifiable };
+      const after = { ...before, ...full };
+      const changes = diffFields(before, after, INCIDENT_EDIT_FIELDS);
+      if (Object.keys(changes).length === 0) return false;
+      await updateIncidentRow(Number(id), full);
+      await record("incident", Number(id), changes);
+      setIncidents((prev) =>
+        prev.map((i) => (i.id === Number(id) ? { ...i, ...full } : i))
+      );
+      return true;
+    },
+    [incidents, setIncidents, record]
+  );
+
   const addCorrectiveAction = useCallback(
     async (id, action) => {
       const created = await insertCorrectiveAction(Number(id), action);
@@ -80,5 +120,5 @@ export function useIncidents(projectId = null) {
     [scoped]
   );
 
-  return { incidents: scoped, addIncident, updateStatus, addCorrectiveAction, getByType };
+  return { incidents: scoped, addIncident, updateStatus, editIncident, addCorrectiveAction, getByType };
 }

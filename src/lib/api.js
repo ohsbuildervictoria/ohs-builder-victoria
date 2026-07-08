@@ -147,6 +147,16 @@ const mapDocument = (r) => ({
   uploadedAt: r.uploaded_at,
 });
 
+const mapAudit = (r) => ({
+  id: r.id,
+  entity: r.entity,
+  entityId: r.entity_id,
+  action: r.action,
+  changedBy: r.changed_by,
+  changes: r.changes || {},
+  createdAt: r.created_at,
+});
+
 const mapPolicy = (r) => ({
   id: r.id,
   name: r.name,
@@ -208,7 +218,7 @@ function fail(error, action) {
 // Fetch everything the app needs after login
 // ---------------------------------------------------------------------------
 export async function fetchAppData() {
-  const [projects, workers, templates, incidents, entries, meetings, policies, org, profiles, invites, documents] =
+  const [projects, workers, templates, incidents, entries, meetings, policies, org, profiles, invites, documents, audits] =
     await Promise.all([
       supabase.from("projects").select("*").order("id"),
       supabase.from("workers").select("*").order("id"),
@@ -222,6 +232,7 @@ export async function fetchAppData() {
       supabase.from("profiles").select("*").order("created_at"),
       supabase.from("invites").select("*").order("id"),
       supabase.from("compliance_documents").select("*").order("id"),
+      supabase.from("audit_log").select("*").order("created_at", { ascending: false }),
     ]);
 
   for (const res of [projects, workers, templates, incidents, entries, meetings, policies, org, profiles]) {
@@ -257,7 +268,55 @@ export async function fetchAppData() {
     org: org.data ? mapOrg(org.data) : null,
     profiles: (profiles.data || []).map(mapProfile),
     invites: invites.error ? [] : (invites.data || []).map(mapInvite),
+    audits: audits.error ? [] : (audits.data || []).map(mapAudit),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Edit + audit trail
+// ---------------------------------------------------------------------------
+
+// Writes an immutable audit row. `changes` is { field: { from, to } }.
+export async function logEdit({ entity, entityId, changedBy, changes }) {
+  const { data, error } = await supabase
+    .from("audit_log")
+    .insert({ entity, entity_id: entityId, changed_by: changedBy || "", changes })
+    .select()
+    .single();
+  if (error) fail(error, "Recording the edit");
+  return mapAudit(data);
+}
+
+const DIARY_PATCH_COLS = {
+  date: "date", weather: "weather", wind: "wind", labour: "labour",
+  hours: "hours", contacts: "contacts", notes: "notes", tags: "tags",
+};
+
+export async function updateDiaryEntryRow(id, patch) {
+  const row = {};
+  for (const [k, col] of Object.entries(DIARY_PATCH_COLS)) {
+    if (patch[k] !== undefined) row[col] = patch[k];
+  }
+  if (patch.hours !== undefined) row.hours = Number(patch.hours) || 0;
+  if (patch.labour !== undefined) row.labour = Number(patch.labour) || 0;
+  const { error } = await supabase.from("diary_entries").update(row).eq("id", id);
+  if (error) fail(error, "Updating diary entry");
+}
+
+const INCIDENT_PATCH_COLS = {
+  type: "type", description: "description", date: "date", status: "status",
+  severity: "severity", location: "location", involved: "involved",
+  witnesses: "witnesses", immediateAction: "immediate_action",
+  notifiable: "notifiable", lostTime: "lost_time",
+};
+
+export async function updateIncidentRow(id, patch) {
+  const row = {};
+  for (const [k, col] of Object.entries(INCIDENT_PATCH_COLS)) {
+    if (patch[k] !== undefined) row[col] = patch[k];
+  }
+  const { error } = await supabase.from("incidents").update(row).eq("id", id);
+  if (error) fail(error, "Updating incident");
 }
 
 export async function fetchProfile(userId) {

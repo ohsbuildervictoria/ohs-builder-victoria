@@ -5,6 +5,7 @@ import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
 import Tabs from "../../components/ui/Tabs";
 import Modal from "../../components/ui/Modal";
+import AuditTrail from "../../components/shared/AuditTrail";
 import { useIncidents } from "../../hooks/useIncidents";
 import { useProjects } from "../../hooks/useProjects";
 import { useToast } from "../../components/ui/Notification";
@@ -25,7 +26,7 @@ const TODAY_LOCAL = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.g
 const MAX_INCIDENT_DATETIME = `${TODAY_LOCAL}T23:59`;
 
 export default function Incidents() {
-  const { incidents, addIncident, updateStatus, addCorrectiveAction } = useIncidents();
+  const { incidents, addIncident, updateStatus, editIncident, addCorrectiveAction } = useIncidents();
   const { projects } = useProjects();
   const { user } = useAuth();
   const toast = useToast();
@@ -33,9 +34,35 @@ export default function Incidents() {
   const [typeFilter, setTypeFilter] = useState("All");
   const [createOpen, setCreateOpen] = useState(false);
   const [actionFor, setActionFor] = useState(null);
+  const [editing, setEditing] = useState(null); // incident being corrected
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
   const actionForm = useForm();
+  const editForm = useForm();
+
+  const openEdit = (i) => {
+    editForm.reset({
+      type: i.type, date: i.date, severity: i.severity, status: i.status,
+      description: i.description, location: i.location, involved: i.involved,
+      immediateAction: i.immediateAction, lostTime: i.lostTime,
+    });
+    setEditing(i);
+  };
+
+  const onSaveEdit = async (data) => {
+    try {
+      const changed = await editIncident(editing.id, {
+        type: data.type, date: (data.date || "").slice(0, 10), severity: data.severity,
+        status: data.status, description: data.description, location: data.location,
+        involved: data.involved, immediateAction: data.immediateAction,
+        lostTime: !!data.lostTime,
+      });
+      toast(changed ? "Incident corrected — change logged" : "No changes to save");
+      setEditing(null);
+    } catch (err) {
+      toast(err.message || "Could not save the correction", "error");
+    }
+  };
 
   // Apply tab + pill filters.
   let visible = incidents;
@@ -153,9 +180,14 @@ export default function Incidents() {
                         <option key={s}>{s}</option>
                       ))}
                     </select>
-                    <Button size="sm" variant="secondary" onClick={() => setActionFor(i.id)}>
-                      + Corrective Action
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="secondary" onClick={() => openEdit(i)}>
+                        Edit
+                      </Button>
+                      <Button size="sm" variant="secondary" onClick={() => setActionFor(i.id)}>
+                        + Corrective Action
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
@@ -179,6 +211,8 @@ export default function Incidents() {
                     ))}
                   </div>
                 )}
+
+                <AuditTrail entity="incident" entityId={i.id} />
               </CardBody>
             </Card>
           ))
@@ -297,6 +331,68 @@ export default function Incidents() {
             >
               📎 Attach photos
             </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Correct an incident — records "edited by X, was: Y" */}
+      <Modal
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        title="Correct incident"
+        size="lg"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setEditing(null)}>Cancel</Button>
+            <Button onClick={editForm.handleSubmit(onSaveEdit)}>Save correction</Button>
+          </>
+        }
+      >
+        <p className="mb-3 text-xs text-slate-500">
+          Corrections are logged with your name and the previous value — incident
+          records are correctable but never silently overwritten.
+        </p>
+        <form className="grid grid-cols-2 gap-4" onSubmit={editForm.handleSubmit(onSaveEdit)}>
+          <Field label="Incident type">
+            <select className="modal-input" {...editForm.register("type")}>
+              {incidentTypes.map((t) => <option key={t}>{t}</option>)}
+            </select>
+          </Field>
+          <Field label="Date">
+            <input type="date" max={TODAY_LOCAL} className="modal-input"
+              {...editForm.register("date", { validate: (v) => (v || "").slice(0,10) <= TODAY_LOCAL || "Can't be in the future" })} />
+          </Field>
+          <Field label="Severity">
+            <select className="modal-input" {...editForm.register("severity")}>
+              {incidentSeverities.map((s) => <option key={s}>{s}</option>)}
+            </select>
+          </Field>
+          <Field label="Status">
+            <select className="modal-input" {...editForm.register("status")}>
+              {incidentLifecycle.map((s) => <option key={s}>{s}</option>)}
+            </select>
+          </Field>
+          <Field label="Location on site">
+            <input className="modal-input" {...editForm.register("location")} />
+          </Field>
+          <Field label="Injured / involved person">
+            <input className="modal-input" {...editForm.register("involved")} />
+          </Field>
+          <div className="col-span-2">
+            <Field label="Description">
+              <textarea rows={2} className="modal-input" {...editForm.register("description")} />
+            </Field>
+          </div>
+          <div className="col-span-2">
+            <Field label="Immediate action taken">
+              <textarea rows={2} className="modal-input" {...editForm.register("immediateAction")} />
+            </Field>
+          </div>
+          <div className="col-span-2">
+            <label className="flex items-start gap-2 text-sm text-slate-700">
+              <input type="checkbox" className="mt-0.5" {...editForm.register("lostTime")} />
+              <span><span className="font-medium">Lost-time injury</span> (counts toward LTIFR)</span>
+            </label>
           </div>
         </form>
       </Modal>

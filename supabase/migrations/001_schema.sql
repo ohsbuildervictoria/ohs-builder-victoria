@@ -686,3 +686,26 @@ create policy "compliance_documents: write" on public.compliance_documents for a
 select
   (select count(*) from public.workers where account_status='legacy') legacy_workers,
   (select count(*) from public.workers where invite_token is not null) with_token;
+
+-- ============================================================================
+-- Edit audit trail (2026-07-08)
+-- Immutable log of corrections to diary entries and incidents. The app writes
+-- an "edited by X, was: Y" row BEFORE updating the record, so safety records
+-- are correctable but never silently overwritten. No update/delete policies =>
+-- rows can never be altered or removed once written.
+-- ============================================================================
+create table public.audit_log (
+  id bigint generated always as identity primary key,
+  organization_id bigint not null default public.my_org() references public.organizations(id),
+  entity text not null check (entity in ('diary_entry','incident')),
+  entity_id bigint not null,
+  action text not null default 'edit',
+  changed_by text not null default '',
+  changes jsonb not null default '{}',
+  created_at timestamptz not null default now()
+);
+alter table public.audit_log enable row level security;
+create policy "audit: read org" on public.audit_log for select to authenticated
+  using (organization_id = public.my_org());
+create policy "audit: staff insert" on public.audit_log for insert to authenticated
+  with check (public.is_builder_staff() and organization_id = public.my_org());

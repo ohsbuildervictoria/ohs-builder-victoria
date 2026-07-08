@@ -2,6 +2,8 @@ import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import Card, { CardBody, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
+import Modal from "../../components/ui/Modal";
+import AuditTrail from "../../components/shared/AuditTrail";
 import { useDiary } from "../../hooks/useDiary";
 import { useProjects } from "../../hooks/useProjects";
 import { useToast } from "../../components/ui/Notification";
@@ -18,13 +20,36 @@ export default function SiteDiary() {
   const { user } = useAuth();
   const [selectedProject, setSelectedProject] = useState(null);
   const projectId = selectedProject ?? projects[0]?.id ?? null;
-  const { entries, addEntry } = useDiary(projectId);
+  const { entries, addEntry, editEntry } = useDiary(projectId);
   const toast = useToast();
   const [selectedTags, setSelectedTags] = useState([]);
   const [recording, setRecording] = useState(false);
   const [audioNote, setAudioNote] = useState(null);
+  const [editing, setEditing] = useState(null); // diary entry being corrected
   const mediaRef = useRef(null);
   const chunksRef = useRef([]);
+  const editForm = useForm();
+
+  const openEdit = (e) => {
+    editForm.reset({
+      date: e.date, weather: e.weather, hours: e.hours,
+      labour: e.labour, notes: e.notes,
+    });
+    setEditing(e);
+  };
+
+  const onSaveEdit = async (data) => {
+    try {
+      const changed = await editEntry(editing.id, {
+        date: data.date, weather: data.weather,
+        hours: data.hours, labour: data.labour, notes: data.notes,
+      });
+      toast(changed ? "Diary entry corrected — change logged" : "No changes to save");
+      setEditing(null);
+    } catch (err) {
+      toast(err.message || "Could not save the correction", "error");
+    }
+  };
 
   const {
     register,
@@ -138,7 +163,16 @@ export default function SiteDiary() {
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-slate-800">{e.date}</span>
-                      <span className="text-xs text-slate-500">{e.weather}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-500">{e.weather}</span>
+                        <button
+                          type="button"
+                          onClick={() => openEdit(e)}
+                          className="text-xs font-medium text-blue-700 hover:underline"
+                        >
+                          Edit
+                        </button>
+                      </div>
                     </div>
                     <p className="mt-1 line-clamp-2 text-slate-600">{e.notes}</p>
                     <div className="mt-2 flex flex-wrap gap-1">
@@ -151,6 +185,7 @@ export default function SiteDiary() {
                         </span>
                       ))}
                     </div>
+                    <AuditTrail entity="diary_entry" entityId={e.id} />
                   </div>
                 ))
               ) : (
@@ -289,6 +324,46 @@ export default function SiteDiary() {
           </CardBody>
         </Card>
       </div>
+
+      {/* Correct a diary entry — records "edited by X, was: Y" */}
+      <Modal
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        title="Correct diary entry"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setEditing(null)}>Cancel</Button>
+            <Button onClick={editForm.handleSubmit(onSaveEdit)}>Save correction</Button>
+          </>
+        }
+      >
+        <p className="mb-3 text-xs text-slate-500">
+          Corrections are logged with your name and the previous value — the
+          original is never silently overwritten.
+        </p>
+        <form className="grid grid-cols-2 gap-4" onSubmit={editForm.handleSubmit(onSaveEdit)}>
+          <Field label="Date">
+            <input type="date" max={TODAY} className="input"
+              {...editForm.register("date", { required: true, validate: (v) => v <= TODAY || "Can't be in the future" })} />
+          </Field>
+          <Field label="Weather">
+            <select className="input" {...editForm.register("weather")}>
+              {weatherOptions.map((w) => <option key={w}>{w}</option>)}
+            </select>
+          </Field>
+          <Field label="Hours on site">
+            <input type="number" min="0" className="input" {...editForm.register("hours")} />
+          </Field>
+          <Field label="Workers present">
+            <input type="number" min="0" className="input" {...editForm.register("labour")} />
+          </Field>
+          <div className="col-span-2">
+            <Field label="Notes / observations">
+              <textarea rows={3} className="input" {...editForm.register("notes")} />
+            </Field>
+          </div>
+        </form>
+      </Modal>
 
       <style>{`
         .input {

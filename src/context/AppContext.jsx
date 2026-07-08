@@ -9,6 +9,7 @@ const emptyState = {
   projects: [],
   workers: [],
   documents: [],
+  audits: [],
   incidents: [],
   templates: [],
   entries: [],
@@ -27,6 +28,7 @@ export function AppProvider({ children }) {
   const [projects, setProjects] = useState(emptyState.projects);
   const [workers, setWorkers] = useState(emptyState.workers);
   const [documents, setDocuments] = useState(emptyState.documents);
+  const [audits, setAudits] = useState(emptyState.audits);
   const [incidents, setIncidents] = useState(emptyState.incidents);
   const [templates, setTemplates] = useState(emptyState.templates);
   const [entries, setEntries] = useState(emptyState.entries);
@@ -47,6 +49,7 @@ export function AppProvider({ children }) {
       setProjects(data.projects);
       setWorkers(data.workers);
       setDocuments(data.documents);
+      setAudits(data.audits);
       setIncidents(data.incidents);
       setTemplates(data.templates);
       setEntries(data.entries);
@@ -71,6 +74,7 @@ export function AppProvider({ children }) {
       setProjects(emptyState.projects);
       setWorkers(emptyState.workers);
       setDocuments(emptyState.documents);
+      setAudits(emptyState.audits);
       setIncidents(emptyState.incidents);
       setTemplates(emptyState.templates);
       setEntries(emptyState.entries);
@@ -90,6 +94,7 @@ export function AppProvider({ children }) {
       projects, setProjects,
       workers, setWorkers,
       documents, setDocuments,
+      audits, setAudits,
       incidents, setIncidents,
       templates, setTemplates,
       entries, setEntries,
@@ -101,7 +106,7 @@ export function AppProvider({ children }) {
       readNotifications, setReadNotifications,
       loading, loadError, refresh,
     }),
-    [projects, workers, documents, incidents, templates, entries, meetings, policies,
+    [projects, workers, documents, audits, incidents, templates, entries, meetings, policies,
      profiles, invites, org, readNotifications, loading, loadError, refresh]
   );
 
