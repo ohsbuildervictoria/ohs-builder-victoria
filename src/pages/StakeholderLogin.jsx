@@ -10,7 +10,7 @@ import { brand } from "../data/constants";
 // everyone shares the simple pilot password. Once signed in, the portal is
 // scoped to that tradie's own site, tasks and SWMS only.
 export default function StakeholderLogin() {
-  const { loginStakeholder, user } = useAuth();
+  const { loginStakeholder, login, user } = useAuth();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -29,8 +29,17 @@ export default function StakeholderLogin() {
     setError(null);
     setSubmitting(true);
     try {
-      await loginStakeholder(username, password);
-      navigate("/worker/home", { replace: true });
+      const id = username.trim();
+      // Real per-tradie account (email) vs the legacy shared pilot login.
+      if (id.includes("@")) {
+        const profile = await login(id, password);
+        navigate(profile.role === "worker" ? "/worker/home" : "/builder/dashboard", {
+          replace: true,
+        });
+      } else {
+        await loginStakeholder(id, password);
+        navigate("/worker/home", { replace: true });
+      }
     } catch (err) {
       setError(err.message || "Could not sign you in.");
     } finally {
@@ -44,25 +53,25 @@ export default function StakeholderLogin() {
         <div className="mb-6 flex flex-col items-center text-center">
           <Logo />
           <h1 className="mt-4 text-2xl font-bold text-slate-800">
-            Stakeholder Sign-in
+            Worker Sign-in
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Use the username your builder gave you.
+            Sign in with the email you set up, or the username your builder gave you.
           </p>
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Username
+              Email or username
             </label>
             <input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               autoComplete="username"
               autoCapitalize="none"
-              placeholder="e.g. liam"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-900"
+              placeholder="you@email.com  ·  or  ·  liam"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base focus:border-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-900"
             />
           </div>
           <div>
@@ -73,8 +82,9 @@ export default function StakeholderLogin() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="•••"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-900"
+              autoComplete="current-password"
+              placeholder="••••••••"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base focus:border-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-900"
             />
           </div>
 
@@ -90,7 +100,8 @@ export default function StakeholderLogin() {
         </form>
 
         <p className="mt-6 text-center text-xs text-slate-400">
-          No username yet? Ask your builder, or contact{" "}
+          Got an invite link from your builder? Open it to set up your account.
+          No account yet? Ask your builder, or contact{" "}
           <a
             className="font-medium text-blue-700 hover:underline"
             href={`mailto:${brand.supportEmail}`}

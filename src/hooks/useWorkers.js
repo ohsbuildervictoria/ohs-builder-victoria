@@ -7,6 +7,7 @@ import {
   insertWorker,
   saveWorkerProfileRow,
   pilotSaveProfile,
+  saveMyProfile,
 } from "../lib/api";
 
 // Derives a worker's overall status from their 6 compliance categories.
@@ -59,12 +60,16 @@ export function useWorkers(projectId = null) {
     [workers, setWorkers]
   );
 
-  // Registration form details (contact, emergency, quals). Pilot tradies go
-  // through the RPC because they share one auth account.
+  // Registration form details (contact, emergency, quals).
+  // - Legacy pilot tradie (shared account): explicit worker id via RPC.
+  // - Real tradie (own account): self-service RPC keyed to their own worker.
+  // - Builder staff: direct write.
   const saveProfile = useCallback(
     async (id, profile) => {
       if (user?.pilotWorker) {
         await pilotSaveProfile(Number(id), profile);
+      } else if (user?.role === "worker") {
+        await saveMyProfile(profile);
       } else {
         await saveWorkerProfileRow(Number(id), profile);
       }
@@ -72,7 +77,7 @@ export function useWorkers(projectId = null) {
         prev.map((w) => (w.id === Number(id) ? { ...w, profile } : w))
       );
     },
-    [setWorkers, user?.pilotWorker]
+    [setWorkers, user?.pilotWorker, user?.role]
   );
 
   const filterByStatus = useCallback(

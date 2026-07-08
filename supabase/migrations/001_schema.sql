@@ -569,3 +569,120 @@ grant execute on function public.signup_create_org(text) to authenticated;
 -- so trial signups get an immediate session. The pilot bypass now fires ONLY
 -- via the explicit "View live demo" entry (David's Arlington org); it no longer
 -- auto-logs-in every visitor. See src/context/AuthContext.jsx + src/lib/pilotBypass.js.
+
+-- ============================================================================
+-- Real per-tradie authentication (2026-07-08)
+-- Each tradie gets their own account (email + password) via a one-time invite
+-- link, linked to their worker record + org. David's 3 existing pilot tradies
+-- stay on the legacy shared-account username login (account_status='legacy').
+-- ============================================================================
+alter table public.workers add column if not exists email text;
+alter table public.workers add column if not exists invite_token uuid;
+alter table public.workers add column if not exists account_status text not null default 'invited';
+
+-- Existing workers -> legacy shared-account login (no per-tradie account).
+update public.workers set account_status = 'legacy' where account_status = 'invited';
+-- New workers auto-get a fresh invite token.
+alter table public.workers alter column invite_token set default gen_random_uuid();
+update public.workers set invite_token = gen_random_uuid()
+  where account_status = 'invited' and invite_token is null;
+
+-- Caller's linked worker id (null for builders and the shared pilot account).
+create or replace function public.my_worker_id()
+returns bigint language sql stable security definer set search_path = public as $$
+  select worker_id from public.profiles where id = auth.uid()
+$$;
+grant execute on function public.my_worker_id() to authenticated, anon;
+
+-- Public invite preview (anon): what a tradie sees before setting a password.
+create or replace function public.worker_invite_info(token uuid)
+returns json language sql stable security definer set search_path = public as $$
+  select json_build_object(
+    'workerName', w.name, 'trade', w.trade, 'orgName', o.name,
+    'projectName', p.name, 'claimed', (w.account_status = 'active')
+  )
+  from public.workers w
+  left join public.organizations o on o.id = w.organization_id
+  left join public.projects p on p.id = w.project_id
+  where w.invite_token = token
+$$;
+grant execute on function public.worker_invite_info(uuid) to anon, authenticated;
+
+-- Claim an invite: link the signed-in account to the worker + org, role worker.
+create or replace function public.accept_worker_invite(token uuid)
+returns bigint language plpgsql security definer set search_path = public as $fn$
+declare w record;
+begin
+  if auth.uid() is null then raise exception 'not authenticated'; end if;
+  select * into w from public.workers where invite_token = token;
+  if w.id is null then raise exception 'This invite link is invalid or has already been used.'; end if;
+  update public.profiles
+    set organization_id = w.organization_id, role = 'worker', worker_id = w.id, status = 'Active'
+    where id = auth.uid();
+  update public.workers
+    set account_status = 'active', invite_token = null,
+        email = coalesce(nullif(email,''), (select email from public.profiles where id = auth.uid()))
+    where id = w.id;
+  return w.id;
+end $fn$;
+grant execute on function public.accept_worker_invite(uuid) to authenticated;
+
+-- Legacy shared-account username lookup, org-scoped (RLS now hides other
+-- workers from a linked tradie, so this must run as definer).
+create or replace function public.find_worker_by_handle(handle text)
+returns setof public.workers language sql stable security definer set search_path = public as $$
+  select * from public.workers
+  where login_handle = lower(trim(handle)) and organization_id = public.my_org()
+  limit 1
+$$;
+grant execute on function public.find_worker_by_handle(text) to authenticated;
+
+-- Worker self-service profile save (real tradie; RLS blocks direct writes).
+create or replace function public.save_my_profile(p jsonb)
+returns void language plpgsql security definer set search_path = public as $fn$
+declare wid bigint;
+begin
+  select worker_id into wid from public.profiles where id = auth.uid();
+  if wid is null then raise exception 'no linked worker record'; end if;
+  update public.workers set profile = coalesce(p, '{}'::jsonb) where id = wid;
+end $fn$;
+grant execute on function public.save_my_profile(jsonb) to authenticated;
+
+-- Harden SWMS sign-off to the caller's own org.
+create or replace function public.sign_swms(template_id bigint)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'not authenticated'; end if;
+  update public.swms_templates
+     set signed = least(signed + 1, greatest(total, signed + 1))
+   where id = template_id and locked = false and organization_id = public.my_org();
+end;
+$$;
+
+-- Retighten workers + compliance_documents so a LINKED tradie sees only their
+-- own record. The "my_worker_id() is null" clause is the narrow escape hatch
+-- that keeps David's shared pilot account (role worker, no linked worker)
+-- working; every real tradie has a worker_id and is therefore restricted.
+drop policy if exists "workers: read org" on public.workers;
+drop policy if exists "workers: staff write" on public.workers;
+create policy "workers: read" on public.workers for select to authenticated
+  using (organization_id = public.my_org()
+    and (public.is_builder_staff() or public.my_worker_id() is null or id = public.my_worker_id()));
+create policy "workers: staff write" on public.workers for all to authenticated
+  using (public.is_builder_staff() and organization_id = public.my_org())
+  with check (public.is_builder_staff() and organization_id = public.my_org());
+
+drop policy if exists "compliance_documents: read org" on public.compliance_documents;
+drop policy if exists "compliance_documents: write org" on public.compliance_documents;
+create policy "compliance_documents: read" on public.compliance_documents for select to authenticated
+  using (organization_id = public.my_org()
+    and (public.is_builder_staff() or public.my_worker_id() is null or worker_id = public.my_worker_id()));
+create policy "compliance_documents: write" on public.compliance_documents for all to authenticated
+  using (organization_id = public.my_org()
+    and (public.is_builder_staff() or public.my_worker_id() is null or worker_id = public.my_worker_id()))
+  with check (organization_id = public.my_org()
+    and (public.is_builder_staff() or public.my_worker_id() is null or worker_id = public.my_worker_id()));
+
+select
+  (select count(*) from public.workers where account_status='legacy') legacy_workers,
+  (select count(*) from public.workers where invite_token is not null) with_token;

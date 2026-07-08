@@ -13,7 +13,7 @@ import {
   loadPilotWorker,
   clearPilotWorker,
 } from "../lib/pilotBypass";
-import { findWorkerByHandle } from "../lib/api";
+import { findWorkerByHandle, acceptWorkerInvite } from "../lib/api";
 
 // Attaches the pilot tradie identity to the shared stakeholder session so the
 // portal scopes to that tradie only.
@@ -127,6 +127,26 @@ export function AuthProvider({ children }) {
     return pilotUser;
   }, []);
 
+  // Real per-tradie signup via an invite link: create the account, claim the
+  // invite (links profile → worker + org, role worker), then load the profile.
+  const joinAsTradie = useCallback(async ({ token, email, password }) => {
+    clearPilotWorker();
+    const { data, error } = await supabase.auth.signUp({
+      email: (email || "").trim(),
+      password,
+    });
+    if (error) throw new Error(error.message);
+    if (!data.session) {
+      throw new Error("Check your email to confirm your account, then open your invite link again.");
+    }
+    await acceptWorkerInvite(token);
+    const profile = await fetchProfile(data.user.id);
+    if (!profile?.workerId) throw new Error("Could not link your account to the invite.");
+    touchLastLogin(data.user.id);
+    setUser(profile);
+    return profile;
+  }, []);
+
   const logout = useCallback(async () => {
     clearPilotWorker();
     await supabase.auth.signOut();
@@ -176,6 +196,7 @@ export function AuthProvider({ children }) {
       login,
       signup,
       enterDemo,
+      joinAsTradie,
       loginStakeholder,
       logout,
       resetPassword,
@@ -183,7 +204,7 @@ export function AuthProvider({ children }) {
       isWorker: role === "worker",
       hasRole: (roleName) => role === roleName,
     };
-  }, [user, initialising, login, signup, enterDemo, loginStakeholder, logout, resetPassword]);
+  }, [user, initialising, login, signup, enterDemo, joinAsTradie, loginStakeholder, logout, resetPassword]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

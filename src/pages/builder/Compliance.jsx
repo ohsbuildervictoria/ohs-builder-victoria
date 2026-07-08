@@ -28,16 +28,6 @@ import { swmsLibrary } from "../../data/swmsLibrary";
 const ALL_TABS = ["Stakeholders", "Subcontractors", "Suppliers", "Developer", "Other"];
 const STATUSES = ["Verified", "Pending", "Missing"];
 
-// Suggest a simple pilot username from the person's first name.
-const suggestHandle = (name, taken) => {
-  const base = (name || "").trim().split(/\s+/)[0]?.toLowerCase().replace(/[^a-z0-9]/g, "") || "";
-  if (!base) return "";
-  if (!taken.includes(base)) return base;
-  let n = 2;
-  while (taken.includes(`${base}${n}`)) n += 1;
-  return `${base}${n}`;
-};
-
 export default function Compliance() {
   const { workers, updateCompliance, addWorker } = useWorkers();
   const { projects } = useProjects();
@@ -73,12 +63,15 @@ export default function Compliance() {
         name: data.name,
         trade: data.trade,
         employer: data.employer,
+        email: data.email,
         project: data.project ? Number(data.project) : null,
-        loginHandle: data.loginHandle,
       });
       setAddOpen(false);
       addForm.reset();
-      setNewLogin({ name: created.name, handle: created.loginHandle });
+      setNewLogin({
+        name: created.name,
+        inviteLink: `${window.location.origin}/join/${created.inviteToken}`,
+      });
       refresh(); // pick up the SWMS template created/bumped for their trade
     } catch (err) {
       toast(err.message || "Could not add stakeholder", "error");
@@ -193,16 +186,7 @@ export default function Compliance() {
             <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
               Full name *
             </span>
-            <input
-              className="cmp-input"
-              {...addForm.register("name", {
-                required: true,
-                onChange: (e) => {
-                  const taken = workers.map((w) => w.loginHandle).filter(Boolean);
-                  addForm.setValue("loginHandle", suggestHandle(e.target.value, taken));
-                },
-              })}
-            />
+            <input className="cmp-input" {...addForm.register("name", { required: true })} />
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -241,39 +225,52 @@ export default function Compliance() {
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Sign-in username *
+              Email (optional)
             </span>
             <input
+              type="email"
               className="cmp-input"
               autoCapitalize="none"
-              {...addForm.register("loginHandle", { required: true })}
+              placeholder="subbie@email.com"
+              {...addForm.register("email")}
             />
             <span className="mt-1 block text-xs text-slate-400">
-              They sign in at /stakeholder with this username and the pilot password 123.
+              You&apos;ll get a private invite link to send them — they set their
+              own password and see only their own site and documents.
             </span>
           </label>
         </form>
       </Modal>
 
-      {/* New login details */}
+      {/* Invite link to send the new subbie */}
       <Modal
         open={!!newLogin}
         onClose={() => setNewLogin(null)}
-        title="Stakeholder added"
+        title="Subbie added — send them this link"
         footer={<Button onClick={() => setNewLogin(null)}>Done</Button>}
       >
         {newLogin && (
           <div className="space-y-3 text-sm text-slate-700">
             <p>
-              <span className="font-semibold">{newLogin.name}</span> can now sign in to the site portal:
+              Send <span className="font-semibold">{newLogin.name}</span> this private
+              link (text, email or WhatsApp). They open it once to set their own
+              password, then sign in with their email from then on.
             </p>
-            <div className="rounded-lg bg-slate-50 p-4 font-mono text-sm">
-              <p>Web address: {window.location.origin}/stakeholder</p>
-              <p>Username: {newLogin.handle}</p>
-              <p>Password: 123</p>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="break-all font-mono text-xs text-slate-700">{newLogin.inviteLink}</p>
             </div>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                navigator.clipboard?.writeText(newLogin.inviteLink);
+                toast("Invite link copied");
+              }}
+            >
+              Copy link
+            </Button>
             <p className="text-xs text-slate-500">
-              Pilot sign-in only — proper individual accounts arrive after the pilot.
+              The link works once and only for this subbie. They&apos;ll only ever
+              see their own site, tasks and documents.
             </p>
           </div>
         )}

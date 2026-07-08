@@ -47,6 +47,9 @@ const mapWorker = (r) => ({
   trade: r.trade,
   employer: r.employer,
   loginHandle: r.login_handle || "",
+  email: r.email || "",
+  inviteToken: r.invite_token || null,
+  accountStatus: r.account_status || "legacy",
   profile: r.profile || {},
   project: r.project_id,
   induction: r.induction,
@@ -325,7 +328,10 @@ export async function insertWorker(w) {
       trade: w.trade || "",
       employer: w.employer || "",
       project_id: w.project ?? null,
+      email: (w.email || "").trim() || null,
       login_handle: (w.loginHandle || "").trim().toLowerCase() || null,
+      // New subbies get a real per-tradie account via the invite link; the DB
+      // default fills invite_token + account_status='invited'.
     })
     .select()
     .single();
@@ -436,13 +442,28 @@ export async function getDocUrl(filePath) {
 }
 
 export async function findWorkerByHandle(handle) {
-  const { data, error } = await supabase
-    .from("workers")
-    .select("*")
-    .eq("login_handle", handle.trim().toLowerCase())
-    .maybeSingle();
+  // RLS now hides other workers from a linked tradie, so the legacy shared
+  // account resolves the username through a security-definer RPC (org-scoped).
+  const { data, error } = await supabase.rpc("find_worker_by_handle", {
+    handle: (handle || "").trim(),
+  });
   if (error) fail(error, "Looking up stakeholder");
-  return data ? mapWorker(data) : null;
+  const row = Array.isArray(data) ? data[0] : data;
+  return row ? mapWorker(row) : null;
+}
+
+// Public invite preview shown on the /join page before the tradie sets a password.
+export async function fetchInviteInfo(token) {
+  const { data, error } = await supabase.rpc("worker_invite_info", { token });
+  if (error) fail(error, "Loading invite");
+  return data; // { workerName, trade, orgName, projectName, claimed } | null
+}
+
+// Link the signed-in account to the invited worker + org (role worker).
+export async function acceptWorkerInvite(token) {
+  const { data, error } = await supabase.rpc("accept_worker_invite", { token });
+  if (error) fail(error, "Joining your builder");
+  return data; // worker id
 }
 
 // PILOT ONLY: tradies share one auth account, so the worker id is explicit.
@@ -482,6 +503,12 @@ export async function pilotSaveProfile(workerId, profile) {
     wid: workerId,
     p: profile,
   });
+  if (error) fail(error, "Saving your profile");
+}
+
+// Real tradie saving their own worker profile (RLS blocks direct writes).
+export async function saveMyProfile(profile) {
+  const { error } = await supabase.rpc("save_my_profile", { p: profile });
   if (error) fail(error, "Saving your profile");
 }
 

@@ -11,6 +11,7 @@ import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import StakeholderLogin from "./pages/StakeholderLogin";
+import JoinTradie from "./pages/JoinTradie";
 
 import Dashboard from "./pages/builder/Dashboard";
 import Projects from "./pages/builder/Projects";
@@ -75,8 +76,10 @@ function AppRoutes() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
-      {/* PILOT: lightweight tradie sign-in (see src/lib/pilotBypass.js) */}
+      {/* Tradie sign-in (real per-tradie accounts + legacy pilot usernames) */}
       <Route path="/stakeholder" element={<StakeholderLogin />} />
+      {/* Subbie invite link — set up a real per-tradie account */}
+      <Route path="/join/:token" element={<JoinTradie />} />
 
       {/* Builder web */}
       <Route
