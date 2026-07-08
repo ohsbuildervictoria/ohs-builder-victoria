@@ -23,8 +23,13 @@ export default function SiteDiary() {
   const [selectedProject, setSelectedProject] = useState(null);
   const projectId = selectedProject ?? projects[0]?.id ?? null;
   const { entries, addEntry, editEntry } = useDiary(projectId);
-  const { org } = useAppContext();
+  const { org, checkins } = useAppContext();
   const toast = useToast();
+
+  // Real attendance from QR site sign-ins for this project today.
+  const todayCheckins = checkins.filter(
+    (c) => c.projectId === projectId && c.date === TODAY
+  );
   const [exportMonth, setExportMonth] = useState(TODAY.slice(0, 7));
   const [selectedTags, setSelectedTags] = useState([]);
 
@@ -69,6 +74,7 @@ export default function SiteDiary() {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm({
     defaultValues: {
@@ -267,6 +273,15 @@ export default function SiteDiary() {
                     className="input"
                     {...register("workersPresent")}
                   />
+                  {todayCheckins.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setValue("workersPresent", todayCheckins.length)}
+                      className="mt-1 text-xs font-medium text-blue-700 hover:underline"
+                    >
+                      ✓ {todayCheckins.length} signed in via QR today — use this
+                    </button>
+                  )}
                 </Field>
                 <Field label="Meeting contacts">
                   <input className="input" {...register("contacts")} />

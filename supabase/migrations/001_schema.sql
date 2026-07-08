@@ -709,3 +709,70 @@ create policy "audit: read org" on public.audit_log for select to authenticated
   using (organization_id = public.my_org());
 create policy "audit: staff insert" on public.audit_log for insert to authenticated
   with check (public.is_builder_staff() and organization_id = public.my_org());
+
+-- ============================================================================
+-- QR-code site sign-in (2026-07-08)
+-- Each project has a scannable check-in code. A tradie scans the poster at the
+-- gate and checks in for the day; the diary's crew count and LTIFR man-hours
+-- can then use real attendance instead of a guess.
+-- ============================================================================
+alter table public.projects add column if not exists checkin_token uuid;
+update public.projects set checkin_token = gen_random_uuid() where checkin_token is null;
+alter table public.projects alter column checkin_token set default gen_random_uuid();
+
+create table if not exists public.site_checkins (
+  id bigint generated always as identity primary key,
+  organization_id bigint not null references public.organizations(id),
+  project_id bigint not null references public.projects(id) on delete cascade,
+  worker_id bigint references public.workers(id) on delete set null,
+  name text not null default '',
+  date date not null default current_date,
+  created_at timestamptz not null default now()
+);
+alter table public.site_checkins enable row level security;
+drop policy if exists "checkins: read org" on public.site_checkins;
+create policy "checkins: read org" on public.site_checkins for select to authenticated
+  using (organization_id = public.my_org());
+-- Inserts happen only through the definer RPC below.
+
+-- Public preview for the scan page (anon): which site am I signing in to?
+create or replace function public.checkin_info(token uuid)
+returns json language sql stable security definer set search_path = public as $$
+  select json_build_object('projectName', p.name, 'orgName', o.name, 'address', p.address)
+  from public.projects p left join public.organizations o on o.id = p.organization_id
+  where p.checkin_token = token
+$$;
+grant execute on function public.checkin_info(uuid) to anon, authenticated;
+
+-- Record a check-in. Works for an anonymous scan (name only) or a signed-in
+-- tradie (linked to their worker). Idempotent per project + person + day.
+create or replace function public.site_checkin(token uuid, p_name text)
+returns json language plpgsql security definer set search_path = public as $fn$
+declare proj record; wid bigint; nm text; existing bigint;
+begin
+  select * into proj from public.projects where checkin_token = token;
+  if proj.id is null then raise exception 'This site sign-in code is not valid.'; end if;
+  if auth.uid() is not null then
+    select worker_id into wid from public.profiles where id = auth.uid();
+    if wid is not null and not exists (
+      select 1 from public.workers w where w.id = wid and w.organization_id = proj.organization_id
+    ) then
+      wid := null;
+    end if;
+  end if;
+  select name into nm from public.workers where id = wid;
+  nm := coalesce(nullif(nm, ''), nullif(trim(p_name), ''), 'Site worker');
+  select id into existing from public.site_checkins
+    where project_id = proj.id and date = current_date
+      and ((wid is not null and worker_id = wid) or (wid is null and lower(name) = lower(nm)));
+  if existing is null then
+    insert into public.site_checkins (organization_id, project_id, worker_id, name)
+      values (proj.organization_id, proj.id, wid, nm);
+  end if;
+  return json_build_object('projectName', proj.name, 'name', nm,
+    'date', current_date, 'alreadyCheckedIn', existing is not null);
+end $fn$;
+grant execute on function public.site_checkin(uuid, text) to anon, authenticated;
+
+select (select count(*) from information_schema.tables where table_name='site_checkins') tbl,
+       (select count(*) from public.projects where checkin_token is not null) projects_with_token;

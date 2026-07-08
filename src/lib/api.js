@@ -36,6 +36,7 @@ const mapProject = (r) => ({
   contractValue: Number(r.contract_value),
   projectManager: r.project_manager || "",
   startDate: r.start_date,
+  checkinToken: r.checkin_token || null,
   // annotated after fetch from live data:
   workers: 0,
   incidents: 0,
@@ -148,6 +149,15 @@ const mapDocument = (r) => ({
   uploadedAt: r.uploaded_at,
 });
 
+const mapCheckin = (r) => ({
+  id: r.id,
+  projectId: r.project_id,
+  workerId: r.worker_id,
+  name: r.name,
+  date: r.date,
+  createdAt: r.created_at,
+});
+
 const mapAudit = (r) => ({
   id: r.id,
   entity: r.entity,
@@ -219,7 +229,7 @@ function fail(error, action) {
 // Fetch everything the app needs after login
 // ---------------------------------------------------------------------------
 export async function fetchAppData() {
-  const [projects, workers, templates, incidents, entries, meetings, policies, org, profiles, invites, documents, audits] =
+  const [projects, workers, templates, incidents, entries, meetings, policies, org, profiles, invites, documents, audits, checkins] =
     await Promise.all([
       supabase.from("projects").select("*").order("id"),
       supabase.from("workers").select("*").order("id"),
@@ -234,6 +244,7 @@ export async function fetchAppData() {
       supabase.from("invites").select("*").order("id"),
       supabase.from("compliance_documents").select("*").order("id"),
       supabase.from("audit_log").select("*").order("created_at", { ascending: false }),
+      supabase.from("site_checkins").select("*").order("created_at", { ascending: false }),
     ]);
 
   for (const res of [projects, workers, templates, incidents, entries, meetings, policies, org, profiles]) {
@@ -270,7 +281,23 @@ export async function fetchAppData() {
     profiles: (profiles.data || []).map(mapProfile),
     invites: invites.error ? [] : (invites.data || []).map(mapInvite),
     audits: audits.error ? [] : (audits.data || []).map(mapAudit),
+    checkins: checkins.error ? [] : (checkins.data || []).map(mapCheckin),
   };
+}
+
+// ---------------------------------------------------------------------------
+// QR site sign-in
+// ---------------------------------------------------------------------------
+export async function fetchCheckinInfo(token) {
+  const { data, error } = await supabase.rpc("checkin_info", { token });
+  if (error) fail(error, "Loading site");
+  return data; // { projectName, orgName, address } | null
+}
+
+export async function performCheckin(token, name) {
+  const { data, error } = await supabase.rpc("site_checkin", { token, p_name: name || "" });
+  if (error) fail(error, "Checking in");
+  return data; // { projectName, name, date, alreadyCheckedIn }
 }
 
 // ---------------------------------------------------------------------------

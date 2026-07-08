@@ -12,6 +12,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import StakeholderLogin from "./pages/StakeholderLogin";
 import JoinTradie from "./pages/JoinTradie";
+import SiteCheckin from "./pages/SiteCheckin";
 
 import Dashboard from "./pages/builder/Dashboard";
 import Projects from "./pages/builder/Projects";
@@ -80,6 +81,8 @@ function AppRoutes() {
       <Route path="/stakeholder" element={<StakeholderLogin />} />
       {/* Subbie invite link — set up a real per-tradie account */}
       <Route path="/join/:token" element={<JoinTradie />} />
+      {/* QR site sign-in — scanned from the poster at the gate */}
+      <Route path="/checkin/:token" element={<SiteCheckin />} />
 
       {/* Builder web */}
       <Route

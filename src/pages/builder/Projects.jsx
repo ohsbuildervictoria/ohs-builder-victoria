@@ -7,6 +7,8 @@ import Button from "../../components/ui/Button";
 import Tabs from "../../components/ui/Tabs";
 import Modal from "../../components/ui/Modal";
 import ProgressBar from "../../components/ui/ProgressBar";
+import QrPosterModal from "../../components/shared/QrPosterModal";
+import { useAppContext } from "../../context/AppContext";
 import { useProjects } from "../../hooks/useProjects";
 import { useAuth } from "../../hooks/useAuth";
 import { useToast } from "../../components/ui/Notification";
@@ -24,10 +26,12 @@ function complianceTone(value) {
 
 export default function Projects() {
   const { projects, addProject, updateProject } = useProjects();
+  const { org } = useAppContext();
   const { hasRole } = useAuth();
   const toast = useToast();
   const [tab, setTab] = useState("All");
   const [editing, setEditing] = useState(null); // null=closed, "new"=create, project=edit
+  const [qrProject, setQrProject] = useState(null);
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
   const canManage = hasRole("builder_admin");
@@ -189,6 +193,9 @@ export default function Projects() {
                       Restore
                     </Button>
                   )}
+                  <Button size="sm" variant="secondary" onClick={() => setQrProject(p)}>
+                    Sign-in QR
+                  </Button>
                   <Link to={`/builder/projects/${p.id}`}>
                     <Button size="sm">View Details</Button>
                   </Link>
@@ -213,6 +220,8 @@ export default function Projects() {
           )}
         </div>
       )}
+
+      <QrPosterModal project={qrProject} org={org} onClose={() => setQrProject(null)} />
 
       {/* Create / edit modal */}
       <Modal
