@@ -4,6 +4,7 @@ import { useWorkers } from "../../hooks/useWorkers";
 import { useCompliance } from "../../hooks/useCompliance";
 import { useDocuments } from "../../hooks/useDocuments";
 import { useProjects } from "../../hooks/useProjects";
+import { useAppContext } from "../../context/AppContext";
 import { categoryStatus, isCompliant } from "../../lib/compliance";
 import ProgressBar from "../../components/ui/ProgressBar";
 
@@ -19,6 +20,7 @@ export default function WorkerHome() {
   const { getProject } = useProjects();
   const { canAccessSite } = useCompliance(worker?.id);
   const { docsFor } = useDocuments();
+  const { org } = useAppContext();
   const project = getProject(worker?.project);
   const docs = worker ? docsFor(worker.id) : {};
 
@@ -27,7 +29,12 @@ export default function WorkerHome() {
     isCompliant(categoryStatus(worker, k, docs[k]))
   );
   const tasks = [
-    { label: "Complete Site Induction", done: worker?.induction === "Verified", to: "/worker/induction" },
+    {
+      // Branded so it's clearly THIS builder's induction, not generic content.
+      label: org?.name ? `Complete ${org.name}'s Site Induction` : "Complete Site Induction",
+      done: worker?.induction === "Verified",
+      to: "/worker/induction",
+    },
     { label: "Pass Safety Quiz", done: worker?.quiz === "Verified", to: "/worker/quiz" },
     { label: "Sign SWMS", done: worker?.swms === "Verified", to: "/worker/swms" },
     {

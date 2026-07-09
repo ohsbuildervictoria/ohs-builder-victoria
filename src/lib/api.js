@@ -37,6 +37,9 @@ const mapProject = (r) => ({
   projectManager: r.project_manager || "",
   startDate: r.start_date,
   checkinToken: r.checkin_token || null,
+  // Builder's own induction content for this project (site rules, video link,
+  // muster point, site contact). Empty object = use the generic defaults.
+  induction: r.induction || {},
   // annotated after fetch from live data:
   workers: 0,
   incidents: 0,
@@ -463,6 +466,7 @@ export async function updateProjectRow(id, patch) {
   if (patch.contractValue !== undefined) row.contract_value = patch.contractValue;
   if (patch.projectManager !== undefined) row.project_manager = patch.projectManager;
   if (patch.startDate !== undefined) row.start_date = patch.startDate || null;
+  if (patch.induction !== undefined) row.induction = patch.induction || {};
   const { error } = await supabase.from("projects").update(row).eq("id", id);
   if (error) fail(error, "Updating project");
 }

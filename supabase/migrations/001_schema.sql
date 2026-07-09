@@ -880,3 +880,15 @@ where d.worker_id = w.id and d.category = 'insurance' and w.company_id is not nu
 select (select count(*) from public.subbie_companies) companies,
        (select count(*) from public.workers where company_id is not null) linked_workers,
        (select count(*) from public.company_documents) company_docs;
+
+-- ============================================================================
+-- Builder-customisable induction (2026-07-09)
+-- Each project carries its builder's own induction content: site rules text,
+-- an optional video link, muster point and site contact. Shape:
+--   { rules, videoUrl, musterPoint, contactName, contactPhone }
+-- Blank fields fall back to the generic defaults app-side (see
+-- src/data/constants.js inductionDefaults) so a tradie never gets an empty
+-- screen. No new RLS needed: projects are already org-scoped for reads
+-- (tradies see their own builder's projects only) and staff-only for writes.
+-- ============================================================================
+alter table public.projects add column induction jsonb not null default '{}'::jsonb;

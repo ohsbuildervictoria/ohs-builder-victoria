@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
 import { useParams, Link } from "react-router-dom";
 import Card, { CardBody, CardHeader } from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
@@ -15,7 +16,7 @@ import { useAppContext } from "../../context/AppContext";
 import { useToast } from "../../components/ui/Notification";
 import { formatAUD, complianceCategories } from "../../data/constants";
 
-const TABS = ["Overview", "Stakeholders", "Compliance", "Incidents", "Documents", "Diary"];
+const TABS = ["Overview", "Induction", "Stakeholders", "Compliance", "Incidents", "Documents", "Diary"];
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -106,6 +107,8 @@ export default function ProjectDetail() {
           </Card>
         </div>
       )}
+
+      {tab === "Induction" && <InductionSettings project={project} />}
 
       {tab === "Stakeholders" && (
         <Card>
@@ -283,6 +286,136 @@ export default function ProjectDetail() {
           </CardBody>
         </Card>
       )}
+    </div>
+  );
+}
+
+// Per-project induction content editor — what this project's tradies read
+// when they open "Site Induction" on their phone. Anything left blank falls
+// back to the standard OHS Builder content, so tradies never see a gap.
+function InductionSettings({ project }) {
+  const { updateProject } = useProjects();
+  const toast = useToast();
+  const ind = project.induction || {};
+  const { register, handleSubmit, formState } = useForm({
+    values: {
+      rules: ind.rules || "",
+      videoUrl: ind.videoUrl || "",
+      musterPoint: ind.musterPoint || "",
+      contactName: ind.contactName || "",
+      contactPhone: ind.contactPhone || "",
+    },
+  });
+
+  const onSave = async (data) => {
+    try {
+      await updateProject(project.id, {
+        induction: {
+          rules: data.rules.trim(),
+          videoUrl: data.videoUrl.trim(),
+          musterPoint: data.musterPoint.trim(),
+          contactName: data.contactName.trim(),
+          contactPhone: data.contactPhone.trim(),
+        },
+      });
+      toast("Induction saved — your tradies see it straight away");
+    } catch (err) {
+      toast(err.message || "Could not save induction", "error");
+    }
+  };
+
+  const hasCustom = !!(ind.rules || ind.videoUrl || ind.musterPoint || ind.contactName);
+
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <Card className="lg:col-span-2">
+        <CardHeader
+          title="Your Site Induction"
+          subtitle="This is exactly what tradies on this project read when they complete their induction."
+        />
+        <CardBody>
+          <form className="space-y-4" onSubmit={handleSubmit(onSave)}>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Your site rules
+              </span>
+              <textarea
+                rows={9}
+                className="ind-input"
+                placeholder={"e.g.\n• Site hours are 7am–4pm, no weekend work without approval.\n• Park on Smith St only — the crossover must stay clear.\n• All deliveries through the rear gate.\n• Hearing protection mandatory inside the shed."}
+                {...register("rules")}
+              />
+              <span className="mt-1 block text-xs text-slate-400">
+                Plain language works best — this is read on a phone at the gate.
+              </span>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Induction video link (optional)
+              </span>
+              <input
+                type="url"
+                className="ind-input"
+                placeholder="https://youtube.com/watch?v=…"
+                {...register("videoUrl")}
+              />
+              <span className="mt-1 block text-xs text-slate-400">
+                Paste a YouTube or Vimeo link — it plays right inside the tradie's induction.
+              </span>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Emergency muster point
+              </span>
+              <input
+                className="ind-input"
+                placeholder="e.g. Front nature strip, next to the site sign"
+                {...register("musterPoint")}
+              />
+            </label>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Site contact
+                </span>
+                <input className="ind-input" placeholder="e.g. Dave (Site Supervisor)" {...register("contactName")} />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Contact phone
+                </span>
+                <input type="tel" className="ind-input" placeholder="04xx xxx xxx" {...register("contactPhone")} />
+              </label>
+            </div>
+            <Button type="submit" disabled={formState.isSubmitting}>
+              {formState.isSubmitting ? "Saving…" : "Save induction"}
+            </Button>
+          </form>
+          <style>{`
+            .ind-input { width:100%; border-radius:0.5rem; border:1px solid #cbd5e1; padding:0.5rem 0.75rem; font-size:0.875rem; }
+            .ind-input:focus { outline:none; border-color:#1e3a8a; box-shadow:0 0 0 1px #1e3a8a; }
+          `}</style>
+        </CardBody>
+      </Card>
+      <Card>
+        <CardHeader title="How it works" />
+        <CardBody className="space-y-3 text-sm text-slate-600">
+          <p>
+            {hasCustom
+              ? "✅ This project is using your own induction content."
+              : "This project is currently showing the standard OHS Builder induction."}
+          </p>
+          <p>
+            Whatever you write here appears under your company name in the
+            tradie's <span className="font-medium">Site Induction</span>, before
+            the standard safety modules (PPE, high-risk work, incident reporting).
+          </p>
+          <p>
+            Anything you leave blank falls back to sensible standard content —
+            your tradies never see an empty screen.
+          </p>
+        </CardBody>
+      </Card>
     </div>
   );
 }

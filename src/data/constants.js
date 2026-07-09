@@ -62,6 +62,23 @@ export const policyCategories = [
 // ---------------------------------------------------------------------------
 // Worker portal learning content
 // ---------------------------------------------------------------------------
+
+// Generic fallback induction content — shown until a builder writes their own
+// site rules (Project → Induction tab). Never leaves a tradie a blank screen.
+export const inductionDefaults = {
+  rules: `Welcome to site. Before you start work:
+
+• Sign in at the gate every day (scan the QR poster).
+• Wear your PPE at all times — hard hat, steel-cap boots and hi-vis as a minimum.
+• No alcohol or drugs on site. Ever.
+• Keep your work area tidy — trip hazards hurt people.
+• If you're not sure how to do something safely, stop and ask the supervisor.
+• Report every hazard, incident and near miss straight away, no matter how small.`,
+  emergency: `If the alarm sounds or you're told to evacuate: stop work, turn off your equipment if it's safe to, and walk to the muster point. Don't go back for tools. Wait to be marked off.
+
+Dial 000 for any life-threatening emergency, then tell the site supervisor.`,
+};
+
 export const inductionModules = [
   { id: 1, title: "Welcome & Site Rules", mins: 4, done: false, summary: "Site rules, PPE zones, and reporting lines." },
   { id: 2, title: "Site Hazards & Emergency Procedures", mins: 6, done: false, summary: "Muster points, fire warden, and emergency contacts." },

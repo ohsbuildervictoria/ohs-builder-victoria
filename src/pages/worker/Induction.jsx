@@ -3,8 +3,10 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useWorkers } from "../../hooks/useWorkers";
 import { useCompliance } from "../../hooks/useCompliance";
+import { useProjects } from "../../hooks/useProjects";
+import { useAppContext } from "../../context/AppContext";
 import ProgressBar from "../../components/ui/ProgressBar";
-import { inductionModules as seedModules } from "../../data/constants";
+import { inductionModules as seedModules, inductionDefaults } from "../../data/constants";
 
 function buildModuleState() {
   const firstOpen = seedModules.findIndex((m) => !m.done);
@@ -15,12 +17,31 @@ function buildModuleState() {
   }));
 }
 
+// Turns a pasted YouTube/Vimeo link into an embeddable player URL (null = not
+// embeddable; we fall back to an "open the video" button).
+function videoEmbedUrl(url) {
+  if (!url) return null;
+  const yt = url.match(/(?:youtube\.com\/(?:watch\?.*v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{6,})/);
+  if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
+  const vm = url.match(/vimeo\.com\/(\d+)/);
+  if (vm) return `https://player.vimeo.com/video/${vm[1]}`;
+  return null;
+}
+
 export default function Induction() {
   const { user, isBuilder } = useAuth();
   const { getWorker, workers } = useWorkers();
+  const { getProject } = useProjects();
+  const { org } = useAppContext();
   const worker = getWorker(user?.workerId ?? (isBuilder ? workers[0]?.id : null));
+  const project = getProject(worker?.project);
   const { updateCategory } = useCompliance(worker?.id);
   const [modules, setModules] = useState(buildModuleState);
+
+  // The builder's own induction content for this site (blank fields fall back
+  // to the standard content — a tradie never gets an empty screen).
+  const ind = project?.induction || {};
+  const embedUrl = videoEmbedUrl(ind.videoUrl);
 
   const completedCount = modules.filter((m) => m.status === "Complete").length;
   const firstLockedIndex = modules.findIndex((m) => m.status !== "Complete");
@@ -31,7 +52,7 @@ export default function Induction() {
     }
   }, [completedCount, modules.length, worker?.id, worker?.induction, updateCategory]);
 
-  const startModule = (id, index) => {
+  const completeModule = (id, index) => {
     if (index !== firstLockedIndex) return;
     setModules((prev) =>
       prev.map((m, i) => {
@@ -43,12 +64,64 @@ export default function Induction() {
     );
   };
 
+  // What the open module actually shows: the builder's own content for the
+  // site-rules and emergency modules, standard content everywhere else.
+  const moduleContent = (m) => {
+    if (m.id === 1) {
+      return ind.rules?.trim() || inductionDefaults.rules;
+    }
+    if (m.id === 2) {
+      const lines = [];
+      if (ind.musterPoint?.trim()) lines.push(`🚩 Muster point: ${ind.musterPoint.trim()}`);
+      const contact = [ind.contactName?.trim(), ind.contactPhone?.trim()].filter(Boolean).join(" — ");
+      if (contact) lines.push(`📞 Site contact: ${contact}`);
+      lines.push(inductionDefaults.emergency);
+      return lines.join("\n\n");
+    }
+    return m.summary;
+  };
+
   return (
     <div className="p-4">
-      <h1 className="text-xl font-bold text-slate-800">Site Induction</h1>
+      <h1 className="text-xl font-bold text-slate-800">
+        {org?.name ? `${org.name} — Site Induction` : "Site Induction"}
+      </h1>
       <p className="text-sm text-slate-500">
-        Complete all modules in order to gain site access.
+        {project?.name ? `${project.name} · ` : ""}
+        Read every module in order to gain site access.
       </p>
+
+      {/* Builder's induction video */}
+      {ind.videoUrl?.trim() && (
+        <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
+          {embedUrl ? (
+            <div className="aspect-video w-full">
+              <iframe
+                src={embedUrl}
+                title={`${org?.name || "Site"} induction video`}
+                className="h-full w-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          ) : (
+            <a
+              href={ind.videoUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-3 p-4"
+            >
+              <span className="text-2xl">▶️</span>
+              <span className="text-sm font-medium text-blue-800 underline">
+                Watch the site induction video
+              </span>
+            </a>
+          )}
+          <p className="border-t border-slate-100 px-4 py-2 text-xs text-slate-500">
+            {org?.name ? `${org.name}'s` : "Your builder's"} induction video — watch it before starting the modules.
+          </p>
+        </div>
+      )}
 
       <div className="mt-3">
         <div className="mb-1 flex justify-between text-xs text-slate-500">
@@ -73,34 +146,34 @@ export default function Induction() {
               }`}
             >
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-slate-800">
                     {m.id}. {m.title}
                   </p>
                   <p className="text-xs text-slate-500">{m.duration}</p>
-                  {isNext && m.summary && (
-                    <p className="mt-2 rounded bg-slate-100 px-2 py-1 text-xs text-slate-600">
-                      {m.summary}
+                  {isNext && (
+                    <p className="mt-2 whitespace-pre-wrap rounded bg-slate-50 px-3 py-2 text-sm leading-relaxed text-slate-700">
+                      {moduleContent(m)}
                     </p>
                   )}
                 </div>
                 {isComplete ? (
-                  <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                  <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
                     Complete ✅
                   </span>
                 ) : isLocked ? (
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
+                  <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
                     🔒 Locked
                   </span>
                 ) : (
-                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                    Available
+                  <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                    Read now
                   </span>
                 )}
               </div>
               <button
                 disabled={isComplete || isLocked}
-                onClick={() => startModule(m.id, index)}
+                onClick={() => completeModule(m.id, index)}
                 className={`mt-3 w-full rounded-lg py-2 text-sm font-medium ${
                   isComplete
                     ? "bg-slate-100 text-slate-400"
@@ -109,7 +182,7 @@ export default function Induction() {
                     : "bg-blue-900 text-white hover:bg-blue-800"
                 }`}
               >
-                {isComplete ? "Completed ✅" : isLocked ? "Locked" : "Start Module"}
+                {isComplete ? "Completed ✅" : isLocked ? "Locked" : "I've read this — mark complete"}
               </button>
             </div>
           );
