@@ -934,3 +934,39 @@ begin
     'created_at', saved.created_at);
 end $fn$;
 grant execute on function public.record_fitness_declaration(text, date, bigint) to authenticated;
+
+-- ============================================================================
+-- Photo evidence on diary entries and incidents (2026-07-09, item #8)
+-- Photos (hazards, near misses, completed work) attach to diary entries and
+-- incident reports. Files live in the private 'site-photos' bucket (client
+-- compresses before upload); this table holds org-scoped metadata. Any org
+-- member may attach (tradies report incidents with photos); only builder
+-- staff may remove. Reads are org-scoped like everything else.
+-- ============================================================================
+insert into storage.buckets (id, name, public)
+values ('site-photos', 'site-photos', false) on conflict (id) do nothing;
+
+create table public.record_photos (
+  id bigint generated always as identity primary key,
+  organization_id bigint not null default public.my_org() references public.organizations(id),
+  entity text not null check (entity in ('diary_entry','incident')),
+  entity_id bigint not null,
+  file_path text not null,
+  file_name text not null default '',
+  uploaded_by text not null default '',
+  created_at timestamptz not null default now()
+);
+alter table public.record_photos enable row level security;
+create policy "photos: read org" on public.record_photos for select to authenticated
+  using (organization_id = public.my_org());
+create policy "photos: insert org" on public.record_photos for insert to authenticated
+  with check (organization_id = public.my_org());
+create policy "photos: staff delete" on public.record_photos for delete to authenticated
+  using (public.is_builder_staff() and organization_id = public.my_org());
+
+create policy "site-photos read" on storage.objects for select to authenticated
+  using (bucket_id = 'site-photos');
+create policy "site-photos insert" on storage.objects for insert to authenticated
+  with check (bucket_id = 'site-photos');
+create policy "site-photos delete" on storage.objects for delete to authenticated
+  using (bucket_id = 'site-photos' and public.is_builder_staff());

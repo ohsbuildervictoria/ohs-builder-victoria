@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import Logo from "../components/shared/Logo";
+import OfflineSyncBanner from "../components/shared/OfflineSyncBanner";
 
 const NAV = [
   { to: "/worker/home", label: "My Site", icon: "🏠" },
@@ -46,6 +47,7 @@ export default function WorkerLayout() {
 
         {/* Content */}
         <main className="flex-1 overflow-y-auto pb-20 scrollbar-thin">
+          <OfflineSyncBanner />
           <Outlet />
         </main>
 

@@ -4,13 +4,10 @@ import { useForm } from "react-hook-form";
 import { useAuth } from "../hooks/useAuth";
 import Logo from "../components/shared/Logo";
 import Button from "../components/ui/Button";
-import Modal from "../components/ui/Modal";
 import { brand } from "../data/constants";
 
 export default function Login() {
   const [mode, setMode] = useState("builder");
-  const [inductionOpen, setInductionOpen] = useState(false);
-  const [inductionAck, setInductionAck] = useState(false);
   const [authError, setAuthError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [resetSent, setResetSent] = useState(false);
@@ -38,16 +35,7 @@ export default function Login() {
   const routeFor = (user) =>
     user?.role === "worker" ? "/worker/home" : "/builder/dashboard";
 
-  const guardInduction = () => {
-    if (!inductionAck) {
-      setInductionOpen(true);
-      return false;
-    }
-    return true;
-  };
-
   const onSubmit = async (data) => {
-    if (!guardInduction()) return;
     setAuthError(null);
     setSubmitting(true);
     try {
@@ -82,18 +70,6 @@ export default function Login() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-900 p-4">
       <div className="w-full max-w-md">
-        <button
-          type="button"
-          onClick={() => setInductionOpen(true)}
-          className="mb-4 w-full rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-4 py-3 text-center text-sm font-medium text-yellow-200 transition hover:bg-yellow-500/20"
-        >
-          Before you commence, refer to{" "}
-          <span className="font-semibold underline">Builder Policy Site Induction</span>
-          {inductionAck && (
-            <span className="ml-2 text-green-300">✓ Acknowledged</span>
-          )}
-        </button>
-
         <div className="rounded-2xl bg-white p-8 shadow-xl">
           <div className="mb-6 flex flex-col items-center text-center">
             <Logo />
@@ -200,45 +176,6 @@ export default function Login() {
           </p>
         </div>
       </div>
-
-      <Modal
-        open={inductionOpen}
-        onClose={() => setInductionOpen(false)}
-        title="Site Induction / Video / AI"
-        footer={
-          <Button
-            disabled={!inductionAck}
-            onClick={() => setInductionOpen(false)}
-          >
-            Continue
-          </Button>
-        }
-      >
-        <div className="space-y-4">
-          <div className="rounded-lg bg-slate-900 p-6 text-center text-white">
-            <p className="text-3xl">▶</p>
-            <p className="mt-2 text-sm font-medium">Site Induction Module</p>
-            <p className="mt-1 text-xs text-slate-300">
-              Video and AI-assisted induction module
-            </p>
-          </div>
-          <ul className="list-inside list-disc space-y-1 text-sm text-slate-600">
-            <li>Read your builder's OHS Management Plan</li>
-            <li>Understand emergency procedures and muster points</li>
-            <li>Confirm PPE requirements for your trade</li>
-            <li>Report hazards before work commences</li>
-          </ul>
-          <label className="flex items-start gap-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              checked={inductionAck}
-              onChange={(e) => setInductionAck(e.target.checked)}
-              className="mt-0.5"
-            />
-            I have read and understood the Builder Policy Site Induction
-          </label>
-        </div>
-      </Modal>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useNotifications } from "../hooks/useNotifications";
 import { useAppContext } from "../context/AppContext";
 import Logo from "../components/shared/Logo";
+import OfflineSyncBanner from "../components/shared/OfflineSyncBanner";
 import RoleBadge from "../components/shared/RoleBadge";
 import { NotificationItem } from "../components/ui/Notification";
 import { brand, rolePermissions } from "../data/constants";
@@ -207,7 +208,10 @@ export default function BuilderLayout() {
               Loading…
             </div>
           ) : (
-            <Outlet />
+            <>
+              <OfflineSyncBanner />
+              <Outlet />
+            </>
           )}
         </main>
       </div>

@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useAudit } from "../../hooks/useAudit";
 import { useToast } from "../ui/Notification";
+import { enqueue, isNetworkError } from "../../lib/offlineQueue";
+import { localDate } from "../../lib/api";
 
 // ============================================================================
 // Daily fitness-for-work gate.
@@ -31,7 +33,7 @@ import { useToast } from "../ui/Notification";
 // ============================================================================
 
 export default function FitnessDeclarationGate({ worker, project, onConfirmed, children }) {
-  const { isWorker } = useAuth();
+  const { isWorker, user } = useAuth();
   const { recordFitness, fitnessConfirmedToday } = useAudit();
   const toast = useToast();
   const navigate = useNavigate();
@@ -43,12 +45,13 @@ export default function FitnessDeclarationGate({ worker, project, onConfirmed, c
 
   const [declined, setDeclined] = useState(false);
   const [previewPassed, setPreviewPassed] = useState(false);
+  const [offlinePassed, setOfflinePassed] = useState(false); // queued, will sync
   const [fit, setFit] = useState(false);
   const [unimpaired, setUnimpaired] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const confirmedToday = worker ? fitnessConfirmedToday(worker) : false;
-  const gateOpen = confirmedToday || (isPreview && previewPassed);
+  const gateOpen = confirmedToday || offlinePassed || (isPreview && previewPassed);
 
   const bothTicked = fit && unimpaired;
 
@@ -90,7 +93,20 @@ export default function FitnessDeclarationGate({ worker, project, onConfirmed, c
       await recordFitness(worker, "confirmed"); // audits update flips confirmedToday
       onConfirmed?.();
     } catch (err) {
-      toast(err.message || "Could not record your declaration — try again", "error");
+      // Dead spot at the gate: the declaration is queued on the device and
+      // syncs automatically — the tradie declared, so they may proceed.
+      if (isNetworkError(err)) {
+        enqueue("fitness_declaration", {
+          outcome: "confirmed",
+          day: localDate(),
+          workerId: user?.pilotWorker ? worker?.id : null,
+        });
+        toast("No signal — declaration saved on your phone, will send automatically", "warning");
+        setOfflinePassed(true);
+        onConfirmed?.();
+      } else {
+        toast(err.message || "Could not record your declaration — try again", "error");
+      }
     } finally {
       setBusy(false);
     }
@@ -101,8 +117,16 @@ export default function FitnessDeclarationGate({ worker, project, onConfirmed, c
     setBusy(true);
     try {
       if (!isPreview) await recordFitness(worker, "declined");
-    } catch {
-      // Never trap someone on a network error — the safety message still shows.
+    } catch (err) {
+      // Never trap someone on an error — the safety message still shows; a
+      // network failure queues the record so the decline still gets recorded.
+      if (isNetworkError(err)) {
+        enqueue("fitness_declaration", {
+          outcome: "declined",
+          day: localDate(),
+          workerId: user?.pilotWorker ? worker?.id : null,
+        });
+      }
     } finally {
       setBusy(false);
       setDeclined(true);

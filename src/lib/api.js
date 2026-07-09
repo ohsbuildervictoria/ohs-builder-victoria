@@ -22,6 +22,9 @@ const COMPLIANCE_COLS = {
 // Private Supabase Storage bucket holding compliance evidence files.
 export const COMPLIANCE_BUCKET = "compliance-docs";
 
+// Private bucket for diary/incident photo evidence.
+export const PHOTO_BUCKET = "site-photos";
+
 // ---------------------------------------------------------------------------
 // Row mappers (DB → UI)
 // ---------------------------------------------------------------------------
@@ -187,6 +190,17 @@ const mapCheckin = (r) => ({
   createdAt: r.created_at,
 });
 
+// Photo evidence attached to a diary entry or incident.
+const mapPhoto = (r) => ({
+  id: r.id,
+  entity: r.entity,
+  entityId: r.entity_id,
+  filePath: r.file_path,
+  fileName: r.file_name || "",
+  uploadedBy: r.uploaded_by || "",
+  createdAt: r.created_at,
+});
+
 const mapAudit = (r) => ({
   id: r.id,
   entity: r.entity,
@@ -259,7 +273,7 @@ function fail(error, action) {
 // Fetch everything the app needs after login
 // ---------------------------------------------------------------------------
 export async function fetchAppData() {
-  const [projects, workers, templates, incidents, entries, meetings, policies, org, profiles, invites, documents, audits, checkins, companies, companyDocs] =
+  const [projects, workers, templates, incidents, entries, meetings, policies, org, profiles, invites, documents, audits, checkins, companies, companyDocs, recordPhotos] =
     await Promise.all([
       supabase.from("projects").select("*").order("id"),
       supabase.from("workers").select("*").order("id"),
@@ -277,6 +291,7 @@ export async function fetchAppData() {
       supabase.from("site_checkins").select("*").order("created_at", { ascending: false }),
       supabase.from("subbie_companies").select("*").order("name"),
       supabase.from("company_documents").select("*").order("id"),
+      supabase.from("record_photos").select("*").order("id"),
     ]);
 
   for (const res of [projects, workers, templates, incidents, entries, meetings, policies, org, profiles]) {
@@ -349,7 +364,55 @@ export async function fetchAppData() {
     checkins: checkins.error ? [] : (checkins.data || []).map(mapCheckin),
     companies: companyList,
     companyDocs: companyDocList,
+    photos: recordPhotos.error ? [] : (recordPhotos.data || []).map(mapPhoto),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Photo evidence (diary entries + incidents) — private site-photos bucket
+// ---------------------------------------------------------------------------
+
+export async function uploadRecordPhoto({ entity, entityId, blob, fileName, uploadedBy }) {
+  const path = `${entity}/${entityId}/${Date.now()}-${safeName(fileName)}`;
+  const up = await supabase.storage
+    .from(PHOTO_BUCKET)
+    .upload(path, blob, { upsert: false, contentType: blob.type || "image/jpeg" });
+  if (up.error) fail(up.error, "Uploading photo");
+  const { data, error } = await supabase
+    .from("record_photos")
+    .insert({
+      entity,
+      entity_id: entityId,
+      file_path: path,
+      file_name: fileName || "photo.jpg",
+      uploaded_by: uploadedBy || "",
+    })
+    .select()
+    .single();
+  if (error) fail(error, "Recording photo");
+  return mapPhoto(data);
+}
+
+export async function deleteRecordPhoto(photo) {
+  if (photo.filePath) {
+    await supabase.storage.from(PHOTO_BUCKET).remove([photo.filePath]);
+  }
+  const { error } = await supabase.from("record_photos").delete().eq("id", photo.id);
+  if (error) fail(error, "Removing photo");
+}
+
+// Short-lived signed URL to view a private photo.
+export async function getPhotoUrl(filePath) {
+  const { data, error } = await supabase.storage
+    .from(PHOTO_BUCKET)
+    .createSignedUrl(filePath, 300);
+  if (error) fail(error, "Opening photo");
+  return data.signedUrl;
+}
+
+// Keep the diary entry's photo count column in step (used by list badges/PDF).
+export async function setDiaryPhotoCount(entryId, count) {
+  await supabase.from("diary_entries").update({ photos: count }).eq("id", entryId);
 }
 
 // ---------------------------------------------------------------------------

@@ -14,6 +14,7 @@ import {
   updateWorkerComplianceRow,
   pilotUpdateCompliance,
 } from "../lib/api";
+import { enqueue, isNetworkError } from "../lib/offlineQueue";
 
 // { compliance, updateCategory, overallStatus, canAccessSite, missingItems }
 // RULE: canAccessSite = all 6 categories === "Verified"
@@ -22,6 +23,7 @@ import {
 export function useCompliance(workerId) {
   const { workers, setWorkers, documents } = useAppContext();
   const { isWorker, user } = useAuthContext();
+  const pilotWorker = !!user?.pilotWorker;
 
   const worker = useMemo(
     () => workers.find((w) => w.id === Number(workerId)) || null,
@@ -47,19 +49,30 @@ export function useCompliance(workerId) {
       if (!current) return;
       const updated = { ...current, [category]: value };
       const status = deriveStatus(updated);
-      if (user?.pilotWorker) {
-        // PILOT: shared auth account — worker id must be explicit.
-        await pilotUpdateCompliance(Number(workerId), category, value);
-      } else if (isWorker) {
-        await updateMyCompliance(category, value);
-      } else {
-        await updateWorkerComplianceRow(Number(workerId), category, value, status);
+      try {
+        if (pilotWorker) {
+          // PILOT: shared auth account — worker id must be explicit.
+          await pilotUpdateCompliance(Number(workerId), category, value);
+        } else if (isWorker) {
+          await updateMyCompliance(category, value);
+        } else {
+          await updateWorkerComplianceRow(Number(workerId), category, value, status);
+        }
+      } catch (err) {
+        // Dead spot: queue the update (e.g. induction completed offline) and
+        // let the UI proceed — the sync banner shows it is waiting to send.
+        if (!isNetworkError(err)) throw err;
+        enqueue("compliance_update", pilotWorker
+          ? { mode: "pilot", workerId: Number(workerId), category, value }
+          : isWorker
+            ? { mode: "self", category, value }
+            : { mode: "staff", workerId: Number(workerId), category, value, status });
       }
       setWorkers((prev) =>
         prev.map((w) => (w.id === Number(workerId) ? { ...updated, status } : w))
       );
     },
-    [workers, setWorkers, workerId, isWorker, user?.pilotWorker]
+    [workers, setWorkers, workerId, isWorker, pilotWorker]
   );
 
   const missingItems = useMemo(

@@ -6,6 +6,7 @@ import {
   updateIncidentRow,
   insertCorrectiveAction,
 } from "../lib/api";
+import { enqueue, isNetworkError } from "../lib/offlineQueue";
 import { useAudit, diffFields } from "./useAudit";
 
 // Incident fields that are editable + audited.
@@ -37,7 +38,18 @@ export function useIncidents(projectId = null) {
       const notifiable =
         incident.type === "Notifiable (WorkSafe)" ||
         incident.severity === "Critical";
-      const row = await insertIncident({ ...incident, notifiable });
+      let row;
+      try {
+        row = await insertIncident({ ...incident, notifiable });
+      } catch (err) {
+        // Dead spot on site: keep the report on the device and replay it when
+        // the connection returns. Caller tells the user what happened.
+        if (isNetworkError(err)) {
+          enqueue("incident", { ...incident, notifiable });
+          return { queued: true };
+        }
+        throw err;
+      }
       const project = projects.find((p) => p.id === row.project_id);
       const created = {
         id: row.id,

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import Card, { CardBody, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
@@ -11,6 +11,9 @@ import { useToast } from "../../components/ui/Notification";
 import { useAuth } from "../../hooks/useAuth";
 import { weatherOptions, diaryTags } from "../../data/constants";
 import { exportDiaryRange } from "../../lib/pdf";
+import { fetchWeatherFor } from "../../lib/weather";
+import { PhotoPicker, PhotoStrip } from "../../components/shared/RecordPhotos";
+import { usePhotos } from "../../hooks/usePhotos";
 
 // Local date, not UTC — .toISOString() is yesterday in Australia each morning.
 const d = new Date();
@@ -75,11 +78,13 @@ export default function SiteDiary() {
     handleSubmit,
     reset,
     setValue,
+    watch,
     formState: { errors },
   } = useForm({
     defaultValues: {
       date: TODAY,
-      weather: "Sunny",
+      weather: "",
+      wind: "",
       hours: 8,
       workersPresent: 20,
       contacts: "",
@@ -87,6 +92,36 @@ export default function SiteDiary() {
       notes: "",
     },
   });
+
+  // ---- Weather auto-fill (Open-Meteo, from the project postcode) ----------
+  // An enhancement only: any failure just means typing it like before.
+  const { addPhotos } = usePhotos();
+  const [photoFiles, setPhotoFiles] = useState([]);
+  const [wxNote, setWxNote] = useState(null); // { ok, text }
+  const weatherTouched = useRef(false);
+  const entryDate = watch("date");
+
+  useEffect(() => {
+    const project = projects.find((p) => p.id === projectId);
+    if (!project || !entryDate) return;
+    let live = true;
+    fetchWeatherFor(project.address, entryDate).then((w) => {
+      if (!live) return;
+      if (w?.summary) {
+        if (!weatherTouched.current) {
+          setValue("weather", w.summary);
+          setValue("wind", w.wind);
+        }
+        setWxNote({ ok: true, text: `Auto-filled for ${w.postcode} (Open-Meteo) — edit if it was different on site.` });
+      } else if (w?.miss === "no-postcode") {
+        setWxNote({ ok: false, text: "No postcode in the project address — enter the weather manually." });
+      } else {
+        setWxNote({ ok: false, text: "Couldn't fetch the weather — enter it manually." });
+      }
+    });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, entryDate]);
 
   const toggleTag = (tag) =>
     setSelectedTags((prev) =>
@@ -99,7 +134,7 @@ export default function SiteDiary() {
       return;
     }
     try {
-      await addEntry({
+      const saved = await addEntry({
         ...data,
         project: Number(projectId),
         hours: String(data.hours ?? ""),
@@ -108,10 +143,28 @@ export default function SiteDiary() {
         author: user?.name || "Unknown",
         audioNote: audioNote ? "Voice note attached" : null,
       });
-      toast("Diary entry saved");
+      if (saved?.queued) {
+        // Dead spot: the entry text syncs automatically; photos need signal.
+        toast(
+          photoFiles.length
+            ? "No signal — entry saved on this device and will send automatically. Photos need signal: re-attach them once you're back online."
+            : "No signal — entry saved on this device and will send automatically when you're back online.",
+          "warning"
+        );
+      } else {
+        if (photoFiles.length) {
+          const { saved: ok, failed } = await addPhotos("diary_entry", saved.id, photoFiles);
+          if (failed) toast(`Entry saved, but ${failed} photo${failed === 1 ? "" : "s"} failed to upload — try them again`, "error");
+          else toast(`Diary entry saved with ${ok} photo${ok === 1 ? "" : "s"}`);
+        } else {
+          toast("Diary entry saved");
+        }
+      }
       reset();
       setSelectedTags([]);
       setAudioNote(null);
+      setPhotoFiles([]);
+      weatherTouched.current = false;
     } catch (err) {
       toast(err.message || "Could not save entry", "error");
     }
@@ -216,6 +269,7 @@ export default function SiteDiary() {
                         </span>
                       ))}
                     </div>
+                    <PhotoStrip entity="diary_entry" entityId={e.id} />
                     <AuditTrail entity="diary_entry" entityId={e.id} />
                   </div>
                 ))
@@ -257,11 +311,33 @@ export default function SiteDiary() {
                   )}
                 </Field>
                 <Field label="Weather">
-                  <select className="input" {...register("weather")}>
+                  <input
+                    className="input"
+                    list="weather-suggestions"
+                    placeholder="e.g. 22°C · Partly cloudy"
+                    {...register("weather", {
+                      onChange: () => { weatherTouched.current = true; },
+                    })}
+                  />
+                  <datalist id="weather-suggestions">
                     {weatherOptions.map((w) => (
-                      <option key={w}>{w}</option>
+                      <option key={w} value={w} />
                     ))}
-                  </select>
+                  </datalist>
+                  {wxNote && (
+                    <p className={`mt-1 text-xs ${wxNote.ok ? "text-slate-400" : "text-amber-600"}`}>
+                      {wxNote.text}
+                    </p>
+                  )}
+                </Field>
+                <Field label="Wind">
+                  <input
+                    className="input"
+                    placeholder="e.g. 18 km/h"
+                    {...register("wind", {
+                      onChange: () => { weatherTouched.current = true; },
+                    })}
+                  />
                 </Field>
                 <Field label="Hours worked on site">
                   <input type="number" min="0" className="input" {...register("hours")} />
@@ -327,13 +403,7 @@ export default function SiteDiary() {
 
               {/* Media row */}
               <div className="flex flex-wrap items-center gap-3 rounded-lg bg-slate-50 p-3">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => toast("Photo attachments are coming in the next release", "warning")}
-                >
-                  📎 Attach Photo
-                </Button>
+                <PhotoPicker files={photoFiles} onChange={setPhotoFiles} />
                 <div className="flex flex-wrap items-center gap-2">
                   {!recording ? (
                     <Button type="button" variant="danger" onClick={startRecording}>

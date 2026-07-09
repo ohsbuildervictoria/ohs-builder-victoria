@@ -12,6 +12,8 @@ import { useAppContext } from "../../context/AppContext";
 import { useToast } from "../../components/ui/Notification";
 import { useAuth } from "../../hooks/useAuth";
 import { exportIncidentReport } from "../../lib/pdf";
+import { PhotoPicker, PhotoStrip } from "../../components/shared/RecordPhotos";
+import { usePhotos } from "../../hooks/usePhotos";
 import {
   incidentTypes,
   incidentSeverities,
@@ -75,16 +77,34 @@ export default function Incidents() {
 
   const hasNotifiable = incidents.some((i) => i.notifiable);
 
+  const { addPhotos } = usePhotos();
+  const [photoFiles, setPhotoFiles] = useState([]);
+
   const onCreate = async (data) => {
     try {
-      await addIncident({
+      const saved = await addIncident({
         ...data,
         date: (data.date || "").slice(0, 10),
         projectId: Number(data.project) || null,
         reportedBy: user?.name || "Unknown",
       });
-      toast("Incident logged");
+      if (saved?.queued) {
+        // Dead spot: the report syncs automatically; photos need signal.
+        toast(
+          photoFiles.length
+            ? "No signal — report saved on this device and will send automatically. Photos need signal: re-attach them once you're back online."
+            : "No signal — report saved on this device and will send automatically when you're back online.",
+          "warning"
+        );
+      } else if (photoFiles.length) {
+        const { saved: ok, failed } = await addPhotos("incident", saved.id, photoFiles);
+        if (failed) toast(`Incident logged, but ${failed} photo${failed === 1 ? "" : "s"} failed to upload — try them again`, "error");
+        else toast(`Incident logged with ${ok} photo${ok === 1 ? "" : "s"}`);
+      } else {
+        toast("Incident logged");
+      }
       reset();
+      setPhotoFiles([]);
       setCreateOpen(false);
     } catch (err) {
       toast(err.message || "Could not log incident", "error");
@@ -168,6 +188,7 @@ export default function Incidents() {
                       {i.project} · Reported by {i.reportedBy} · {i.date}
                       {i.location ? ` · ${i.location}` : ""}
                     </p>
+                    <PhotoStrip entity="incident" entityId={i.id} />
                   </div>
                   <div className="flex flex-col items-end gap-2">
                     <select
@@ -337,13 +358,7 @@ export default function Incidents() {
             </p>
           </div>
           <div className="col-span-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => toast("Photo attachments are coming in the next release", "warning")}
-            >
-              📎 Attach photos
-            </Button>
+            <PhotoPicker files={photoFiles} onChange={setPhotoFiles} />
           </div>
         </form>
       </Modal>

@@ -20,6 +20,7 @@ const emptyState = {
   invites: [],
   companies: [],
   companyDocs: [],
+  photos: [],
   org: null,
 };
 
@@ -42,6 +43,7 @@ export function AppProvider({ children }) {
   const [invites, setInvites] = useState(emptyState.invites);
   const [companies, setCompanies] = useState(emptyState.companies);
   const [companyDocs, setCompanyDocs] = useState(emptyState.companyDocs);
+  const [photos, setPhotos] = useState(emptyState.photos);
   const [org, setOrg] = useState(emptyState.org);
   const [readNotifications, setReadNotifications] = useState(() => new Set());
   const [loading, setLoading] = useState(false);
@@ -66,6 +68,7 @@ export function AppProvider({ children }) {
       setInvites(data.invites);
       setCompanies(data.companies);
       setCompanyDocs(data.companyDocs);
+      setPhotos(data.photos);
       setOrg(data.org);
     } catch (err) {
       setLoadError(err.message || "Failed to load data.");
@@ -94,6 +97,7 @@ export function AppProvider({ children }) {
       setInvites(emptyState.invites);
       setCompanies(emptyState.companies);
       setCompanyDocs(emptyState.companyDocs);
+      setPhotos(emptyState.photos);
       setOrg(emptyState.org);
       setReadNotifications(new Set());
       setLoadError(null);
@@ -117,12 +121,13 @@ export function AppProvider({ children }) {
       invites, setInvites,
       companies, setCompanies,
       companyDocs, setCompanyDocs,
+      photos, setPhotos,
       org, setOrg,
       readNotifications, setReadNotifications,
       loading, loadError, refresh,
     }),
     [projects, workers, documents, audits, checkins, incidents, templates, entries, meetings, policies,
-     profiles, invites, companies, companyDocs, org, readNotifications, loading, loadError, refresh]
+     profiles, invites, companies, companyDocs, photos, org, readNotifications, loading, loadError, refresh]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

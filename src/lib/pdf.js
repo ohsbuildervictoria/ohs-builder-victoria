@@ -3,9 +3,21 @@
 // Real, print/email-ready documents (branded header, org + project details,
 // page numbers, footer). No server, no external requests at runtime.
 // ============================================================================
-import { jsPDF } from "jspdf";
-import { autoTable } from "jspdf-autotable";
 import { brand } from "../data/constants";
+
+// jsPDF + autotable are ~600 kB of code that only a builder exporting a
+// document ever runs — never a tradie opening their induction at the site
+// gate. They load as their own chunks on first export, not with the app shell.
+let jsPDF, autoTable, libsReady;
+function loadPdfLibs() {
+  libsReady ||= Promise.all([import("jspdf"), import("jspdf-autotable")]).then(
+    ([jspdfMod, autoTableMod]) => {
+      jsPDF = jspdfMod.jsPDF;
+      autoTable = autoTableMod.autoTable;
+    }
+  );
+  return libsReady;
+}
 
 const NAVY = [30, 58, 138];
 const AMBER = [251, 191, 36];
@@ -115,7 +127,8 @@ const slug = (s) => (s || "document").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-
 // ---------------------------------------------------------------------------
 // 1. SWMS pack — one project's Safe Work Method Statements + sign-off status
 // ---------------------------------------------------------------------------
-export function exportSwmsPack({ org, project, templates, workers, library }) {
+export async function exportSwmsPack({ org, project, templates, workers, library }) {
+  await loadPdfLibs();
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const crew = workers.filter((w) => w.project === project.id);
   const trades = [...new Set(crew.map((w) => w.trade).filter(Boolean))];
@@ -208,7 +221,8 @@ function tradeDetail(doc, { ppe, hazards, legislation, signoff }, y) {
 }
 
 // Single live SWMS template (from the SWMS card).
-export function exportSwmsTemplate({ org, template, library }) {
+export async function exportSwmsTemplate({ org, template, library }) {
+  await loadPdfLibs();
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const lib = (library || []).find((l) => l.trade === template.trade);
   let y = header(doc, {
@@ -227,7 +241,8 @@ export function exportSwmsTemplate({ org, template, library }) {
 }
 
 // A trade template straight from the reference library (A–Z).
-export function exportSwmsLibrary({ org, entry }) {
+export async function exportSwmsLibrary({ org, entry }) {
+  await loadPdfLibs();
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   let y = header(doc, {
     org,
@@ -250,7 +265,8 @@ export function exportSwmsLibrary({ org, entry }) {
 // ---------------------------------------------------------------------------
 // 2. Incident report — a single incident, with corrective actions + audit trail
 // ---------------------------------------------------------------------------
-export function exportIncidentReport({ org, incident, audits = [] }) {
+export async function exportIncidentReport({ org, incident, audits = [] }) {
+  await loadPdfLibs();
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   let y = header(doc, {
     org,
@@ -342,7 +358,8 @@ export function exportIncidentReport({ org, incident, audits = [] }) {
 // ---------------------------------------------------------------------------
 // 3. Site diary — a date range (default: current month) for one project
 // ---------------------------------------------------------------------------
-export function exportDiaryRange({ org, project, entries, from, to }) {
+export async function exportDiaryRange({ org, project, entries, from, to }) {
+  await loadPdfLibs();
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const inRange = entries
     .filter((e) => e.project === project.id && (!from || e.date >= from) && (!to || e.date <= to))

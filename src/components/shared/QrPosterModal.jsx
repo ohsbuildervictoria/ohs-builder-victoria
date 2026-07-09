@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import QRCode from "qrcode";
 import Modal from "../ui/Modal";
 import Button from "../ui/Button";
 
@@ -12,7 +11,12 @@ export default function QrPosterModal({ project, org, onClose }) {
   useEffect(() => {
     if (!project?.checkinToken) return;
     let live = true;
-    QRCode.toDataURL(url, { width: 640, margin: 1, errorCorrectionLevel: "M" })
+    // qrcode loads on demand — only a builder printing a poster needs it, so
+    // it stays out of the app shell a tradie downloads on site.
+    import("qrcode")
+      .then(({ default: QRCode }) =>
+        QRCode.toDataURL(url, { width: 640, margin: 1, errorCorrectionLevel: "M" })
+      )
       .then((d) => live && setDataUrl(d))
       .catch(() => live && setDataUrl(null));
     return () => { live = false; };

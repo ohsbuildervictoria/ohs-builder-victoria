@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useAppContext } from "../context/AppContext";
 import { insertDiaryEntry, updateDiaryEntryRow } from "../lib/api";
+import { enqueue, isNetworkError } from "../lib/offlineQueue";
 import { useAudit, diffFields } from "./useAudit";
 
 // Diary fields that are editable + audited (label used in the trail).
@@ -27,9 +28,19 @@ export function useDiary(projectId = null) {
 
   const addEntry = useCallback(
     async (entry) => {
-      const created = await insertDiaryEntry(entry);
-      setEntries((prev) => [created, ...prev]);
-      return created;
+      try {
+        const created = await insertDiaryEntry(entry);
+        setEntries((prev) => [created, ...prev]);
+        return created;
+      } catch (err) {
+        // Dead spot on site: keep the entry on the device and replay it when
+        // the connection returns. Caller tells the user what happened.
+        if (isNetworkError(err)) {
+          enqueue("diary_entry", entry);
+          return { queued: true };
+        }
+        throw err;
+      }
     },
     [setEntries]
   );
