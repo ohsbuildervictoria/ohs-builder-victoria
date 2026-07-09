@@ -112,9 +112,9 @@ export default function SiteDiary() {
           setValue("weather", w.summary);
           setValue("wind", w.wind);
         }
-        setWxNote({ ok: true, text: `Auto-filled for ${w.postcode} (Open-Meteo) — edit if it was different on site.` });
-      } else if (w?.miss === "no-postcode") {
-        setWxNote({ ok: false, text: "No postcode in the project address — enter the weather manually." });
+        setWxNote({ ok: true, text: `Auto-filled for ${w.place} (Open-Meteo) — edit if it was different on site.` });
+      } else if (w?.miss === "no-location") {
+        setWxNote({ ok: false, text: "Couldn't work out the site's location from the project address — enter the weather manually." });
       } else {
         setWxNote({ ok: false, text: "Couldn't fetch the weather — enter it manually." });
       }

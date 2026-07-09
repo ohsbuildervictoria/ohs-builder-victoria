@@ -42,16 +42,16 @@ async function getJson(url, timeoutMs = 6000) {
 }
 
 const geoCache = new Map();
-async function geocodePostcode(pc) {
-  if (geoCache.has(pc)) return geoCache.get(pc);
+async function geocodeAu(name) {
+  if (!name) return null;
+  if (geoCache.has(name)) return geoCache.get(name);
   const j = await getJson(
-    `https://geocoding-api.open-meteo.com/v1/search?name=${pc}&count=1&countryCode=AU&language=en&format=json`
+    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=10&language=en&format=json`
   );
-  const hit = j?.results?.[0]
-    ? { lat: j.results[0].latitude, lon: j.results[0].longitude }
-    : null;
-  if (hit) geoCache.set(pc, hit);
-  return hit;
+  const hit = (j?.results || []).find((r) => r.country_code === "AU");
+  const loc = hit ? { lat: hit.latitude, lon: hit.longitude } : null;
+  if (loc) geoCache.set(name, loc);
+  return loc;
 }
 
 function localToday() {
@@ -60,14 +60,16 @@ function localToday() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-// → { summary:"22°C · Partly cloudy", wind:"18 km/h", postcode } | { miss } | null
-// miss: 'no-postcode' (address has none) | 'no-data' (API had nothing for that day)
+// → { summary:"22°C · Partly cloudy", wind:"18 km/h", place } | { miss } | null
+// miss: 'no-location' (address unparseable) | 'no-data' (nothing for that day)
 export async function fetchWeatherFor(address, dateStr) {
   try {
+    const locality = localityFrom(address);
     const pc = postcodeFrom(address);
-    if (!pc) return { miss: "no-postcode" };
-    const loc = await geocodePostcode(pc);
+    if (!locality && !pc) return { miss: "no-location" };
+    const loc = (await geocodeAu(locality)) || (await geocodeAu(pc));
     if (!loc) return { miss: "no-data" };
+    const place = locality || pc;
 
     const today = localToday();
     if (!dateStr || dateStr === today) {
@@ -79,7 +81,7 @@ export async function fetchWeatherFor(address, dateStr) {
       return {
         summary: `${Math.round(c.temperature_2m)}°C · ${conditionLabel(c.weather_code)}`,
         wind: `${Math.round(c.wind_speed_10m)} km/h`,
-        postcode: pc,
+        place,
       };
     }
 
@@ -100,7 +102,7 @@ export async function fetchWeatherFor(address, dateStr) {
     return {
       summary: `${Math.round(d.temperature_2m_max[0])}°C · ${conditionLabel(d.weather_code?.[0])}`,
       wind: `${Math.round(d.wind_speed_10m_max?.[0] ?? 0)} km/h`,
-      postcode: pc,
+      place,
     };
   } catch {
     return null;
