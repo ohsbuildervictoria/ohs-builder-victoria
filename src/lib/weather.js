@@ -27,6 +27,21 @@ export function postcodeFrom(address) {
   return m ? m[m.length - 1] : null;
 }
 
+// Locality ("Northcote") parsed from the address. Open-Meteo's geocoder
+// resolves suburb/town names but NOT bare Australian postcodes, so the
+// suburb is the primary lookup key and the postcode only a fallback term.
+export function localityFrom(address) {
+  const s = String(address || "");
+  const m = s.match(/([A-Za-z][A-Za-z' -]*?)\s+(?:VIC|NSW|QLD|SA|WA|TAS|NT|ACT)\b[^,]*$/i);
+  if (m && m[1]) return m[1].trim();
+  const seg = (s.split(",").pop() || "")
+    .replace(/\b(VIC|NSW|QLD|SA|WA|TAS|NT|ACT)\b/gi, "")
+    .replace(/\b\d{4}\b/g, "")
+    .replace(/[^A-Za-z' -]/g, " ")
+    .trim();
+  return seg || null;
+}
+
 async function getJson(url, timeoutMs = 6000) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
