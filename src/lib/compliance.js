@@ -38,6 +38,14 @@ export const DB_TO_KEY = Object.fromEntries(
   Object.entries(CATEGORY_DB).map(([k, v]) => [v, k])
 );
 
+// Company-level insurance certificates. A subbie company (e.g. a plumbing
+// business) holds these once for its whole crew; individual workers keep only
+// personal items. Statuses are expiry-driven, same as personal documents.
+export const companyDocCategories = [
+  { key: "publicLiability", label: "Public Liability Insurance", db: "public_liability" },
+  { key: "workcover", label: "WorkCover Insurance", db: "workcover" },
+];
+
 export const EXPIRY_WARNING_DAYS = 30;
 
 // Evaluated once per load — keeps derivation pure across re-renders (the
@@ -60,15 +68,21 @@ export function daysUntil(dateStr, nowMs = TODAY_MS) {
 //   supporting evidence and does not change the status.
 export function categoryStatus(worker, key, doc, nowMs = TODAY_MS) {
   if (EXPIRY_CATEGORIES.includes(key)) {
-    if (!doc || !doc.filePath) return "Missing";
-    if (!doc.expiry) return "Verified";
-    const days = daysUntil(doc.expiry, nowMs);
-    if (days == null) return "Verified";
-    if (days < 0) return "Expired";
-    if (days <= EXPIRY_WARNING_DAYS) return "Expiring";
-    return "Verified";
+    return docExpiryStatus(doc, nowMs);
   }
   return worker?.[key] || "Missing";
+}
+
+// Expiry-driven status for any evidence document (personal White Card /
+// Insurance / Medical, and company Public Liability / WorkCover).
+export function docExpiryStatus(doc, nowMs = TODAY_MS) {
+  if (!doc || !doc.filePath) return "Missing";
+  if (!doc.expiry) return "Verified";
+  const days = daysUntil(doc.expiry, nowMs);
+  if (days == null) return "Verified";
+  if (days < 0) return "Expired";
+  if (days <= EXPIRY_WARNING_DAYS) return "Expiring";
+  return "Verified";
 }
 
 // A category counts toward "compliant" if it is currently valid.

@@ -47,6 +47,7 @@ const mapWorker = (r) => ({
   name: r.name,
   trade: r.trade,
   employer: r.employer,
+  companyId: r.company_id ?? null,
   loginHandle: r.login_handle || "",
   email: r.email || "",
   inviteToken: r.invite_token || null,
@@ -149,6 +150,31 @@ const mapDocument = (r) => ({
   uploadedAt: r.uploaded_at,
 });
 
+// Subcontractor company (org-scoped): business-level details + insurance.
+const mapCompany = (r) => ({
+  id: r.id,
+  name: r.name,
+  abn: r.abn || "",
+  contactName: r.contact_name || "",
+  contactPhone: r.contact_phone || "",
+  contactEmail: r.contact_email || "",
+  notes: r.notes || "",
+  createdAt: r.created_at,
+});
+
+const COMPANY_CATEGORY_DB = { publicLiability: "public_liability", workcover: "workcover" };
+const COMPANY_DB_TO_KEY = { public_liability: "publicLiability", workcover: "workcover" };
+
+const mapCompanyDoc = (r) => ({
+  id: r.id,
+  companyId: r.company_id,
+  category: COMPANY_DB_TO_KEY[r.category] || r.category,
+  filePath: r.file_path,
+  fileName: r.file_name || "",
+  expiry: r.expiry_date || null,
+  uploadedAt: r.uploaded_at,
+});
+
 const mapCheckin = (r) => ({
   id: r.id,
   projectId: r.project_id,
@@ -229,7 +255,7 @@ function fail(error, action) {
 // Fetch everything the app needs after login
 // ---------------------------------------------------------------------------
 export async function fetchAppData() {
-  const [projects, workers, templates, incidents, entries, meetings, policies, org, profiles, invites, documents, audits, checkins] =
+  const [projects, workers, templates, incidents, entries, meetings, policies, org, profiles, invites, documents, audits, checkins, companies, companyDocs] =
     await Promise.all([
       supabase.from("projects").select("*").order("id"),
       supabase.from("workers").select("*").order("id"),
@@ -245,6 +271,8 @@ export async function fetchAppData() {
       supabase.from("compliance_documents").select("*").order("id"),
       supabase.from("audit_log").select("*").order("created_at", { ascending: false }),
       supabase.from("site_checkins").select("*").order("created_at", { ascending: false }),
+      supabase.from("subbie_companies").select("*").order("name"),
+      supabase.from("company_documents").select("*").order("id"),
     ]);
 
   for (const res of [projects, workers, templates, incidents, entries, meetings, policies, org, profiles]) {
@@ -255,7 +283,40 @@ export async function fetchAppData() {
   const projectsById = Object.fromEntries(projectList.map((p) => [p.id, p]));
   const workerList = (workers.data || []).map(mapWorker);
   const incidentList = (incidents.data || []).map((r) => mapIncident(r, projectsById));
-  const documentList = documents.error ? [] : (documents.data || []).map(mapDocument);
+  const companyList = companies.error ? [] : (companies.data || []).map(mapCompany);
+  const companyDocList = companyDocs.error ? [] : (companyDocs.data || []).map(mapCompanyDoc);
+
+  // For a worker employed by a subbie company, "Insurance" IS the company's
+  // public liability certificate — one policy covers the whole crew. We inject
+  // it here as that worker's insurance document (flagged viaCompany), so every
+  // consumer (matrix, tradie view, notifications, project %) reads one truth.
+  const companiesById = Object.fromEntries(companyList.map((c) => [c.id, c]));
+  const plByCompany = {};
+  for (const d of companyDocList) {
+    if (d.category === "publicLiability") plByCompany[d.companyId] = d;
+  }
+  const workersById = Object.fromEntries(workerList.map((w) => [w.id, w]));
+  const documentList = (documents.error ? [] : (documents.data || []).map(mapDocument))
+    // A company-linked worker's personal insurance row (if any legacy one
+    // exists) is superseded by the company certificate.
+    .filter((d) => !(d.category === "insurance" && workersById[d.workerId]?.companyId));
+  for (const w of workerList) {
+    if (!w.companyId) continue;
+    const pl = plByCompany[w.companyId];
+    if (!pl) continue;
+    documentList.push({
+      id: `company-${pl.id}-worker-${w.id}`,
+      workerId: w.id,
+      category: "insurance",
+      filePath: pl.filePath,
+      fileName: pl.fileName,
+      expiry: pl.expiry,
+      uploadedAt: pl.uploadedAt,
+      viaCompany: true,
+      companyId: w.companyId,
+      companyName: companiesById[w.companyId]?.name || "",
+    });
+  }
   const docsByWorker = indexDocuments(documentList);
 
   // Annotate live counts + evidence-based compliance % onto projects. Compliance
@@ -282,6 +343,8 @@ export async function fetchAppData() {
     invites: invites.error ? [] : (invites.data || []).map(mapInvite),
     audits: audits.error ? [] : (audits.data || []).map(mapAudit),
     checkins: checkins.error ? [] : (checkins.data || []).map(mapCheckin),
+    companies: companyList,
+    companyDocs: companyDocList,
   };
 }
 
@@ -414,6 +477,7 @@ export async function insertWorker(w) {
       name: w.name,
       trade: w.trade || "",
       employer: w.employer || "",
+      company_id: w.companyId ?? null,
       project_id: w.project ?? null,
       email: (w.email || "").trim() || null,
       login_handle: (w.loginHandle || "").trim().toLowerCase() || null,
@@ -455,6 +519,95 @@ export async function insertWorker(w) {
     }
   }
   return mapWorker(data);
+}
+
+// ---------------------------------------------------------------------------
+// Subcontractor companies + their insurance certificates
+// ---------------------------------------------------------------------------
+
+export async function insertCompany(c) {
+  const { data, error } = await supabase
+    .from("subbie_companies")
+    .insert({
+      name: (c.name || "").trim(),
+      abn: (c.abn || "").trim(),
+      contact_name: c.contactName || "",
+      contact_phone: c.contactPhone || "",
+      contact_email: (c.contactEmail || "").trim(),
+      notes: c.notes || "",
+    })
+    .select()
+    .single();
+  if (error) fail(error, "Adding company");
+  return mapCompany(data);
+}
+
+export async function updateCompanyRow(id, patch) {
+  const row = {};
+  if (patch.name !== undefined) row.name = (patch.name || "").trim();
+  if (patch.abn !== undefined) row.abn = (patch.abn || "").trim();
+  if (patch.contactName !== undefined) row.contact_name = patch.contactName;
+  if (patch.contactPhone !== undefined) row.contact_phone = patch.contactPhone;
+  if (patch.contactEmail !== undefined) row.contact_email = (patch.contactEmail || "").trim();
+  if (patch.notes !== undefined) row.notes = patch.notes;
+  const { data, error } = await supabase
+    .from("subbie_companies")
+    .update(row)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) fail(error, "Updating company");
+  return mapCompany(data);
+}
+
+// Deleting a company: its workers stay (FK sets their company_id to null and
+// they go back to holding their own insurance); its certificate files are
+// removed from storage; keep the employer text on workers as history.
+export async function deleteCompanyRow(companyId, docs = []) {
+  const paths = docs.map((d) => d.filePath).filter(Boolean);
+  if (paths.length) {
+    await supabase.storage.from(COMPLIANCE_BUCKET).remove(paths);
+  }
+  const { error } = await supabase.from("subbie_companies").delete().eq("id", companyId);
+  if (error) fail(error, "Removing company");
+}
+
+// Uploads a company insurance certificate (public liability / WorkCover) to
+// the same private bucket, one row per company+category (re-upload replaces).
+export async function uploadCompanyDocApi({ companyId, category, file, expiry }) {
+  const dbCat = COMPANY_CATEGORY_DB[category] || category;
+  const ext = (file.name?.split(".").pop() || "").toLowerCase();
+  const path = `company/${companyId}/${dbCat}/${Date.now()}-${safeName(file.name)}`;
+
+  const up = await supabase.storage
+    .from(COMPLIANCE_BUCKET)
+    .upload(path, file, { upsert: false, contentType: file.type || undefined });
+  if (up.error) fail(up.error, "Uploading certificate");
+
+  const { data, error } = await supabase
+    .from("company_documents")
+    .upsert(
+      {
+        company_id: companyId,
+        category: dbCat,
+        file_path: path,
+        file_name: file.name || `document.${ext || "bin"}`,
+        expiry_date: expiry || null,
+      },
+      { onConflict: "company_id,category" }
+    )
+    .select()
+    .single();
+  if (error) fail(error, "Recording certificate");
+  return mapCompanyDoc(data);
+}
+
+export async function deleteCompanyDocApi(doc) {
+  if (doc.filePath) {
+    await supabase.storage.from(COMPLIANCE_BUCKET).remove([doc.filePath]);
+  }
+  const { error } = await supabase.from("company_documents").delete().eq("id", doc.id);
+  if (error) fail(error, "Removing certificate");
 }
 
 // ---------------------------------------------------------------------------

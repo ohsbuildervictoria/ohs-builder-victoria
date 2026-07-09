@@ -203,6 +203,44 @@ function DocumentRow({ worker, categoryKey, doc, upload, open, toast }) {
   const isExpiryCat = EXPIRY_CATEGORIES.includes(categoryKey);
   const today = new Date().toISOString().slice(0, 10);
 
+  // Insurance for a company-employed tradie is the company's Public Liability
+  // certificate — the builder manages it, so there's nothing to upload here.
+  if (categoryKey === "insurance" && worker.companyId) {
+    const onViewCompanyDoc = async () => {
+      try {
+        window.open(await open(doc), "_blank", "noopener");
+      } catch (err) {
+        toast(err.message || "Could not open document", "error");
+      }
+    };
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-800">Insurance</p>
+            <p className="text-xs text-slate-500">
+              {doc
+                ? `Covered by ${doc.companyName || worker.employer || "your company"}'s insurance${doc.expiry ? ` · expires ${doc.expiry}` : ""}`
+                : `${worker.employer || "Your company"}'s insurance certificate isn't uploaded yet — your builder takes care of this one.`}
+            </p>
+          </div>
+          <Badge status={status} icon />
+        </div>
+        {doc && (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="mt-3"
+            onClick={onViewCompanyDoc}
+          >
+            View / Download
+          </Button>
+        )}
+      </div>
+    );
+  }
+
   const onUpload = async () => {
     if (!file) return toast("Choose a file first", "warning");
     if (isExpiryCat && !expiry) return toast("Add the expiry date shown on the document", "warning");

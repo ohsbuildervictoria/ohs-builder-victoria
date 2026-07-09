@@ -1,4 +1,6 @@
 import { useState } from "react";
+import SubbiePanel, { CertControls } from "./Subcontractors";
+import { useCompanies } from "../../hooks/useCompanies";
 import Card, { CardBody, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Tabs from "../../components/ui/Tabs";
@@ -23,8 +25,9 @@ import {
 import { downloadCsv } from "../../utils/export";
 import { swmsLibrary } from "../../data/swmsLibrary";
 
-// Stakeholder types. Only "Stakeholders" has records today (there is no type
-// field yet), so the empty tabs are hidden until something populates them.
+// Stakeholder types. Stakeholders (the people matrix) and Subcontractors (the
+// company register) are real; the rest stay hidden until something populates
+// them (there is no record type for Suppliers/Developer yet).
 const ALL_TABS = ["Stakeholders", "Subcontractors", "Suppliers", "Developer", "Other"];
 const STATUSES = ["Verified", "Pending", "Missing"];
 
@@ -32,6 +35,7 @@ export default function Compliance() {
   const { workers, updateCompliance, addWorker } = useWorkers();
   const { projects } = useProjects();
   const { docsFor } = useDocuments();
+  const { companies, addCompany } = useCompanies();
   const { refresh } = useAppContext();
   const toast = useToast();
   const [tab, setTab] = useState("Stakeholders");
@@ -39,10 +43,9 @@ export default function Compliance() {
   const [addOpen, setAddOpen] = useState(false);
   const [newLogin, setNewLogin] = useState(null); // credentials to show after create
   const addForm = useForm();
+  const companyChoice = addForm.watch("companyId");
 
-  // Hide type tabs that have no records (Stakeholders always shown).
-  const tabCounts = { Stakeholders: workers.length };
-  const tabs = ALL_TABS.filter((t) => t === "Stakeholders" || (tabCounts[t] || 0) > 0);
+  const tabs = ALL_TABS.filter((t) => t === "Stakeholders" || t === "Subcontractors");
 
   // Summary bars: % of the crew whose evidence is currently valid, per category.
   const complianceSummary = complianceCategories.reduce((acc, c) => {
@@ -59,10 +62,23 @@ export default function Compliance() {
 
   const onAddStakeholder = async (data) => {
     try {
+      // Resolve who they work for: an existing subbie company, a brand-new
+      // one (created here), or nobody (direct hire / sole trader).
+      let companyId = null;
+      let employer = "";
+      if (data.companyId === "__new__") {
+        const created = await addCompany({ name: data.newCompanyName });
+        companyId = created.id;
+        employer = created.name;
+      } else if (data.companyId) {
+        companyId = Number(data.companyId);
+        employer = companies.find((c) => c.id === companyId)?.name || "";
+      }
       const created = await addWorker({
         name: data.name,
         trade: data.trade,
-        employer: data.employer,
+        employer,
+        companyId,
         email: data.email,
         project: data.project ? Number(data.project) : null,
       });
@@ -85,12 +101,14 @@ export default function Compliance() {
   });
 
   const handleExport = () => {
-    const headers = ["Name", "Trade", ...complianceCategories.map((c) => c.label), "Status"];
+    const headers = ["Name", "Trade", "Company", ...complianceCategories.map((c) => c.label), "Status"];
     const rows = workers.map((w) => {
       const docs = docsFor(w.id);
+      const company = w.companyId ? companies.find((c) => c.id === w.companyId) : null;
       return [
         w.name,
         w.trade,
+        company?.name || w.employer || "—",
         ...complianceCategories.map((c) => categoryStatus(w, c.key, docs[c.key])),
         w.status,
       ];
@@ -112,7 +130,7 @@ export default function Compliance() {
           <Button
             onClick={() => {
               addForm.reset({
-                name: "", trade: "", employer: "", project: "", loginHandle: "",
+                name: "", trade: "", companyId: "", newCompanyName: "", project: "", loginHandle: "",
               });
               setAddOpen(true);
             }}
@@ -153,21 +171,29 @@ export default function Compliance() {
 
       <Tabs tabs={tabs} active={tab} onChange={setTab} variant="pills" />
 
-      <Card>
-        <CardBody>
-          {tab === "Stakeholders" ? (
+      {tab === "Stakeholders" && (
+        <Card>
+          <CardBody>
             <ComplianceMatrix
               workers={workers}
               docsFor={docsFor}
               onCellClick={(worker, category) => setCell({ worker, category })}
             />
-          ) : (
-            <p className="py-10 text-center text-sm text-slate-400">
-              No {tab.toLowerCase()} records yet.
-            </p>
-          )}
-        </CardBody>
-      </Card>
+          </CardBody>
+        </Card>
+      )}
+
+      {tab === "Subcontractors" && (
+        <SubbiePanel
+          onAddWorker={(company) => {
+            addForm.reset({
+              name: "", trade: "", companyId: String(company.id),
+              newCompanyName: "", project: "", loginHandle: "",
+            });
+            setAddOpen(true);
+          }}
+        />
+      )}
 
       {/* Add stakeholder modal */}
       <Modal
@@ -206,10 +232,34 @@ export default function Compliance() {
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Employer
+              Works for
             </span>
-            <input className="cmp-input" {...addForm.register("employer")} />
+            <select className="cmp-input" {...addForm.register("companyId")}>
+              <option value="">No company — direct hire / sole trader</option>
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+              <option value="__new__">+ Add a new company…</option>
+            </select>
+            <span className="mt-1 block text-xs text-slate-400">
+              Workers under a company are covered by that company&apos;s insurance.
+            </span>
           </label>
+          {companyChoice === "__new__" && (
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                New company name *
+              </span>
+              <input
+                className="cmp-input"
+                placeholder="e.g. Scope Plumbing Pty Ltd"
+                {...addForm.register("newCompanyName", { required: true })}
+              />
+              <span className="mt-1 block text-xs text-slate-400">
+                You can add their ABN and insurance in the Subcontractors tab.
+              </span>
+            </label>
+          )}
           <label className="block">
             <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
               Assigned project
@@ -296,6 +346,7 @@ export default function Compliance() {
 // completion status is set manually and a supporting file can still be attached.
 function CellModal({ cell, onClose, updateCompliance }) {
   const { docsFor, upload, remove, open } = useDocuments();
+  const { getCompany } = useCompanies();
   const toast = useToast();
   const [file, setFile] = useState(null);
   const [expiry, setExpiry] = useState("");
@@ -304,6 +355,29 @@ function CellModal({ cell, onClose, updateCompliance }) {
   if (!cell) return null;
   const { worker, category } = cell;
   const label = complianceCategories.find((c) => c.key === category)?.label;
+
+  // A company-linked worker's Insurance is the company's Public Liability
+  // certificate — manage the company document here, not a personal one.
+  const company = worker.companyId ? getCompany(worker.companyId) : null;
+  if (category === "insurance" && company) {
+    return (
+      <Modal
+        open={!!cell}
+        onClose={onClose}
+        title={`Insurance — ${worker.name}`}
+        footer={<Button variant="secondary" onClick={onClose}>Close</Button>}
+      >
+        <div className="space-y-4">
+          <p className="rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-900">
+            {worker.name} works for <span className="font-semibold">{company.name}</span>,
+            so their insurance comes from the company&apos;s Public Liability
+            certificate. Updating it here updates the whole crew.
+          </p>
+          <CertControls company={company} catKey="publicLiability" onDone={onClose} />
+        </div>
+      </Modal>
+    );
+  }
   const doc = docsFor(worker.id)[category] || null;
   const status = categoryStatus(worker, category, doc);
   const isExpiryCat = EXPIRY_CATEGORIES.includes(category);

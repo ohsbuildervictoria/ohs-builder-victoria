@@ -776,3 +776,107 @@ grant execute on function public.site_checkin(uuid, text) to anon, authenticated
 
 select (select count(*) from information_schema.tables where table_name='site_checkins') tbl,
        (select count(*) from public.projects where checkin_token is not null) projects_with_token;
+
+-- ============================================================================
+-- Subcontractor companies (2026-07-09)
+-- A subbie company (e.g. "Scope Plumbing") is now a first-class record holding
+-- company-level details (ABN, contact, insurance certificates). Individual
+-- workers link to it via workers.company_id and keep only personal items
+-- (White Card, induction, quiz, medical, SWMS). The company's Public Liability
+-- certificate is mirrored into each crew member's Insurance slot app-side.
+-- Existing free-text workers.employer values are migrated below: one company
+-- per distinct employer name per org (except names matching the builder's own
+-- org — those are direct staff), workers linked, and the best (latest-expiry)
+-- personal insurance certificate promoted to the company. workers.employer
+-- stays populated (synced to the company name) for display/CSV back-compat.
+-- ============================================================================
+create table public.subbie_companies (
+  id bigint generated always as identity primary key,
+  organization_id bigint not null default public.my_org() references public.organizations(id),
+  name text not null,
+  abn text not null default '',
+  contact_name text not null default '',
+  contact_phone text not null default '',
+  contact_email text not null default '',
+  notes text not null default '',
+  created_at timestamptz not null default now()
+);
+alter table public.subbie_companies enable row level security;
+
+-- Company-level evidence: Public Liability + WorkCover certificates (expiry-
+-- driven, same statuses as personal docs). Files live in the same private
+-- compliance-docs bucket under company/{id}/...
+create table public.company_documents (
+  id bigint generated always as identity primary key,
+  organization_id bigint not null default public.my_org() references public.organizations(id),
+  company_id bigint not null references public.subbie_companies(id) on delete cascade,
+  category text not null check (category in ('public_liability','workcover')),
+  file_path text not null,
+  file_name text not null default '',
+  expiry_date date,
+  uploaded_at timestamptz not null default now(),
+  unique (company_id, category)
+);
+alter table public.company_documents enable row level security;
+
+alter table public.workers
+  add column company_id bigint references public.subbie_companies(id) on delete set null;
+
+-- A linked tradie may read their own company (who covers them + status);
+-- builder staff manage all companies in their org.
+create or replace function public.my_company_id()
+returns bigint language sql stable security definer set search_path = public as $$
+  select company_id from public.workers where id = public.my_worker_id()
+$$;
+grant execute on function public.my_company_id() to authenticated;
+
+create policy "companies: read" on public.subbie_companies for select to authenticated
+  using (organization_id = public.my_org()
+    and (public.is_builder_staff() or public.my_worker_id() is null or id = public.my_company_id()));
+create policy "companies: staff write" on public.subbie_companies for all to authenticated
+  using (public.is_builder_staff() and organization_id = public.my_org())
+  with check (public.is_builder_staff() and organization_id = public.my_org());
+
+create policy "company_documents: read" on public.company_documents for select to authenticated
+  using (organization_id = public.my_org()
+    and (public.is_builder_staff() or public.my_worker_id() is null or company_id = public.my_company_id()));
+create policy "company_documents: staff write" on public.company_documents for all to authenticated
+  using (public.is_builder_staff() and organization_id = public.my_org())
+  with check (public.is_builder_staff() and organization_id = public.my_org());
+
+-- ---- Migrate existing free-text employers -> company records ----
+insert into public.subbie_companies (organization_id, name)
+select w.organization_id, min(trim(w.employer))
+from public.workers w
+join public.organizations o on o.id = w.organization_id
+where trim(coalesce(w.employer,'')) <> ''
+  and lower(trim(w.employer)) <> lower(trim(o.name))
+group by w.organization_id, lower(trim(w.employer));
+
+update public.workers w
+set company_id = c.id, employer = c.name
+from public.subbie_companies c
+where c.organization_id = w.organization_id
+  and lower(trim(w.employer)) = lower(trim(c.name));
+
+-- Promote the best (latest expiry, newest upload) personal insurance
+-- certificate among each company's crew to the company's Public Liability
+-- slot, then retire the personal insurance rows for linked workers (their
+-- insurance is company-level from now on; storage files are kept).
+insert into public.company_documents
+  (organization_id, company_id, category, file_path, file_name, expiry_date, uploaded_at)
+select distinct on (w.company_id)
+  w.organization_id, w.company_id, 'public_liability',
+  d.file_path, d.file_name, d.expiry_date, d.uploaded_at
+from public.compliance_documents d
+join public.workers w on w.id = d.worker_id
+where d.category = 'insurance' and w.company_id is not null
+order by w.company_id, d.expiry_date desc nulls last, d.uploaded_at desc;
+
+delete from public.compliance_documents d
+using public.workers w
+where d.worker_id = w.id and d.category = 'insurance' and w.company_id is not null;
+
+select (select count(*) from public.subbie_companies) companies,
+       (select count(*) from public.workers where company_id is not null) linked_workers,
+       (select count(*) from public.company_documents) company_docs;

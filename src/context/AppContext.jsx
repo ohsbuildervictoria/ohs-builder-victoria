@@ -18,6 +18,8 @@ const emptyState = {
   policies: [],
   profiles: [],
   invites: [],
+  companies: [],
+  companyDocs: [],
   org: null,
 };
 
@@ -38,6 +40,8 @@ export function AppProvider({ children }) {
   const [policies, setPolicies] = useState(emptyState.policies);
   const [profiles, setProfiles] = useState(emptyState.profiles);
   const [invites, setInvites] = useState(emptyState.invites);
+  const [companies, setCompanies] = useState(emptyState.companies);
+  const [companyDocs, setCompanyDocs] = useState(emptyState.companyDocs);
   const [org, setOrg] = useState(emptyState.org);
   const [readNotifications, setReadNotifications] = useState(() => new Set());
   const [loading, setLoading] = useState(false);
@@ -60,6 +64,8 @@ export function AppProvider({ children }) {
       setPolicies(data.policies);
       setProfiles(data.profiles);
       setInvites(data.invites);
+      setCompanies(data.companies);
+      setCompanyDocs(data.companyDocs);
       setOrg(data.org);
     } catch (err) {
       setLoadError(err.message || "Failed to load data.");
@@ -86,6 +92,8 @@ export function AppProvider({ children }) {
       setPolicies(emptyState.policies);
       setProfiles(emptyState.profiles);
       setInvites(emptyState.invites);
+      setCompanies(emptyState.companies);
+      setCompanyDocs(emptyState.companyDocs);
       setOrg(emptyState.org);
       setReadNotifications(new Set());
       setLoadError(null);
@@ -107,12 +115,14 @@ export function AppProvider({ children }) {
       policies, setPolicies,
       profiles, setProfiles,
       invites, setInvites,
+      companies, setCompanies,
+      companyDocs, setCompanyDocs,
       org, setOrg,
       readNotifications, setReadNotifications,
       loading, loadError, refresh,
     }),
     [projects, workers, documents, audits, checkins, incidents, templates, entries, meetings, policies,
-     profiles, invites, org, readNotifications, loading, loadError, refresh]
+     profiles, invites, companies, companyDocs, org, readNotifications, loading, loadError, refresh]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
