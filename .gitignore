@@ -26,3 +26,5 @@ git_push*.ps1
 git_push*.vbs
 git_output.log
 TIME_TRACKER.json
+
+.temp/
