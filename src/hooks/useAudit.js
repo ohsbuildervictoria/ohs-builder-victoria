@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useAppContext } from "../context/AppContext";
 import { useAuthContext } from "../context/AuthContext";
-import { logEdit } from "../lib/api";
+import { logEdit, recordFitnessDeclarationApi, localDate } from "../lib/api";
 
 // Compares the given fields on two objects and returns { field: {from, to} }
 // for the ones that actually changed. Values are normalised to strings so a
@@ -48,5 +48,44 @@ export function useAudit() {
     [setAudits, user?.name]
   );
 
-  return useMemo(() => ({ audits, entriesFor, record }), [audits, entriesFor, record]);
+  // Daily fitness-for-work declaration → immutable audit row. The server pins
+  // the row to the caller's own linked worker; the explicit worker id is only
+  // used by the legacy shared pilot account (no linked worker on the profile).
+  const recordFitness = useCallback(
+    async (worker, outcome) => {
+      const saved = await recordFitnessDeclarationApi({
+        outcome,
+        day: localDate(),
+        workerId: user?.pilotWorker ? worker?.id : null,
+      });
+      setAudits((prev) => [saved, ...prev]);
+      return saved;
+    },
+    [setAudits, user?.pilotWorker]
+  );
+
+  // Has this worker already confirmed fitness TODAY (local calendar day) for
+  // their CURRENT project? A new day or a project change re-prompts; declines
+  // never suppress (an unfit call today shouldn't block an honest one after
+  // they've seen their supervisor).
+  const fitnessConfirmedToday = useCallback(
+    (worker) => {
+      if (!worker) return false;
+      const today = localDate();
+      return audits.some(
+        (a) =>
+          a.entity === "fitness_declaration" &&
+          a.action === "confirmed" &&
+          a.entityId === Number(worker.id) &&
+          a.changes?.localDate === today &&
+          (a.changes?.projectId ?? null) === (worker.project ?? null)
+      );
+    },
+    [audits]
+  );
+
+  return useMemo(
+    () => ({ audits, entriesFor, record, recordFitness, fitnessConfirmedToday }),
+    [audits, entriesFor, record, recordFitness, fitnessConfirmedToday]
+  );
 }

@@ -892,3 +892,45 @@ select (select count(*) from public.subbie_companies) companies,
 -- (tradies see their own builder's projects only) and staff-only for writes.
 -- ============================================================================
 alter table public.projects add column induction jsonb not null default '{}'::jsonb;
+
+-- ============================================================================
+-- Fitness-for-work declaration gate (2026-07-09)
+-- Before a tradie can open their Site Induction they must declare, once per
+-- day per project, that they are fit for work and unimpaired. Every outcome
+-- (confirmed or declined) is an immutable audit_log row — insert-only, no
+-- update/delete policies exist, so records can never be altered or removed.
+-- If an incident is ever investigated, "was this person cleared to work that
+-- day" is answerable from data.
+-- Tradies cannot insert audit rows directly (staff-only insert policy), and a
+-- direct insert could claim to be anyone — so declarations go through a
+-- security-definer RPC that pins the record to the caller's OWN linked
+-- worker. p_worker_id is honoured only for the legacy shared pilot account
+-- (profile has no linked worker), same trust model as the other pilot_*
+-- RPCs, and is still confined to the caller's own organisation.
+-- The declaration day (p_local_date) is the tradie's LOCAL calendar date —
+-- Victorian sites start early, and a UTC date would be yesterday until
+-- mid-morning, causing false re-prompts around midnight.
+-- ============================================================================
+alter table public.audit_log drop constraint audit_log_entity_check;
+alter table public.audit_log add constraint audit_log_entity_check
+  check (entity in ('diary_entry','incident','fitness_declaration'));
+
+create or replace function public.record_fitness_declaration(outcome text, p_local_date date, p_worker_id bigint default null)
+returns json language plpgsql security definer set search_path = public as $fn$
+declare wid bigint; w record; saved record;
+begin
+  if auth.uid() is null then raise exception 'not authenticated'; end if;
+  if outcome not in ('confirmed','declined') then raise exception 'outcome not allowed'; end if;
+  wid := public.my_worker_id();
+  if wid is null then wid := p_worker_id; end if;
+  select * into w from public.workers where id = wid and organization_id = public.my_org();
+  if w.id is null then raise exception 'no linked worker record'; end if;
+  insert into public.audit_log (organization_id, entity, entity_id, action, changed_by, changes)
+  values (w.organization_id, 'fitness_declaration', w.id, outcome, w.name,
+          jsonb_build_object('localDate', p_local_date, 'projectId', w.project_id))
+  returning * into saved;
+  return json_build_object('id', saved.id, 'entity', saved.entity, 'entity_id', saved.entity_id,
+    'action', saved.action, 'changed_by', saved.changed_by, 'changes', saved.changes,
+    'created_at', saved.created_at);
+end $fn$;
+grant execute on function public.record_fitness_declaration(text, date, bigint) to authenticated;

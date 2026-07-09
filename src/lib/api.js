@@ -241,8 +241,9 @@ const mapInvite = (r) => ({
 });
 
 // Local calendar date (YYYY-MM-DD) — .toISOString() is the UTC date, which is
-// yesterday in Australia until mid-morning.
-function localDate() {
+// yesterday in Australia until mid-morning. Exported because the daily
+// fitness-for-work check compares against the tradie's LOCAL day.
+export function localDate() {
   const d = new Date();
   const pad = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -378,6 +379,19 @@ export async function logEdit({ entity, entityId, changedBy, changes }) {
     .select()
     .single();
   if (error) fail(error, "Recording the edit");
+  return mapAudit(data);
+}
+
+// Daily fitness-for-work declaration → immutable audit row, written through a
+// security-definer RPC. The server pins the record to the caller's OWN linked
+// worker; workerId is only honoured for the legacy shared pilot account.
+export async function recordFitnessDeclarationApi({ outcome, day, workerId }) {
+  const { data, error } = await supabase.rpc("record_fitness_declaration", {
+    outcome,
+    p_local_date: day,
+    p_worker_id: workerId ?? null,
+  });
+  if (error) fail(error, "Recording your declaration");
   return mapAudit(data);
 }
 

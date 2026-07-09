@@ -6,6 +6,7 @@ import { useCompliance } from "../../hooks/useCompliance";
 import { useProjects } from "../../hooks/useProjects";
 import { useAppContext } from "../../context/AppContext";
 import ProgressBar from "../../components/ui/ProgressBar";
+import FitnessDeclarationGate from "../../components/shared/FitnessDeclarationGate";
 import { inductionModules as seedModules, inductionDefaults } from "../../data/constants";
 
 function buildModuleState() {
@@ -82,6 +83,9 @@ export default function Induction() {
   };
 
   return (
+    // Nobody sees a single induction module until they've declared, today,
+    // that they're fit for work and unimpaired (immutable audit record).
+    <FitnessDeclarationGate worker={worker} project={project}>
     <div className="p-4">
       <h1 className="text-xl font-bold text-slate-800">
         {org?.name ? `${org.name} — Site Induction` : "Site Induction"}
@@ -198,5 +202,6 @@ export default function Induction() {
         </Link>
       )}
     </div>
+    </FitnessDeclarationGate>
   );
 }
