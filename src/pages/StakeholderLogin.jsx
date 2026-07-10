@@ -5,12 +5,9 @@ import Logo from "../components/shared/Logo";
 import Button from "../components/ui/Button";
 import { brand } from "../data/constants";
 
-// PILOT ONLY — lightweight tradie sign-in (see src/lib/pilotBypass.js).
-// Each tradie has their own username (set by the builder when they're added);
-// everyone shares the simple pilot password. Once signed in, the portal is
-// scoped to that tradie's own site, tasks and SWMS only.
+// Tradie sign-in: the email + password they set up via their invite link.
 export default function StakeholderLogin() {
-  const { loginStakeholder, login, user } = useAuth();
+  const { login, user } = useAuth();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -29,17 +26,10 @@ export default function StakeholderLogin() {
     setError(null);
     setSubmitting(true);
     try {
-      const id = username.trim();
-      // Real per-tradie account (email) vs the legacy shared pilot login.
-      if (id.includes("@")) {
-        const profile = await login(id, password);
-        navigate(profile.role === "worker" ? "/worker/home" : "/builder/dashboard", {
-          replace: true,
-        });
-      } else {
-        await loginStakeholder(id, password);
-        navigate("/worker/home", { replace: true });
-      }
+      const profile = await login(username.trim(), password);
+      navigate(profile.role === "worker" ? "/worker/home" : "/builder/dashboard", {
+        replace: true,
+      });
     } catch (err) {
       setError(err.message || "Could not sign you in.");
     } finally {
@@ -56,21 +46,21 @@ export default function StakeholderLogin() {
             Worker Sign-in
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Sign in with the email you set up, or the username your builder gave you.
+            Sign in with the email and password you set up from your invite link.
           </p>
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Email or username
+              Email
             </label>
             <input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               autoComplete="username"
               autoCapitalize="none"
-              placeholder="you@email.com  ·  or  ·  liam"
+              placeholder="you@email.com"
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base focus:border-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-900"
             />
           </div>

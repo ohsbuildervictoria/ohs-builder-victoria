@@ -6,7 +6,6 @@ import {
   updateWorkerComplianceRow,
   insertWorker,
   saveWorkerProfileRow,
-  pilotSaveProfile,
   saveMyProfile,
 } from "../lib/api";
 
@@ -66,9 +65,7 @@ export function useWorkers(projectId = null) {
   // - Builder staff: direct write.
   const saveProfile = useCallback(
     async (id, profile) => {
-      if (user?.pilotWorker) {
-        await pilotSaveProfile(Number(id), profile);
-      } else if (user?.role === "worker") {
+      if (user?.role === "worker") {
         await saveMyProfile(profile);
       } else {
         await saveWorkerProfileRow(Number(id), profile);
@@ -77,7 +74,7 @@ export function useWorkers(projectId = null) {
         prev.map((w) => (w.id === Number(id) ? { ...w, profile } : w))
       );
     },
-    [setWorkers, user?.pilotWorker, user?.role]
+    [setWorkers, user?.role]
   );
 
   const filterByStatus = useCallback(

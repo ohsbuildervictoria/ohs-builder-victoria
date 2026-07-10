@@ -970,3 +970,36 @@ create policy "site-photos insert" on storage.objects for insert to authenticate
   with check (bucket_id = 'site-photos');
 create policy "site-photos delete" on storage.objects for delete to authenticated
   using (bucket_id = 'site-photos' and public.is_builder_staff());
+
+-- ============================================================================
+-- GO-LIVE LOCKDOWN (2026-07-10)
+-- Applied to production. The pilot era is over:
+--   * app_config.bypass_auth = false (no "View live demo" auto-login;
+--     the client code paths and src/lib/pilotBypass.js are deleted).
+--   * All legacy shared-login tradies converted to invited accounts with
+--     fresh invite tokens; workers.login_handle cleared.
+--   * Pilot RPCs dropped (shared-account backdoors removed):
+--       drop function public.pilot_update_compliance(bigint, text, text);
+--       drop function public.pilot_save_profile(bigint, jsonb);
+--       drop function public.find_worker_by_handle(text);
+--   * Passwords rotated for the two auth accounts whose credentials shipped
+--     in the public JS bundle, and for the QA MASTER logins (values live in
+--     the owner's local docs/ folder + password manager, never in this repo).
+--   * organizations.is_internal added — future analytics/billing/customer
+--     counts must exclude is_internal = true (the QA MASTER org).
+-- ============================================================================
+update public.app_config set bypass_auth = false where id = 1;
+alter table public.organizations add column if not exists is_internal boolean not null default false;
+
+-- ============================================================================
+-- Daily compliance digest schedule (2026-07-10)
+-- pg_cron + pg_net POST to the Cloudflare Pages function every morning
+-- 07:00 Melbourne (21:00 UTC). The shared secret lives in the DB job and in
+-- the Cloudflare Pages env (CRON_SECRET) — intentionally NOT in this file.
+-- ============================================================================
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+-- select cron.schedule('daily-compliance-digest', '0 21 * * *',
+--   $$select net.http_post(url := 'https://ohsbuildervictoria.com.au/api/cron-nudges',
+--       headers := jsonb_build_object('x-cron-secret', '<CRON_SECRET>', 'Content-Type', 'application/json'),
+--       body := '{}'::jsonb)$$);

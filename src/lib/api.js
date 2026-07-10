@@ -762,15 +762,22 @@ export async function getDocUrl(filePath) {
   return data.signedUrl;
 }
 
-export async function findWorkerByHandle(handle) {
-  // RLS now hides other workers from a linked tradie, so the legacy shared
-  // account resolves the username through a security-definer RPC (org-scoped).
-  const { data, error } = await supabase.rpc("find_worker_by_handle", {
-    handle: (handle || "").trim(),
+// Emails a tradie their invite link via the server-side send endpoint
+// (Cloudflare Pages Function -> Resend). The server re-checks role + org and
+// composes the email itself; we only name the worker.
+export async function emailInvite(workerId) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const r = await fetch("/api/send-invite", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session?.access_token || ""}`,
+    },
+    body: JSON.stringify({ workerId: Number(workerId) }),
   });
-  if (error) fail(error, "Looking up stakeholder");
-  const row = Array.isArray(data) ? data[0] : data;
-  return row ? mapWorker(row) : null;
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) fail(new Error(j.error || `HTTP ${r.status}`), "Emailing the invite");
+  return j; // { sent, to }
 }
 
 // Public invite preview shown on the /join page before the tradie sets a password.
@@ -785,17 +792,6 @@ export async function acceptWorkerInvite(token) {
   const { data, error } = await supabase.rpc("accept_worker_invite", { token });
   if (error) fail(error, "Joining your builder");
   return data; // worker id
-}
-
-// PILOT ONLY: tradies share one auth account, so the worker id is explicit.
-export async function pilotUpdateCompliance(workerId, categoryKey, value) {
-  const col = COMPLIANCE_COLS[categoryKey];
-  const { error } = await supabase.rpc("pilot_update_compliance", {
-    wid: workerId,
-    category: col,
-    value,
-  });
-  if (error) fail(error, "Updating your compliance");
 }
 
 // Staff path: direct update of any worker's compliance category.
@@ -816,15 +812,6 @@ export async function saveWorkerProfileRow(workerId, profile) {
     .update({ profile })
     .eq("id", workerId);
   if (error) fail(error, "Saving profile");
-}
-
-// PILOT ONLY: tradies share one auth account, so the worker id is explicit.
-export async function pilotSaveProfile(workerId, profile) {
-  const { error } = await supabase.rpc("pilot_save_profile", {
-    wid: workerId,
-    p: profile,
-  });
-  if (error) fail(error, "Saving your profile");
 }
 
 // Real tradie saving their own worker profile (RLS blocks direct writes).

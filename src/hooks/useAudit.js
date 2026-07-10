@@ -48,20 +48,19 @@ export function useAudit() {
     [setAudits, user?.name]
   );
 
-  // Daily fitness-for-work declaration → immutable audit row. The server pins
-  // the row to the caller's own linked worker; the explicit worker id is only
-  // used by the legacy shared pilot account (no linked worker on the profile).
+  // Daily fitness-for-work declaration → immutable audit row. The server
+  // pins the row to the caller's own linked worker.
   const recordFitness = useCallback(
     async (worker, outcome) => {
       const saved = await recordFitnessDeclarationApi({
         outcome,
         day: localDate(),
-        workerId: user?.pilotWorker ? worker?.id : null,
+        workerId: null,
       });
       setAudits((prev) => [saved, ...prev]);
       return saved;
     },
-    [setAudits, user?.pilotWorker]
+    [setAudits]
   );
 
   // Has this worker already confirmed fitness TODAY (local calendar day) for

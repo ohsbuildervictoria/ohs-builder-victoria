@@ -1,6 +1,7 @@
 import { useState } from "react";
 import SubbiePanel, { CertControls } from "./Subcontractors";
 import { useCompanies } from "../../hooks/useCompanies";
+import { emailInvite } from "../../lib/api";
 import Card, { CardBody, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Tabs from "../../components/ui/Tabs";
@@ -84,10 +85,21 @@ export default function Compliance() {
       });
       setAddOpen(false);
       addForm.reset();
-      setNewLogin({
+      const invite = {
         name: created.name,
+        workerId: created.id,
+        email: created.email || "",
         inviteLink: `${window.location.origin}/join/${created.inviteToken}`,
-      });
+        emailState: created.email ? "sending" : "none",
+      };
+      setNewLogin(invite);
+      // Email the link automatically when we have an address — the whole
+      // point of real email delivery. Failure falls back to copy-the-link.
+      if (created.email) {
+        emailInvite(created.id)
+          .then(() => setNewLogin((n) => (n?.workerId === created.id ? { ...n, emailState: "sent" } : n)))
+          .catch(() => setNewLogin((n) => (n?.workerId === created.id ? { ...n, emailState: "failed" } : n)));
+      }
       refresh(); // pick up the SWMS template created/bumped for their trade
     } catch (err) {
       toast(err.message || "Could not add stakeholder", "error");
@@ -178,6 +190,14 @@ export default function Compliance() {
               workers={workers}
               docsFor={docsFor}
               onCellClick={(worker, category) => setCell({ worker, category })}
+              onEmailInvite={async (w) => {
+                try {
+                  const r = await emailInvite(w.id);
+                  toast(`Invite emailed to ${r.to}`);
+                } catch (err) {
+                  toast(err.message || "Could not email the invite", "error");
+                }
+              }}
             />
           </CardBody>
         </Card>
@@ -301,6 +321,19 @@ export default function Compliance() {
       >
         {newLogin && (
           <div className="space-y-3 text-sm text-slate-700">
+            {newLogin.emailState === "sent" && (
+              <p className="rounded-lg bg-green-50 px-3 py-2 text-green-800">
+                ✉️ Invite emailed to <span className="font-semibold">{newLogin.email}</span> — they can also use the link below.
+              </p>
+            )}
+            {newLogin.emailState === "sending" && (
+              <p className="rounded-lg bg-slate-50 px-3 py-2 text-slate-600">Emailing the invite to {newLogin.email}…</p>
+            )}
+            {newLogin.emailState === "failed" && (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-amber-800">
+                Couldn&apos;t email the invite — send them the link below instead.
+              </p>
+            )}
             <p>
               Send <span className="font-semibold">{newLogin.name}</span> this private
               link (text, email or WhatsApp). They open it once to set their own

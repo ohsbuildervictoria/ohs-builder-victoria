@@ -33,7 +33,7 @@ import { localDate } from "../../lib/api";
 // ============================================================================
 
 export default function FitnessDeclarationGate({ worker, project, onConfirmed, children }) {
-  const { isWorker, user } = useAuth();
+  const { isWorker } = useAuth();
   const { recordFitness, fitnessConfirmedToday } = useAudit();
   const toast = useToast();
   const navigate = useNavigate();
@@ -99,7 +99,7 @@ export default function FitnessDeclarationGate({ worker, project, onConfirmed, c
         enqueue("fitness_declaration", {
           outcome: "confirmed",
           day: localDate(),
-          workerId: user?.pilotWorker ? worker?.id : null,
+          workerId: null,
         });
         toast("No signal — declaration saved on your phone, will send automatically", "warning");
         setOfflinePassed(true);
@@ -124,7 +124,7 @@ export default function FitnessDeclarationGate({ worker, project, onConfirmed, c
         enqueue("fitness_declaration", {
           outcome: "declined",
           day: localDate(),
-          workerId: user?.pilotWorker ? worker?.id : null,
+          workerId: null,
         });
       }
     } finally {

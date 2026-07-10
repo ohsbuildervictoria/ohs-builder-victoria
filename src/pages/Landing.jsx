@@ -1,7 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import Logo from "../components/shared/Logo";
-import { useAuth } from "../hooks/useAuth";
 import { brand } from "../data/constants";
 
 // Public front door at "/" — explains the product, then hands off to the
@@ -61,20 +59,6 @@ const STEPS = [
 ];
 
 export default function Landing() {
-  const { enterDemo } = useAuth();
-  const navigate = useNavigate();
-  const [demoBusy, setDemoBusy] = useState(false);
-
-  const onDemo = async () => {
-    setDemoBusy(true);
-    try {
-      await enterDemo();
-      navigate("/builder/dashboard");
-    } catch {
-      setDemoBusy(false);
-      navigate("/login");
-    }
-  };
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
@@ -119,14 +103,6 @@ export default function Landing() {
           >
             Start your free trial →
           </Link>
-          <button
-            type="button"
-            onClick={onDemo}
-            disabled={demoBusy}
-            className="w-full rounded-xl border border-slate-600 px-8 py-3.5 text-base font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white disabled:opacity-60 sm:w-auto"
-          >
-            {demoBusy ? "Loading demo…" : "View live demo"}
-          </button>
         </div>
         <p className="mt-4 text-center text-sm text-slate-400">
           Tradesperson with a sign-in?{" "}

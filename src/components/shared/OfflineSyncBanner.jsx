@@ -8,7 +8,6 @@ import {
   recordFitnessDeclarationApi,
   updateWorkerComplianceRow,
   updateMyCompliance,
-  pilotUpdateCompliance,
 } from "../../lib/api";
 
 // Replays whatever was written in a dead spot (see src/lib/offlineQueue.js).
@@ -17,11 +16,9 @@ const FLUSH_HANDLERS = {
   incident: (p) => insertIncident(p),
   fitness_declaration: (p) => recordFitnessDeclarationApi(p),
   compliance_update: (p) =>
-    p.mode === "pilot"
-      ? pilotUpdateCompliance(p.workerId, p.category, p.value)
-      : p.mode === "self"
-        ? updateMyCompliance(p.category, p.value)
-        : updateWorkerComplianceRow(p.workerId, p.category, p.value, p.status),
+    p.mode === "self"
+      ? updateMyCompliance(p.category, p.value)
+      : updateWorkerComplianceRow(p.workerId, p.category, p.value, p.status),
 };
 
 // Mounted in both layouts. Shows how many records are waiting on signal and

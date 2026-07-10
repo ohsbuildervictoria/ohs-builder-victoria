@@ -14,8 +14,7 @@ export default function Login() {
   const { login, resetPassword, user } = useAuth();
   const navigate = useNavigate();
 
-  // Already signed in (including via the temporary pilot bypass —
-  // see src/lib/pilotBypass.js): go straight to the workspace.
+  // Already signed in: go straight to the workspace.
   useEffect(() => {
     if (user) {
       navigate(user.role === "worker" ? "/worker/home" : "/builder/dashboard", {
