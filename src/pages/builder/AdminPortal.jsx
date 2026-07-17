@@ -11,7 +11,7 @@ import { useToast } from "../../components/ui/Notification";
 import { useProjects } from "../../hooks/useProjects";
 import { useAppContext } from "../../context/AppContext";
 import { roleLabels, permissionMatrix } from "../../data/constants";
-import { updateProfileStatus, insertInvite } from "../../lib/api";
+import { updateProfileStatus, insertInvite, emailStaffInvite } from "../../lib/api";
 
 const formatLastLogin = (iso) => {
   if (!iso) return "—";
@@ -26,7 +26,24 @@ export default function AdminPortal() {
   const { profiles, setProfiles, invites, setInvites } = useAppContext();
   const toast = useToast();
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [newInvite, setNewInvite] = useState(null); // { name, email, link, emailState }
   const { register, handleSubmit, reset } = useForm();
+
+  const inviteLink = (u) => `${window.location.origin}/join-staff/${u.inviteToken}`;
+
+  const copyInviteLink = (u) => {
+    navigator.clipboard?.writeText(inviteLink(u));
+    toast("Invite link copied");
+  };
+
+  const emailInviteRow = async (u) => {
+    try {
+      const r = await emailStaffInvite(u.inviteId);
+      toast(`Invite emailed to ${r.to}`);
+    } catch (err) {
+      toast(err.message || "Could not email the invite", "error");
+    }
+  };
 
   // Real accounts + recorded invitations, shown together.
   const users = [
@@ -64,11 +81,19 @@ export default function AdminPortal() {
         role: data.role,
       });
       setInvites((prev) => [...prev, created]);
-      toast(
-        `Invitation recorded for ${data.email} — account is provisioned by your administrator`
-      );
       reset();
       setInviteOpen(false);
+      setNewInvite({
+        name: created.name,
+        email: created.email,
+        link: inviteLink(created),
+        emailState: "sending",
+      });
+      // Email the link automatically — falls back to copy-the-link when
+      // email isn't configured (the modal shows which happened).
+      emailStaffInvite(created.inviteId)
+        .then(() => setNewInvite((n) => (n?.link === inviteLink(created) ? { ...n, emailState: "sent" } : n)))
+        .catch(() => setNewInvite((n) => (n?.link === inviteLink(created) ? { ...n, emailState: "failed" } : n)));
     } catch (err) {
       toast(err.message || "Could not record invitation", "error");
     }
@@ -118,16 +143,29 @@ export default function AdminPortal() {
                   <TD>{u.lastLogin}</TD>
                   <TD>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="secondary" onClick={() => toast(`Editing ${u.name}`)}>
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={u.status === "Active" ? "danger" : "success"}
-                        onClick={() => toggleStatus(u)}
-                      >
-                        {u.status === "Active" ? "Deactivate" : "Activate"}
-                      </Button>
+                      {String(u.id).startsWith("invite-") ? (
+                        <>
+                          <Button size="sm" variant="secondary" onClick={() => emailInviteRow(u)}>
+                            ✉️ Email invite
+                          </Button>
+                          <Button size="sm" variant="secondary" onClick={() => copyInviteLink(u)}>
+                            Copy link
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button size="sm" variant="secondary" onClick={() => toast(`Editing ${u.name}`)}>
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={u.status === "Active" ? "danger" : "success"}
+                            onClick={() => toggleStatus(u)}
+                          >
+                            {u.status === "Active" ? "Deactivate" : "Activate"}
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </TD>
                 </TR>
@@ -206,6 +244,54 @@ export default function AdminPortal() {
             </select>
           </Field>
         </form>
+      </Modal>
+
+      {/* Invite created — show the one-time link + whether it was emailed */}
+      <Modal
+        open={!!newInvite}
+        onClose={() => setNewInvite(null)}
+        title="Invitation created"
+        footer={<Button onClick={() => setNewInvite(null)}>Done</Button>}
+      >
+        {newInvite && (
+          <div className="space-y-3 text-sm text-slate-600">
+            {newInvite.emailState === "sending" && (
+              <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                Emailing the invite to {newInvite.email}…
+              </p>
+            )}
+            {newInvite.emailState === "sent" && (
+              <p className="rounded-lg bg-green-50 px-3 py-2 text-xs text-green-700">
+                ✉️ Invite emailed to {newInvite.email}.
+              </p>
+            )}
+            {newInvite.emailState === "failed" && (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                The email couldn&apos;t be sent — share the link below yourself.
+              </p>
+            )}
+            <p>
+              Send <span className="font-semibold">{newInvite.name}</span> this private
+              link. They open it once to set their own password, then sign in with
+              their email from then on.
+            </p>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="break-all font-mono text-xs text-slate-700">{newInvite.link}</p>
+            </div>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                navigator.clipboard?.writeText(newInvite.link);
+                toast("Invite link copied");
+              }}
+            >
+              Copy link
+            </Button>
+            <p className="text-xs text-slate-500">
+              The link works once and only for {newInvite.email}.
+            </p>
+          </div>
+        )}
       </Modal>
 
       <style>{`

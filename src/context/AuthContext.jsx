@@ -2,7 +2,7 @@
 import { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { fetchProfile, touchLastLogin, signUpBuilder } from "../lib/api";
-import { acceptWorkerInvite } from "../lib/api";
+import { acceptWorkerInvite, acceptStaffInvite } from "../lib/api";
 
 const AuthContext = createContext(null);
 
@@ -89,6 +89,38 @@ export function AuthProvider({ children }) {
     return profile;
   }, []);
 
+  // Staff signup/sign-in via an invite link: establish a session (new account
+  // or existing one), claim the invite (attaches profile → org + role), then
+  // load the profile. The RPC enforces that the session email matches the
+  // invite's email and refuses cross-company moves.
+  const joinAsStaff = useCallback(async ({ token, email, password, mode }) => {
+    const creds = { email: (email || "").trim(), password };
+    if (mode === "signin") {
+      const { error } = await supabase.auth.signInWithPassword(creds);
+      if (error) throw new Error(error.message);
+    } else {
+      const { data, error } = await supabase.auth.signUp(creds);
+      if (error) throw new Error(error.message);
+      if (!data.session) {
+        // Supabase returns an obfuscated "user" with no session when the
+        // email is already registered (and autoconfirm is on otherwise).
+        throw new Error("ALREADY_REGISTERED");
+      }
+    }
+    try {
+      await acceptStaffInvite(token);
+    } catch (err) {
+      await supabase.auth.signOut();
+      throw err;
+    }
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    const profile = await fetchProfile(authUser.id);
+    if (!profile) throw new Error("Could not link your account to the invite.");
+    touchLastLogin(authUser.id);
+    setUser(profile);
+    return profile;
+  }, []);
+
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -121,13 +153,14 @@ export function AuthProvider({ children }) {
       login,
       signup,
       joinAsTradie,
+      joinAsStaff,
       logout,
       resetPassword,
       isBuilder: role === "builder_admin" || role === "hse_manager" || role === "site_supervisor",
       isWorker: role === "worker",
       hasRole: (roleName) => role === roleName,
     };
-  }, [user, initialising, login, signup, joinAsTradie, logout, resetPassword]);
+  }, [user, initialising, login, signup, joinAsTradie, joinAsStaff, logout, resetPassword]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

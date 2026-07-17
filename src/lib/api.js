@@ -250,6 +250,7 @@ const mapInvite = (r) => ({
   name: r.name,
   email: r.email,
   role: r.role,
+  inviteToken: r.invite_token,
   status: "Invited",
   lastLogin: "—",
 });
@@ -285,7 +286,7 @@ export async function fetchAppData() {
       // Organisation branding/settings — RLS returns only the caller's own org.
       supabase.from("organizations").select("*").limit(1).maybeSingle(),
       supabase.from("profiles").select("*").order("created_at"),
-      supabase.from("invites").select("*").order("id"),
+      supabase.from("invites").select("*").eq("status", "invited").order("id"),
       supabase.from("compliance_documents").select("*").order("id"),
       supabase.from("audit_log").select("*").order("created_at", { ascending: false }),
       supabase.from("site_checkins").select("*").order("created_at", { ascending: false }),
@@ -785,6 +786,36 @@ export async function fetchInviteInfo(token) {
   const { data, error } = await supabase.rpc("worker_invite_info", { token });
   if (error) fail(error, "Loading invite");
   return data; // { workerName, trade, orgName, projectName, claimed } | null
+}
+
+// Public staff-invite preview shown on the /join-staff page.
+export async function fetchStaffInviteInfo(token) {
+  const { data, error } = await supabase.rpc("staff_invite_info", { token });
+  if (error) fail(error, "Loading invite");
+  return data; // { name, email, role, orgName, claimed } | null
+}
+
+// Attach the signed-in account to the inviting org with the invited role.
+export async function acceptStaffInvite(token) {
+  const { error } = await supabase.rpc("accept_staff_invite", { token });
+  if (error) fail(error, "Joining the team");
+}
+
+// Emails invited staff their invite link via the server-side send endpoint
+// (Cloudflare Pages Function -> Resend). Admin-only; server re-checks.
+export async function emailStaffInvite(inviteId) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const r = await fetch("/api/send-staff-invite", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session?.access_token || ""}`,
+    },
+    body: JSON.stringify({ inviteId: Number(inviteId) }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) fail(new Error(j.error || `HTTP ${r.status}`), "Emailing the invite");
+  return j; // { sent, to }
 }
 
 // Link the signed-in account to the invited worker + org (role worker).
