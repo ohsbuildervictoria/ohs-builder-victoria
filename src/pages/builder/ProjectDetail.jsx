@@ -7,6 +7,7 @@ import Button from "../../components/ui/Button";
 import Tabs from "../../components/ui/Tabs";
 import ProgressBar from "../../components/ui/ProgressBar";
 import ComplianceMatrix from "../../components/shared/ComplianceMatrix";
+import QrPosterModal from "../../components/shared/QrPosterModal";
 import { Table, THead, TBody, TR, TD } from "../../components/ui/Table";
 import { useProjects } from "../../hooks/useProjects";
 import { useWorkers } from "../../hooks/useWorkers";
@@ -24,9 +25,10 @@ export default function ProjectDetail() {
   const { workers, getComplianceStats } = useWorkers(id);
   const { incidents } = useIncidents(id);
   const { entries } = useDiary(id);
-  const { policies } = useAppContext();
+  const { policies, org } = useAppContext();
   const toast = useToast();
   const [tab, setTab] = useState("Overview");
+  const [qrOpen, setQrOpen] = useState(false);
 
   const project = getProject(id);
 
@@ -64,7 +66,14 @@ export default function ProjectDetail() {
       {tab === "Overview" && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Card className="lg:col-span-2">
-            <CardHeader title="Project Information" />
+            <CardHeader
+              title="Project Information"
+              action={
+                <Button size="sm" variant="secondary" onClick={() => setQrOpen(true)}>
+                  📱 Sign-in QR
+                </Button>
+              }
+            />
             <CardBody className="grid grid-cols-2 gap-4 text-sm">
               <Info label="Contract Type" value={project.contractType} />
               <Info label="Contract Value" value={formatAUD(project.contractValue)} />
@@ -286,6 +295,12 @@ export default function ProjectDetail() {
           </CardBody>
         </Card>
       )}
+
+      <QrPosterModal
+        project={qrOpen ? project : null}
+        org={org}
+        onClose={() => setQrOpen(false)}
+      />
     </div>
   );
 }

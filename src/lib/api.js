@@ -851,6 +851,22 @@ export async function saveMyProfile(profile) {
   if (error) fail(error, "Saving your profile");
 }
 
+// Staff path: set or correct a worker's email after they were added (a blank
+// email is common when a subbie is added quickly). Only touches the email
+// column; the invite token/status are untouched, so the existing invite link
+// stays valid and can now be emailed. Returns the updated (mapped) worker.
+export async function updateWorkerEmail(workerId, email) {
+  const clean = (email || "").trim() || null;
+  const { data, error } = await supabase
+    .from("workers")
+    .update({ email: clean })
+    .eq("id", workerId)
+    .select()
+    .single();
+  if (error) fail(error, "Updating email");
+  return mapWorker(data);
+}
+
 // Worker self-service path (RLS-safe RPC; only induction/quiz/swms allowed).
 export async function updateMyCompliance(categoryKey, value) {
   const col = COMPLIANCE_COLS[categoryKey];

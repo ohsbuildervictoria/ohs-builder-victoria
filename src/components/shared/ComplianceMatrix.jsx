@@ -11,7 +11,7 @@ import { Table, THead, TBody, TR, TD } from "../ui/Table";
 // categoryStatus() in src/lib/compliance.js — the same function the tradie
 // Documents tab uses — so the two views can never disagree.
 // CRITICAL RULE: any "Missing" or "Expired" item blocks site access (red).
-export default function ComplianceMatrix({ workers, docsFor, onCellClick, onEmailInvite }) {
+export default function ComplianceMatrix({ workers, docsFor, onCellClick, onEmailInvite, onSetEmail }) {
   const columns = [
     "Stakeholder",
     "Trade",
@@ -52,6 +52,26 @@ export default function ComplianceMatrix({ workers, docsFor, onCellClick, onEmai
                       className="text-xs font-medium text-blue-700 hover:underline"
                     >
                       ✉️ Email invite
+                    </button>
+                  )}
+                  {onSetEmail && w.accountStatus === "invited" && !w.email && (
+                    <button
+                      type="button"
+                      title="No email on file — add one to send their invite link"
+                      onClick={() => onSetEmail(w)}
+                      className="text-xs font-medium text-amber-700 hover:underline"
+                    >
+                      ➕ Add email
+                    </button>
+                  )}
+                  {onSetEmail && w.accountStatus === "invited" && w.email && (
+                    <button
+                      type="button"
+                      title={`Change email (currently ${w.email})`}
+                      onClick={() => onSetEmail(w)}
+                      className="text-xs text-slate-400 hover:text-slate-600"
+                    >
+                      ✎
                     </button>
                   )}
                 </div>

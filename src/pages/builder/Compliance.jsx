@@ -1,7 +1,7 @@
 import { useState } from "react";
 import SubbiePanel, { CertControls } from "./Subcontractors";
 import { useCompanies } from "../../hooks/useCompanies";
-import { emailInvite } from "../../lib/api";
+import { emailInvite, updateWorkerEmail } from "../../lib/api";
 import Card, { CardBody, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Tabs from "../../components/ui/Tabs";
@@ -43,8 +43,36 @@ export default function Compliance() {
   const [cell, setCell] = useState(null); // { worker, category }
   const [addOpen, setAddOpen] = useState(false);
   const [newLogin, setNewLogin] = useState(null); // credentials to show after create
+  const [emailEdit, setEmailEdit] = useState(null); // worker whose email is being set
+  const [emailSaving, setEmailSaving] = useState(false);
   const addForm = useForm();
+  const emailForm = useForm();
   const companyChoice = addForm.watch("companyId");
+
+  // Set/correct an invited worker's email, then offer to send their invite.
+  const onSaveEmail = async ({ email }) => {
+    if (!emailEdit) return;
+    setEmailSaving(true);
+    try {
+      const updated = await updateWorkerEmail(emailEdit.id, email);
+      await refresh();
+      setEmailEdit(null);
+      if (updated.email) {
+        try {
+          const r = await emailInvite(updated.id);
+          toast(`Email saved — invite sent to ${r.to}`);
+        } catch (err) {
+          toast(`Email saved. Couldn't send the invite: ${err.message || "try again"}`, "warning");
+        }
+      } else {
+        toast("Email cleared");
+      }
+    } catch (err) {
+      toast(err.message || "Could not update email", "error");
+    } finally {
+      setEmailSaving(false);
+    }
+  };
 
   const tabs = ALL_TABS.filter((t) => t === "Stakeholders" || t === "Subcontractors");
 
@@ -198,6 +226,10 @@ export default function Compliance() {
                   toast(err.message || "Could not email the invite", "error");
                 }
               }}
+              onSetEmail={(w) => {
+                setEmailEdit(w);
+                emailForm.reset({ email: w.email || "" });
+              }}
             />
           </CardBody>
         </Card>
@@ -214,6 +246,48 @@ export default function Compliance() {
           }}
         />
       )}
+
+      {/* Set/correct an invited worker's email + resend their invite */}
+      <Modal
+        open={!!emailEdit}
+        onClose={() => setEmailEdit(null)}
+        title={emailEdit?.email ? "Update email" : "Add email"}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setEmailEdit(null)}>Cancel</Button>
+            <Button onClick={emailForm.handleSubmit(onSaveEmail)} disabled={emailSaving}>
+              {emailSaving ? "Saving…" : "Save & send invite"}
+            </Button>
+          </>
+        }
+      >
+        <form className="space-y-3" onSubmit={emailForm.handleSubmit(onSaveEmail)}>
+          <p className="text-sm text-slate-600">
+            {emailEdit?.name} was added without an email, so their invite link
+            couldn&apos;t be sent. Add it here and we&apos;ll email their sign-in
+            link straight away.
+          </p>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Email address
+            </span>
+            <input
+              type="email"
+              autoFocus
+              className="adm-input"
+              placeholder="tradie@email.com"
+              {...emailForm.register("email", { required: true })}
+            />
+          </label>
+          <p className="text-xs text-slate-400">
+            This updates their record only — the existing invite link stays valid.
+          </p>
+        </form>
+        <style>{`
+          .adm-input { width:100%; border-radius:0.5rem; border:1px solid #cbd5e1; padding:0.5rem 0.75rem; font-size:0.875rem; }
+          .adm-input:focus { outline:none; border-color:#1e3a8a; box-shadow:0 0 0 1px #1e3a8a; }
+        `}</style>
+      </Modal>
 
       {/* Add stakeholder modal */}
       <Modal
