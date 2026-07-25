@@ -11,6 +11,8 @@ import IncidentBar from "../../components/charts/IncidentBar";
 import { Table, THead, TBody, TR, TD } from "../../components/ui/Table";
 import { useAppContext } from "../../context/AppContext";
 import { useProjects } from "../../hooks/useProjects";
+import { useDocuments } from "../../hooks/useDocuments";
+import { orgCompliancePercent, formatPercent } from "../../lib/compliance";
 
 // Evaluated once per page load — stable across re-renders.
 const THIRTY_DAYS_AGO = Date.now() - 30 * 24 * 60 * 60 * 1000;
@@ -23,18 +25,20 @@ const dateLabel = (d) => {
 export default function Dashboard() {
   const { projects } = useProjects();
   const { workers, incidents, templates, entries, meetings, policies } = useAppContext();
+  const { byWorker: docsByWorker } = useDocuments();
   const [policyOpen, setPolicyOpen] = useState(false);
 
   // All KPIs are computed live from the database state.
   const kpis = useMemo(() => {
     const activeProjects = projects.filter((p) => p.status === "Active").length;
-    const activeWorkers = workers.filter((w) => w.status === "Active").length;
-    const activeProjectList = projects.filter((p) => p.status === "Active");
-    const compliance = activeProjectList.length
-      ? Math.round(
-          activeProjectList.reduce((s, p) => s + p.compliance, 0) / activeProjectList.length
-        )
-      : 0;
+    // "Stakeholders on site" — every person on the books. The old count used
+    // status === "Active", which a worker only reaches once every one of their
+    // six categories is valid, so a builder with a full site read zero.
+    const activeWorkers = workers.length;
+    const fullyCompliantWorkers = workers.filter((w) => w.status === "Active").length;
+    // One definition of organisation compliance, shared with Reports and the
+    // emailed PDF (src/lib/compliance.js). These three used to disagree.
+    const compliance = orgCompliancePercent(workers, docsByWorker);
     const pendingInductions = workers.filter((w) => w.induction !== "Verified").length;
     const openIncidents = incidents.filter((i) => i.status !== "Closed").length;
     const pendingSwms = templates.reduce(
@@ -61,6 +65,7 @@ export default function Dashboard() {
     return {
       activeProjects,
       activeWorkers,
+      fullyCompliantWorkers,
       compliance,
       pendingInductions,
       openIncidents,
@@ -72,7 +77,7 @@ export default function Dashboard() {
       totalHours,
       lostTimeInjuries,
     };
-  }, [projects, workers, incidents, templates, entries]);
+  }, [projects, workers, incidents, templates, entries, docsByWorker]);
 
   const incidentsByType = useMemo(() => {
     const counts = {};
@@ -84,8 +89,10 @@ export default function Dashboard() {
 
   const complianceByProject = useMemo(
     () =>
+      // Every project the table below lists, so the chart and the table can't
+      // disagree. Projects with no crew have no percentage to plot.
       projects
-        .filter((p) => p.status !== "Planning")
+        .filter((p) => p.compliance != null)
         .map((p) => ({ name: p.name, compliance: p.compliance })),
     [projects]
   );
@@ -135,8 +142,8 @@ export default function Dashboard() {
       {/* Primary KPI row */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
         <StatCard label="Active Projects" value={kpis.activeProjects} tone="blue" />
-        <StatCard label="Active Stakeholders" value={kpis.activeWorkers} tone="blue" />
-        <StatCard label="Achieved Compliance" value={`${kpis.compliance}%`} tone="green" />
+        <StatCard label="Stakeholders on Site" value={kpis.activeWorkers} tone="blue" />
+        <StatCard label="Achieved Compliance" value={formatPercent(kpis.compliance)} tone="green" />
         <StatCard label="Pending Inductions" value={kpis.pendingInductions} tone="amber" />
         <StatCard label="Open Incidents" value={kpis.openIncidents} tone="red" />
       </div>
@@ -214,10 +221,10 @@ export default function Dashboard() {
                       </Link>
                     </TD>
                     <TD>
-                      <span className="font-semibold">{p.compliance}%</span>
+                      <span className="font-semibold">{formatPercent(p.compliance)}</span>
                     </TD>
                     <TD className="w-48">
-                      <ProgressBar value={p.compliance} threshold showLabel />
+                      <ProgressBar value={p.compliance ?? 0} threshold showLabel />
                     </TD>
                     <TD>
                       <Badge status={p.status} />

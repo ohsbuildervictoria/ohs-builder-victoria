@@ -16,20 +16,33 @@ import {
   exportSwmsSignoff,
 } from "../../lib/pdf";
 import { complianceCategories } from "../../data/constants";
+import {
+  categoryStatus,
+  isCompliant,
+  orgCompliancePercent,
+  formatPercent,
+} from "../../lib/compliance";
+import { useDocuments } from "../../hooks/useDocuments";
 
-// Per-project, per-category compliance %, derived from worker records.
-function projectCompliance(workers, projectId) {
+// Per-project, per-category compliance %, derived from the same evidence rules
+// the matrix uses (uploaded documents and their expiry), not the raw worker
+// column — otherwise this table disagrees with the Compliance page.
+// null means "no crew on this project", which is not the same as 100%.
+function projectCompliance(workers, docsFor, projectId) {
   const list = workers.filter((w) => w.project === projectId);
   const stats = {};
-  let totalVerified = 0;
+  let totalValid = 0;
   let totalCells = 0;
   complianceCategories.forEach((c) => {
-    const verified = list.filter((w) => w[c.key] === "Verified").length;
-    stats[c.key] = list.length ? Math.round((verified / list.length) * 100) : 100;
-    totalVerified += verified;
+    const valid = list.filter((w) =>
+      isCompliant(categoryStatus(w, c.key, docsFor(w.id)[c.key]))
+    ).length;
+    stats[c.key] = list.length ? Math.round((valid / list.length) * 100) : null;
+    totalValid += valid;
     totalCells += list.length;
   });
-  stats.overall = totalCells ? Math.round((totalVerified / totalCells) * 100) : 100;
+  stats.overall = totalCells ? Math.round((totalValid / totalCells) * 100) : null;
+  stats.crew = list.length;
   return stats;
 }
 
@@ -73,6 +86,10 @@ const REPORTS = [
   },
 ];
 
+// useDocuments exposes a lookup function; the shared calculator wants a map.
+const byWorkerFrom = (docsFor, workers) =>
+  Object.fromEntries(workers.map((w) => [w.id, docsFor(w.id)]));
+
 export default function Reports() {
   const { projects } = useProjects();
   const { workers } = useWorkers();
@@ -83,12 +100,8 @@ export default function Reports() {
   const [busy, setBusy] = useState(null); // report currently rendering
 
   // Org-wide compliance: % of Verified cells across all workers/categories.
-  const totalCells = workers.length * complianceCategories.length;
-  const verifiedCells = workers.reduce(
-    (s, w) => s + complianceCategories.filter((c) => w[c.key] === "Verified").length,
-    0
-  );
-  const overall = totalCells ? Math.round((verifiedCells / totalCells) * 100) : 100;
+  const { docsFor } = useDocuments();
+  const overall = orgCompliancePercent(workers, byWorkerFrom(docsFor, workers));
 
   const ctx = { org, projects, workers, incidents, meetings, templates, overall };
 
@@ -127,15 +140,18 @@ export default function Reports() {
               />
               <TBody>
                 {projects.map((p) => {
-                  const stats = projectCompliance(workers, p.id);
+                  const stats = projectCompliance(workers, docsFor, p.id);
                   return (
                     <TR key={p.id}>
                       <TD className="font-medium text-slate-800">{p.name}</TD>
                       {complianceCategories.map((c) => (
-                        <TD key={c.key}>{stats[c.key]}%</TD>
+                        <TD key={c.key}>{formatPercent(stats[c.key])}</TD>
                       ))}
                       <TD>
-                        <span className="font-semibold">{stats.overall}%</span>
+                        <span className="font-semibold">{formatPercent(stats.overall)}</span>
+                        {stats.crew === 0 && (
+                          <span className="ml-1 text-xs text-slate-400">no crew</span>
+                        )}
                       </TD>
                     </TR>
                   );
@@ -149,7 +165,13 @@ export default function Reports() {
           <CardHeader title="Org-wide Compliance" />
           <CardBody className="flex items-center justify-center">
             <div className="w-56">
-              <ComplianceDonut percent={overall} label="Overall" height={240} />
+              {overall == null ? (
+                <p className="py-10 text-center text-sm text-slate-400">
+                  No stakeholders on the books yet.
+                </p>
+              ) : (
+                <ComplianceDonut percent={overall} label="Overall" height={240} />
+              )}
             </div>
           </CardBody>
         </Card>

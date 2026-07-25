@@ -113,8 +113,13 @@ export function canAccessSite(worker, docsForWorker = {}, nowMs = TODAY_MS) {
 }
 
 // Project compliance %: share of category-slots across the crew that are valid.
+//
+// Returns null for a project with nobody on it. It used to return 100, so an
+// empty project certified itself as fully compliant — and that number flowed
+// into the dashboard, the org-wide average and the emailed WorkSafe-facing
+// summary. "No crew yet" is not "100% compliant"; the UI shows a dash.
 export function projectCompliancePercent(crew, docsByWorker, nowMs = TODAY_MS) {
-  if (!crew.length) return 100;
+  if (!crew.length) return null;
   let compliant = 0;
   for (const w of crew) {
     const docs = docsByWorker[w.id] || {};
@@ -133,3 +138,32 @@ export function indexDocuments(documents = []) {
   }
   return byWorker;
 }
+
+// ---------------------------------------------------------------------------
+// Organisation-wide compliance — ONE definition, used everywhere.
+//
+// There were three: the dashboard averaged the active projects' percentages,
+// the Reports donut counted verified cells across every worker, and the
+// Reports table implied a third by averaging its own rows. A customer
+// comparing their dashboard to the PDF we email them saw a contradiction.
+//
+// This is the honest one: of every compliance slot the organisation actually
+// has (each worker x each category), how many are currently valid. Workers on
+// no project still count — they are still your responsibility. Returns null
+// when there is nobody on the books, so callers can say "—" rather than
+// invent a number.
+// ---------------------------------------------------------------------------
+export function orgCompliancePercent(workers, docsByWorker, nowMs = TODAY_MS) {
+  if (!workers.length) return null;
+  let compliant = 0;
+  for (const w of workers) {
+    const docs = docsByWorker[w.id] || {};
+    for (const k of CATEGORY_KEYS) {
+      if (isCompliant(categoryStatus(w, k, docs[k], nowMs))) compliant += 1;
+    }
+  }
+  return Math.round((compliant / (workers.length * CATEGORY_KEYS.length)) * 100);
+}
+
+// Percentages that can legitimately be "not applicable" render as an em dash.
+export const formatPercent = (v) => (v == null ? "—" : `${v}%`);

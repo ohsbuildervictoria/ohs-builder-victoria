@@ -154,8 +154,8 @@ export default function Projects() {
                 </div>
                 <div className="rounded-lg bg-slate-50 py-2">
                   <p className="text-xs text-slate-500">Compliance</p>
-                  <p className={`text-lg font-bold ${complianceTone(p.compliance)}`}>
-                    {p.compliance}%
+                  <p className={`text-lg font-bold ${complianceTone(p.compliance ?? 0)}`}>
+                    {p.compliance == null ? "—" : `${p.compliance}%`}
                   </p>
                 </div>
                 <div className="rounded-lg bg-slate-50 py-2">

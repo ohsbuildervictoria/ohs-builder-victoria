@@ -91,7 +91,13 @@ export default function ProjectDetail() {
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
                   Compliance
                 </p>
-                <ProgressBar value={project.compliance} threshold showLabel />
+                {project.compliance == null ? (
+                  <p className="text-sm text-slate-400">
+                    No stakeholders on this project yet.
+                  </p>
+                ) : (
+                  <ProgressBar value={project.compliance} threshold showLabel />
+                )}
               </div>
             </CardBody>
           </Card>

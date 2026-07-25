@@ -579,7 +579,7 @@ export async function exportMonthlySummary({ org, projects = [], workers = [], i
     theme: "grid",
     head: [],
     body: [
-      ["Organisation compliance", `${overall}%`],
+      ["Organisation compliance", overall == null ? "— (no stakeholders on the books)" : `${overall}%`],
       ["Active projects", String(projects.filter((p) => p.status === "Active").length)],
       ["Projects total", String(projects.length)],
       ["Stakeholders on site", String(workers.length)],
@@ -598,7 +598,7 @@ export async function exportMonthlySummary({ org, projects = [], workers = [], i
     startY: y,
     head: [["Project", "Status", "Crew", "Compliance", "Incidents"]],
     body: projects.length
-      ? projects.map((p) => [p.name, p.status, String(p.workers ?? 0), `${p.compliance ?? 0}%`, String(p.incidents ?? 0)])
+      ? projects.map((p) => [p.name, p.status, String(p.workers ?? 0), p.compliance == null ? "— no crew" : `${p.compliance}%`, String(p.incidents ?? 0)])
       : [["No projects yet", "", "", "", ""]],
   });
   y = lastY(doc) + 22;
