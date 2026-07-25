@@ -118,6 +118,102 @@ export default function Landing() {
         </p>
       </section>
 
+      {/* ------------------------------------------------------------------
+          Pilot builder — Arlington Homes.
+
+          Everything stated here is drawn from Arlington's own public material
+          (arlingtonhomes.com.au): 30+ years, family-owned boutique builder in
+          Essendon, registration CDB-U 50292, and the kind of work they do.
+          No award claims (their own site makes none) and NO testimonial — a
+          quote goes in only when David has written and approved one. Their
+          name and logo appear here with their permission as our pilot
+          partner; it is not an endorsement of the product and shouldn't be
+          worded as one.
+         ------------------------------------------------------------------ */}
+      <section className="border-y border-slate-800 bg-slate-950/40 py-16">
+        <div className="mx-auto max-w-6xl px-5">
+          <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-yellow-400">
+            Our pilot builder
+          </p>
+          <h2 className="mx-auto mt-3 max-w-3xl text-center text-2xl font-bold text-white sm:text-3xl">
+            Built with a Melbourne builder, on live sites
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-center text-base text-slate-300">
+            OHS Builder Victoria isn&apos;t designed in an office and handed to
+            builders. It&apos;s being built alongside{" "}
+            <span className="font-semibold text-white">Arlington Homes</span> —
+            their sites, their subbies, their paperwork — so every screen has
+            had to earn its place on a real job.
+          </p>
+
+          <div className="mx-auto mt-10 max-w-4xl overflow-hidden rounded-2xl border border-slate-700/60 bg-slate-800/50">
+            <div className="grid gap-8 p-7 sm:p-9 md:grid-cols-[minmax(0,260px)_1fr]">
+              <div>
+                <div className="rounded-xl bg-white p-5">
+                  <img
+                    src="/arlington-homes.png"
+                    alt="Arlington Homes"
+                    className="w-full object-contain"
+                    loading="lazy"
+                  />
+                </div>
+                <p className="mt-3 text-center text-xs text-slate-400">
+                  Registered building practitioner
+                  <br />
+                  <span className="font-mono text-slate-300">CDB-U 50292</span>
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-white">
+                  Arlington Homes, Essendon
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-300">
+                  A family-owned boutique builder with more than 30 years
+                  behind them, Arlington build architecturally crafted homes
+                  across Melbourne — custom homes, townhouses, dual occupancy
+                  and multi-unit developments, from Federation through to
+                  contemporary. They take on a handful of homes at a time, so
+                  the person you deal with is the person building your home.
+                </p>
+                <p className="mt-3 text-sm leading-relaxed text-slate-300">
+                  Managing Director{" "}
+                  <span className="font-medium text-white">David Caruana</span>{" "}
+                  has been developing and building since his first unit
+                  development in the 1990s. Arlington&apos;s own standard —
+                  operating &ldquo;with full regard for the safety and health
+                  of our contractors, customers and the environment&rdquo; — is
+                  the bar this platform was written against.
+                </p>
+
+                <dl className="mt-5 grid grid-cols-2 gap-4 border-t border-slate-700/60 pt-5 sm:grid-cols-4">
+                  {[
+                    ["30+", "years building"],
+                    ["Essendon", "Melbourne, VIC"],
+                    ["Boutique", "owner-led delivery"],
+                    ["Live", "pilot since 2026"],
+                  ].map(([value, label]) => (
+                    <div key={label}>
+                      <dt className="text-base font-bold text-yellow-400">{value}</dt>
+                      <dd className="mt-0.5 text-xs leading-snug text-slate-400">{label}</dd>
+                    </div>
+                  ))}
+                </dl>
+
+                <a
+                  href="https://www.arlingtonhomes.com.au"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="mt-5 inline-block text-sm font-medium text-yellow-400 hover:text-yellow-300"
+                >
+                  arlingtonhomes.com.au →
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Features */}
       <section className="bg-slate-50 py-16 text-slate-800">
         <div className="mx-auto max-w-6xl px-5">
