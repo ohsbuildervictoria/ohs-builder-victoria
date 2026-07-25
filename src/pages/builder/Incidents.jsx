@@ -17,8 +17,12 @@ import { exportIncidentReport } from "../../lib/pdf";
 import { PhotoPicker, PhotoStrip } from "../../components/shared/RecordPhotos";
 import { usePhotos } from "../../hooks/usePhotos";
 import {
-  incidentTypes,
-  incidentSeverities,
+  incidentTypeValues,
+  incidentSeverityValues,
+  incidentTypePurpose,
+  incidentSeverityMeaning,
+  legacyIncidentTypes,
+  legacyIncidentSeverities,
   incidentLifecycle,
 } from "../../data/constants";
 
@@ -51,7 +55,7 @@ export default function Incidents() {
   const [bodyMapKey, setBodyMapKey] = useState(0);
   const [emailing, setEmailing] = useState(null); // incident being emailed
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm();
   const actionForm = useForm();
   const editForm = useForm();
 
@@ -166,7 +170,7 @@ export default function Incidents() {
 
       {/* Type pills */}
       <div className="flex flex-wrap gap-2">
-        {["All", ...incidentTypes].map((t) => (
+        {["All", ...incidentTypeValues].map((t) => (
           <button
             key={t}
             onClick={() => setTypeFilter(t)}
@@ -310,10 +314,11 @@ export default function Incidents() {
         <form className="grid grid-cols-2 gap-4" onSubmit={handleSubmit(onCreate)}>
           <Field label="Incident type">
             <select className="modal-input" {...register("type", { required: true })}>
-              {incidentTypes.map((t) => (
+              {incidentTypeValues.map((t) => (
                 <option key={t}>{t}</option>
               ))}
             </select>
+            <Hint text={incidentTypePurpose[watch("type")]} />
           </Field>
           <Field label="Date / time">
             <input
@@ -345,10 +350,11 @@ export default function Incidents() {
           </Field>
           <Field label="Severity">
             <select className="modal-input" {...register("severity", { required: true })}>
-              {incidentSeverities.map((s) => (
+              {incidentSeverityValues.map((s) => (
                 <option key={s}>{s}</option>
               ))}
             </select>
+            <Hint text={incidentSeverityMeaning[watch("severity")]} />
           </Field>
           <Field label="Injured / involved person">
             <input className="modal-input" {...register("involved")} />
@@ -421,8 +427,11 @@ export default function Incidents() {
         <form className="grid grid-cols-2 gap-4" onSubmit={editForm.handleSubmit(onSaveEdit)}>
           <Field label="Incident type">
             <select className="modal-input" {...editForm.register("type")}>
-              {incidentTypes.map((t) => <option key={t}>{t}</option>)}
+              {optionsFor(incidentTypeValues, legacyIncidentTypes, editing?.type).map((t) => (
+                <option key={t}>{t}</option>
+              ))}
             </select>
+            <Hint text={incidentTypePurpose[editForm.watch("type")]} />
           </Field>
           <Field label="Date">
             <input type="date" max={TODAY_LOCAL} className="modal-input"
@@ -430,8 +439,11 @@ export default function Incidents() {
           </Field>
           <Field label="Severity">
             <select className="modal-input" {...editForm.register("severity")}>
-              {incidentSeverities.map((s) => <option key={s}>{s}</option>)}
+              {optionsFor(incidentSeverityValues, legacyIncidentSeverities, editing?.severity).map((s) => (
+                <option key={s}>{s}</option>
+              ))}
             </select>
+            <Hint text={incidentSeverityMeaning[editForm.watch("severity")]} />
           </Field>
           <Field label="Status">
             <select className="modal-input" {...editForm.register("status")}>
@@ -530,6 +542,24 @@ export default function Incidents() {
       `}</style>
     </div>
   );
+}
+
+// One-line explanation of the option currently selected. The whole point of a
+// severity scale is that two supervisors grade the same event the same way,
+// which only works if the definition is in front of them as they choose.
+function Hint({ text }) {
+  if (!text) return null;
+  return <p className="mt-1 text-xs leading-snug text-slate-500">{text}</p>;
+}
+
+// Incidents recorded before the current scale keep their original wording — a
+// safety record is corrected deliberately, not silently re-graded by a
+// dropdown that no longer offers the value it was filed under.
+function optionsFor(current, legacy, value) {
+  if (value && !current.includes(value) && legacy.includes(value)) {
+    return [...current, value];
+  }
+  return current;
 }
 
 function Field({ label, children }) {

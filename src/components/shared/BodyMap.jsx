@@ -73,10 +73,30 @@ function BodyView({ view, label, marks, onAdd, readOnly }) {
 
   const handleClick = (e) => {
     if (readOnly) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = (e.clientY - rect.top) / rect.height;
+    const svg = e.currentTarget;
+
+    // Convert through the SVG's own transform, not the element's bounding box.
+    //
+    // The viewBox is 100x220 but the element is far wider than that ratio, so
+    // preserveAspectRatio letterboxes the figure into a narrow column with
+    // roughly 50 px of blank margin each side. Dividing by the element width
+    // treated that blank margin as body — a click in dead space to the left of
+    // the figure recorded "Right wrist / hand" — and squeezed every genuine
+    // mark toward the centre. getScreenCTM() accounts for the letterboxing, so
+    // a tap lands where the tradie actually pointed.
+    const ctm = typeof svg.getScreenCTM === "function" ? svg.getScreenCTM() : null;
+    if (!ctm) return;
+    const point =
+      typeof DOMPoint === "function"
+        ? new DOMPoint(e.clientX, e.clientY)
+        : Object.assign(svg.createSVGPoint(), { x: e.clientX, y: e.clientY });
+    const local = point.matrixTransform(ctm.inverse());
+
+    const x = local.x / VIEWBOX.w;
+    const y = local.y / VIEWBOX.h;
+    // Outside the drawn figure (the letterbox margins) is not a body location.
     if (x < 0 || x > 1 || y < 0 || y > 1) return;
+
     onAdd({
       view,
       x: Math.round(x * 1000) / 1000,

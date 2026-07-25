@@ -19,7 +19,13 @@ const STYLES = {
   Planning: "bg-blue-100 text-blue-700 ring-blue-600/20",
   "On Hold": "bg-slate-200 text-slate-600 ring-slate-500/20",
   Closed: "bg-slate-200 text-slate-600 ring-slate-500/20",
-  // incident severity / status
+  // incident consequence scale
+  Insignificant: "bg-slate-100 text-slate-600 ring-slate-500/20",
+  Minor: "bg-green-100 text-green-700 ring-green-600/20",
+  Moderate: "bg-amber-100 text-amber-700 ring-amber-600/20",
+  Major: "bg-orange-100 text-orange-700 ring-orange-600/20",
+  Catastrophic: "bg-red-100 text-red-700 ring-red-600/20",
+  // legacy severities, still on historical records
   Low: "bg-green-100 text-green-700 ring-green-600/20",
   Medium: "bg-amber-100 text-amber-700 ring-amber-600/20",
   High: "bg-orange-100 text-orange-700 ring-orange-600/20",

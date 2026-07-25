@@ -26,12 +26,77 @@ export const roleLabels = {
 // re-exported here for the many modules that already import it from constants.
 export { complianceCategories } from "../lib/compliance";
 
+// ---------------------------------------------------------------------------
+// Incident classification
+//
+// TYPE says what happened. SEVERITY says how bad the consequence was. The old
+// list conflated the two — it offered "Low Risk / Medium Risk / High Risk" as
+// *types* alongside a separate severity field, so a report could say type
+// "High Risk" with severity "Low" and mean nothing. It also had no way at all
+// to record that a person was hurt, which is the single most important thing
+// an incident register captures.
+//
+// Each severity is tied to an objective test (first aid / medical treatment /
+// serious injury / fatality) so two supervisors grade the same event the same
+// way, and so the register stands up when a regulator or insurer reads it.
+// ---------------------------------------------------------------------------
+
 export const incidentTypes = [
-  "Near Miss", "Low Risk", "Medium Risk", "High Risk",
-  "Environmental", "Property Damage", "Vehicle", "Security", "Notifiable (WorkSafe)",
+  { value: "Near Miss", purpose: "No injury or damage occurred, but there was potential." },
+  { value: "Injury / Illness", purpose: "A person was injured or became ill." },
+  { value: "Property Damage", purpose: "Damage to plant, equipment, buildings or materials." },
+  { value: "Environmental", purpose: "Pollution, spills, contamination, waste, noise, dust." },
+  { value: "Security", purpose: "Theft, vandalism, trespass, violence, cyber incident." },
+  {
+    value: "Dangerous Occurrence",
+    purpose: "Serious event with significant potential (e.g. scaffold collapse, crane failure) even if nobody was injured.",
+  },
+  { value: "Notifiable Incident", purpose: "Incident that must legally be reported to the regulator." },
 ];
 
-export const incidentSeverities = ["Low", "Medium", "High", "Critical"];
+export const incidentSeverities = [
+  { value: "Insignificant", meaning: "Minimal impact." },
+  { value: "Minor", meaning: "First aid only, or minor damage." },
+  { value: "Moderate", meaning: "Medical treatment, or moderate property or environmental damage." },
+  { value: "Major", meaning: "Serious injury, extensive damage, significant environmental impact." },
+  { value: "Catastrophic", meaning: "Fatality, permanent disability, major collapse or disaster." },
+];
+
+export const incidentTypeValues = incidentTypes.map((t) => t.value);
+export const incidentSeverityValues = incidentSeverities.map((s) => s.value);
+
+export const incidentTypePurpose = Object.fromEntries(
+  incidentTypes.map((t) => [t.value, t.purpose])
+);
+export const incidentSeverityMeaning = Object.fromEntries(
+  incidentSeverities.map((s) => [s.value, s.meaning])
+);
+
+// Records written before this scale existed. Kept so historical incidents keep
+// displaying and can still be edited without being silently re-graded — a
+// safety record is corrected deliberately, never rewritten by a dropdown.
+export const legacyIncidentTypes = [
+  "Low Risk", "Medium Risk", "High Risk", "Vehicle", "Notifiable (WorkSafe)",
+];
+export const legacyIncidentSeverities = ["Low", "Medium", "High", "Critical"];
+
+// What obliges a call to WorkSafe Victoria. Deliberately errs towards
+// prompting: a dangerous occurrence is notifiable in Victoria even when nobody
+// was hurt, and "Major" means serious injury. Over-prompting costs a phone
+// call; under-prompting costs a prosecution.
+export const NOTIFIABLE_TYPES = [
+  "Notifiable Incident",
+  "Dangerous Occurrence",
+  "Notifiable (WorkSafe)", // legacy
+];
+export const NOTIFIABLE_SEVERITIES = [
+  "Major",
+  "Catastrophic",
+  "Critical", // legacy
+];
+
+export const isNotifiableIncident = (type, severity) =>
+  NOTIFIABLE_TYPES.includes(type) || NOTIFIABLE_SEVERITIES.includes(severity);
 
 export const incidentLifecycle = [
   "Open", "Investigating", "Corrective Actions Assigned",

@@ -8,6 +8,7 @@ import {
 } from "../lib/api";
 import { enqueue, isNetworkError } from "../lib/offlineQueue";
 import { summariseMarks } from "../lib/bodyMap";
+import { isNotifiableIncident } from "../data/constants";
 import { useAudit, diffFields } from "./useAudit";
 
 // Incident fields that are editable + audited.
@@ -39,9 +40,7 @@ export function useIncidents(projectId = null) {
 
   const addIncident = useCallback(
     async (incident) => {
-      const notifiable =
-        incident.type === "Notifiable (WorkSafe)" ||
-        incident.severity === "Critical";
+      const notifiable = isNotifiableIncident(incident.type, incident.severity);
       let row;
       try {
         row = await insertIncident({ ...incident, notifiable });
@@ -96,9 +95,7 @@ export function useIncidents(projectId = null) {
       const before = incidents.find((i) => i.id === Number(id));
       if (!before) return;
       const notifiable =
-        patch.type === "Notifiable (WorkSafe)" ||
-        patch.severity === "Critical" ||
-        !!patch.notifiable;
+        isNotifiableIncident(patch.type, patch.severity) || !!patch.notifiable;
       const full = { ...patch, notifiable };
       const after = { ...before, ...full };
       const changes = diffFields(
