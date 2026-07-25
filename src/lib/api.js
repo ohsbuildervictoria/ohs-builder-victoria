@@ -1162,6 +1162,22 @@ export async function signSwmsRpc(templateId, { signedName, workerId } = {}) {
   fail(error, "Signing SWMS");
 }
 
+// The quiz questions, WITHOUT their answers. The answer key stays in the
+// database — it used to ship in the JS bundle, so anyone could read it.
+export async function fetchQuiz() {
+  const { data, error } = await supabase.rpc("get_quiz");
+  if (error) fail(error, "Loading the quiz");
+  return Array.isArray(data) ? data : [];
+}
+
+// Grading happens server-side. Only this RPC can set quiz = 'Verified', and it
+// records the attempt either way, so a pass is evidence rather than a claim.
+export async function submitQuiz(answers) {
+  const { data, error } = await supabase.rpc("submit_quiz", { p_answers: answers });
+  if (error) fail(error, "Submitting the quiz");
+  return data;
+}
+
 export async function insertPolicy(policy) {
   const { data, error } = await supabase
     .from("policies")

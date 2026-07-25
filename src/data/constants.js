@@ -156,58 +156,11 @@ export const inductionModules = [
   { id: 6, title: "OHS Knowledge Check", mins: 5, done: false, summary: "Prepare for the safety quiz." },
 ];
 
-export const quizQuestions = [
-  {
-    q: "What should you do FIRST if you witness a serious incident on site?",
-    options: [
-      "Take a photo for the report",
-      "Ensure the area is safe and call for help / first aid",
-      "Continue working and tell the supervisor later",
-      "Move the injured person immediately",
-    ],
-    answer: 1,
-  },
-  {
-    q: "When is a SWMS required to be signed?",
-    options: [
-      "Only after an incident occurs",
-      "Once a year regardless of task",
-      "Before commencing any high-risk construction work",
-      "It is optional for experienced workers",
-    ],
-    answer: 2,
-  },
-  {
-    q: "Which PPE is mandatory at all times on this site?",
-    options: [
-      "Hard hat, hi-vis and steel-capped boots",
-      "Only when operating machinery",
-      "Gloves and glasses only",
-      "PPE is recommended but not enforced",
-    ],
-    answer: 0,
-  },
-  {
-    q: "What does an untagged piece of scaffolding mean?",
-    options: [
-      "It is brand new and safe to use",
-      "It can be used with supervisor approval",
-      "Do NOT use it — it has not been inspected/approved",
-      "Only the top level is unsafe",
-    ],
-    answer: 2,
-  },
-  {
-    q: "Under Victorian OHS law, who must be notified of a notifiable incident?",
-    options: [
-      "The project architect only",
-      "WorkSafe Victoria — immediately by phone",
-      "The client within 48 hours",
-      "No notification required for near misses",
-    ],
-    answer: 1,
-  },
-];
+// The safety quiz now lives in the database (public.quiz_questions) and is
+// graded by public.submit_quiz(). The questions AND their correct answers used
+// to sit right here and ship to every browser, which made the quiz — and the
+// "Quiz Verified" it produced — worthless as evidence. Seeded content for new
+// organisations lives in supabase/migrations/008_server_side_quiz.sql.
 
 // ---------------------------------------------------------------------------
 // Utility helpers
