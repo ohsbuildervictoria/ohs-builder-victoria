@@ -122,8 +122,11 @@ export default function Landing() {
           Pilot builder — Arlington Homes.
 
           Everything stated here is drawn from Arlington's own public material
-          (arlingtonhomes.com.au): 30+ years, family-owned boutique builder in
-          Essendon, registration CDB-U 50292, and the kind of work they do.
+          (arlingtonhomes.com.au): 30+ years, family-owned Melbourne boutique
+          builder, registration CDB-U 50292, and the kind of work they do.
+          NO SUBURB — David confirmed 25 Jul 2026 that the Essendon address on
+          their website is out of date; keep this to "Melbourne" unless he
+          gives a current one.
           No award claims (their own site makes none) and NO testimonial — a
           quote goes in only when David has written and approved one. Their
           name and logo appear here with their permission as our pilot
@@ -166,7 +169,7 @@ export default function Landing() {
 
               <div>
                 <h3 className="text-lg font-semibold text-white">
-                  Arlington Homes, Essendon
+                  Arlington Homes
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-slate-300">
                   A family-owned boutique builder with more than 30 years
@@ -189,7 +192,7 @@ export default function Landing() {
                 <dl className="mt-5 grid grid-cols-2 gap-4 border-t border-slate-700/60 pt-5 sm:grid-cols-4">
                   {[
                     ["30+", "years building"],
-                    ["Essendon", "Melbourne, VIC"],
+                    ["Melbourne", "custom homes & units"],
                     ["Boutique", "owner-led delivery"],
                     ["Live", "pilot since 2026"],
                   ].map(([value, label]) => (
