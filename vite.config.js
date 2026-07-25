@@ -28,14 +28,32 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: '/index.html',
+        // Never answer an asset or API request with the app shell. Without
+        // this, a request for a chunk that no longer exists comes back as
+        // index.html with a 200 — HTML that the browser then tries to run as
+        // JavaScript, which is a blank page.
+        navigateFallbackDenylist: [/^\/assets\//, /^\/api\//],
         globPatterns: ['**/*.{css,html,svg,png,ico}', 'assets/index-*.js'],
         globIgnores: ['**/jspdf*', '**/html2canvas*', '**/purify*', '**/index.es-*', '**/browser-*', '**/typeof-*'],
         // Anything not precached (the lazy chunks) caches on first use.
+        //
+        // StaleWhileRevalidate rather than CacheFirst, deliberately. After a
+        // deploy, a returning client can hold an index.html referencing a hash
+        // the server no longer has; the origin answers that URL with the SPA
+        // fallback (200 + HTML). CacheFirst would store that HTML under the
+        // JS URL and keep serving it forever — a white screen that only
+        // clearing site data fixes. StaleWhileRevalidate re-fetches in the
+        // background, so the same mistake heals itself on the next load.
+        // The assets are content-hashed, so the revalidation is cheap.
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/assets/'),
-            handler: 'CacheFirst',
-            options: { cacheName: 'lazy-assets', expiration: { maxEntries: 40 } },
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'lazy-assets',
+              expiration: { maxEntries: 40 },
+              cacheableResponse: { statuses: [200] },
+            },
           },
         ],
       },
