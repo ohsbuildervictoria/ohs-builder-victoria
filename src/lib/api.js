@@ -1149,7 +1149,7 @@ export async function updateCorrectiveActionRow(id, patch) {
 // never breaks between a deploy and the migration.
 export async function signSwmsRpc(templateId, { signedName, workerId } = {}) {
   const { data, error } = await supabase.rpc("sign_swms_v2", {
-    template_id: templateId,
+    p_template_id: templateId,
     p_signed_name: signedName || "",
     p_worker_id: workerId ?? null,
   });
