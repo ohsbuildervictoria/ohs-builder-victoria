@@ -91,6 +91,14 @@ export default function Toolbox() {
               ]}
             />
             <TBody>
+              {meetings.length === 0 && (
+                <TR>
+                  <TD className="py-6 text-center text-sm text-slate-400">
+                    No toolbox meetings recorded yet — schedule one above and the
+                    attendance and sign-off record builds itself.
+                  </TD>
+                </TR>
+              )}
               {meetings.map((m) => (
                 <TR key={m.id}>
                   <TD className="font-medium text-slate-800">{m.topic}</TD>

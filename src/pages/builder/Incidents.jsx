@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import Card, { CardBody } from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
@@ -155,9 +156,14 @@ export default function Incidents() {
             Log, investigate and close out site incidents
           </p>
         </div>
-        <Button variant="danger" onClick={() => setCreateOpen(true)}>
-          + Create New Incident
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Link to="/builder/incidents/near-miss">
+            <Button variant="secondary">Near Miss Register</Button>
+          </Link>
+          <Button variant="danger" onClick={() => setCreateOpen(true)}>
+            + Create New Incident
+          </Button>
+        </div>
       </div>
 
       {hasNotifiable && (tab === "All Incidents" || tab === "WorkSafe Notifiable") && (

@@ -18,6 +18,7 @@ import {
   clearOrgLogo,
   insertPolicy,
   deletePolicyRow,
+  updateOrgDetails,
 } from "../../lib/api";
 
 const TABS = ["Policy Register", "Notifications", "Organisation", "Subscription", "Platform"];
@@ -236,19 +237,7 @@ export default function Policies() {
 
       {tab === "Organisation" && (
         <div className="space-y-4">
-          <Card>
-            <CardHeader title="Organisation Details" subtitle="Read-only" />
-            <CardBody className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Info label="Organisation Name" value={org?.name || "—"} />
-              <Info label="ABN" value={org?.abn || "—"} />
-              <Info label="State" value={org?.state || "Victoria"} />
-              <Info label="Plan Tier" value={org?.plan || "—"} />
-              <Info label="Billing Contact" value={org?.billingContact || brand.supportEmail} />
-              <Info label="Support" value={brand.supportEmail} />
-              <Info label="Platform" value={brand.fullName} />
-              <Info label="Domain" value={brand.domain} />
-            </CardBody>
-          </Card>
+          <OrganisationCard />
           <BrandingCard />
         </div>
       )}
@@ -343,6 +332,117 @@ export default function Policies() {
         <p className="text-sm leading-relaxed text-slate-600">{modal?.body}</p>
       </Modal>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Organisation details.
+//
+// This tab was labelled "Read-only" and had no way in, so a paying customer
+// could not enter their own ABN — which then printed as a blank on every PDF
+// they hand a client or WorkSafe. Builder Admins can edit; everyone else still
+// sees the values.
+// ---------------------------------------------------------------------------
+function OrganisationCard() {
+  const { org, setOrg } = useAppContext();
+  const { role } = useAuth();
+  const toast = useToast();
+  const isAdmin = role === "builder_admin";
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState(null);
+
+  const start = () => {
+    setForm({
+      name: org?.name || "",
+      abn: org?.abn || "",
+      state: org?.state || "Victoria",
+      billingContact: org?.billingContact || "",
+    });
+    setEditing(true);
+  };
+
+  const save = async () => {
+    if (!form.name.trim()) return toast("Your organisation needs a name", "warning");
+    setSaving(true);
+    try {
+      const saved = await updateOrgDetails(org.id, form);
+      setOrg((prev) => ({ ...prev, ...saved }));
+      setEditing(false);
+      toast("Organisation details saved");
+    } catch (err) {
+      toast(err.message || "Could not save details", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader
+        title="Organisation Details"
+        subtitle="Shown on your exported PDFs and letterheads."
+        action={
+          isAdmin && !editing ? (
+            <Button size="sm" variant="secondary" onClick={start}>Edit</Button>
+          ) : null
+        }
+      />
+      <CardBody className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {editing ? (
+          <>
+            <EditField label="Organisation Name" value={form.name}
+              onChange={(v) => setForm({ ...form, name: v })} />
+            <EditField label="ABN" value={form.abn} placeholder="e.g. 12 345 678 901"
+              onChange={(v) => setForm({ ...form, abn: v })} />
+            <EditField label="State" value={form.state}
+              onChange={(v) => setForm({ ...form, state: v })} />
+            <EditField label="Billing Contact" value={form.billingContact}
+              placeholder={brand.supportEmail}
+              onChange={(v) => setForm({ ...form, billingContact: v })} />
+            <div className="col-span-full flex gap-2">
+              <Button onClick={save} disabled={saving}>
+                {saving ? "Saving…" : "Save details"}
+              </Button>
+              <Button variant="secondary" onClick={() => setEditing(false)} disabled={saving}>
+                Cancel
+              </Button>
+            </div>
+            <style>{`
+              .org-input { width:100%; border-radius:0.5rem; border:1px solid #cbd5e1; padding:0.5rem 0.75rem; font-size:0.875rem; }
+              .org-input:focus { outline:none; border-color:#1e3a8a; box-shadow:0 0 0 1px #1e3a8a; }
+            `}</style>
+          </>
+        ) : (
+          <>
+            <Info label="Organisation Name" value={org?.name || "—"} />
+            <Info label="ABN" value={org?.abn || "— not set"} />
+            <Info label="State" value={org?.state || "Victoria"} />
+            <Info label="Plan Tier" value={org?.plan || "—"} />
+            <Info label="Billing Contact" value={org?.billingContact || brand.supportEmail} />
+            <Info label="Support" value={brand.supportEmail} />
+            <Info label="Platform" value={brand.fullName} />
+            <Info label="Domain" value={brand.domain} />
+          </>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+function EditField({ label, value, onChange, placeholder }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+        {label}
+      </span>
+      <input
+        className="org-input"
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </label>
   );
 }
 

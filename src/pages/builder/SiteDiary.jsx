@@ -286,11 +286,6 @@ export default function SiteDiary() {
         <Card className="lg:col-span-2">
           <CardHeader
             title="New Diary Entry"
-            action={
-              <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
-                Applied for Onsite Meetings
-              </span>
-            }
           />
           <CardBody>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

@@ -289,9 +289,34 @@ export function localDate() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+// Turns a Postgres error into something a builder can act on.
+//
+// Raw messages were reaching the UI — "violates foreign key constraint
+// corrective_actions_incident_id_fkey" told a site supervisor nothing and
+// leaked table and constraint names. The original is kept on `cause` for the
+// console.
+const DB_MESSAGES = [
+  [/duplicate key|already exists|unique constraint/i, "That already exists."],
+  [/violates foreign key/i, "That record no longer exists — refresh the page and try again."],
+  [/violates row-level security|permission denied|42501/i, "You don't have permission to do that."],
+  [/violates not-null/i, "Something required is missing."],
+  [/violates check constraint/i, "That value isn't allowed here."],
+  [/JWT|token is expired|invalid claim/i, "Your session has expired — sign in again."],
+  [/Failed to fetch|NetworkError|network/i, "No connection — check your signal and try again."],
+];
+
+function friendlyDbMessage(raw) {
+  for (const [pattern, message] of DB_MESSAGES) {
+    if (pattern.test(raw || "")) return message;
+  }
+  return null;
+}
+
 function fail(error, action) {
-  const err = new Error(`${action}: ${error.message}`);
+  const friendly = friendlyDbMessage(error?.message);
+  const err = new Error(friendly ? `${action}: ${friendly}` : `${action}: ${error.message}`);
   err.cause = error;
+  if (friendly) console.error(`[db] ${action}:`, error.message);
   throw err;
 }
 
@@ -1261,6 +1286,26 @@ export async function bumpPolicyVersion(policy) {
     .single();
   if (error) fail(error, "Updating policy");
   return mapPolicy(data);
+}
+
+// A paying customer could not enter their own ABN, org name or billing
+// contact — the Organisation tab was labelled "Read-only" with no way in, and
+// the blank ABN then printed on every exported PDF.
+export async function updateOrgDetails(orgId, patch) {
+  const row = {};
+  if (patch.name !== undefined) row.name = (patch.name || "").trim();
+  if (patch.abn !== undefined) row.abn = (patch.abn || "").trim();
+  if (patch.state !== undefined) row.state = patch.state;
+  if (patch.billingContact !== undefined) row.billing_contact = (patch.billingContact || "").trim();
+  if (patch.tagline !== undefined) row.tagline = patch.tagline;
+  const { data, error } = await supabase
+    .from("organizations")
+    .update(row)
+    .eq("id", orgId)
+    .select()
+    .single();
+  if (error) fail(error, "Saving organisation details");
+  return mapOrg(data);
 }
 
 export async function updateOrgNotifications(orgId, notifications) {
