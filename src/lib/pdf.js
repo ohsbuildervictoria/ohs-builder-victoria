@@ -4,6 +4,7 @@
 // page numbers, footer). No server, no external requests at runtime.
 // ============================================================================
 import { brand } from "../data/constants";
+import { bodyViewToPng, summariseMarks, BODY_VIEWS } from "./bodyMap";
 
 // jsPDF + autotable are ~600 kB of code that only a builder exporting a
 // document ever runs — never a tradie opening their induction at the site
@@ -30,6 +31,66 @@ const fmtDate = (d) =>
 const fmtDateTime = (d) =>
   d ? new Date(d).toLocaleString("en-AU", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" }) : "—";
 
+// ---------------------------------------------------------------------------
+// Client branding
+// A builder's own logo goes on their documents — these PDFs are letterhead
+// their client, their subbies and WorkSafe all see. Loaded once per export and
+// cached; if it can't be fetched (offline, bad URL), the export still runs and
+// falls back to the platform mark rather than failing over an image.
+// ---------------------------------------------------------------------------
+const logoCache = new Map();
+
+export async function loadOrgLogo(org) {
+  const url = org?.logoUrl;
+  if (!url) return null;
+  if (logoCache.has(url)) return logoCache.get(url);
+  const promise = (async () => {
+    try {
+      const res = await fetch(url, { mode: "cors" });
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      const dataUrl = await new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.onerror = reject;
+        fr.readAsDataURL(blob);
+      });
+      // Downscale before embedding. A 1200 px logo goes into the PDF at ~110 pt
+      // wide, and jsPDF stores the bitmap as given — a full-size PNG added
+      // 2.7 MB to a three-page summary. Flattened onto white as a JPEG at
+      // print resolution it costs ~15 KB, and these documents get emailed.
+      const img = await new Promise((resolve) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = () => resolve(null);
+        i.src = dataUrl;
+      });
+      if (!img?.naturalWidth || !img?.naturalHeight) return null;
+
+      const MAX_W = 400;
+      const scale = Math.min(1, MAX_W / img.naturalWidth);
+      const w = Math.max(1, Math.round(img.naturalWidth * scale));
+      const h = Math.max(1, Math.round(img.naturalHeight * scale));
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff"; // letterhead is white; flatten any alpha
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        return { dataUrl: canvas.toDataURL("image/jpeg", 0.92), w, h, format: "JPEG" };
+      } catch {
+        return { dataUrl, w: img.naturalWidth, h: img.naturalHeight, format: undefined };
+      }
+    } catch {
+      return null;
+    }
+  })();
+  logoCache.set(url, promise);
+  return promise;
+}
+
 // Small vector version of the app logo (navy tile, amber shield, navy tick).
 function drawLogo(doc, x, y, size = 22) {
   doc.setFillColor(...NAVY);
@@ -45,17 +106,37 @@ function drawLogo(doc, x, y, size = 22) {
 }
 
 // Branded header on the current page. Returns the y-cursor below it.
-function header(doc, { org, title, meta = [] }) {
+// `logo` is the org's own logo when they have one (see loadOrgLogo).
+function header(doc, { org, title, meta = [], logo = null }) {
   const w = doc.internal.pageSize.getWidth();
-  drawLogo(doc, MARGIN, 34);
+  let textX = MARGIN + 30;
+  if (logo?.dataUrl) {
+    // Fit the client's logo into a 34 pt band, keeping its aspect ratio —
+    // a squashed logo on a builder's letterhead is worse than none.
+    const maxH = 34;
+    const maxW = 110;
+    const scale = Math.min(maxW / logo.w, maxH / logo.h);
+    const dw = logo.w * scale;
+    const dh = logo.h * scale;
+    try {
+      // The alias (last arg) makes jsPDF store the bitmap once and reference it
+      // from every page, instead of re-embedding it per page.
+      doc.addImage(logo.dataUrl, logo.format, MARGIN, 30 + (maxH - dh) / 2, dw, dh, "orglogo");
+      textX = MARGIN + dw + 12;
+    } catch {
+      drawLogo(doc, MARGIN, 34);
+    }
+  } else {
+    drawLogo(doc, MARGIN, 34);
+  }
   doc.setFont("helvetica", "bold");
   doc.setFontSize(13);
   doc.setTextColor(...INK);
-  doc.text(org?.name || brand.fullName, MARGIN + 30, 44);
+  doc.text(org?.name || brand.fullName, textX, 44);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(...SLATE);
-  doc.text(`${brand.fullName} · ${brand.domain}`, MARGIN + 30, 55);
+  doc.text(`${brand.fullName} · ${brand.domain}`, textX, 55);
 
   // Title, right-aligned
   doc.setFont("helvetica", "bold");
@@ -121,7 +202,19 @@ const table = (doc, opts) =>
   });
 
 const lastY = (doc) => doc.lastAutoTable?.finalY ?? 100;
-const save = (doc, filename) => doc.save(filename);
+
+// Every exporter ends here. mode "save" downloads it (the existing behaviour);
+// mode "attach" hands back the bytes so the same document can be emailed
+// instead — one generator, two destinations, no chance of the emailed PDF
+// drifting from the downloaded one.
+function output(doc, filename, mode = "save") {
+  if (mode === "attach") {
+    return { filename, base64: doc.output("datauristring").split(",")[1] };
+  }
+  doc.save(filename);
+  return { filename };
+}
+const save = (doc, filename) => output(doc, filename, "save");
 const slug = (s) => (s || "document").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
 
 // ---------------------------------------------------------------------------
@@ -129,6 +222,7 @@ const slug = (s) => (s || "document").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-
 // ---------------------------------------------------------------------------
 export async function exportSwmsPack({ org, project, templates, workers, library }) {
   await loadPdfLibs();
+  const logo = await loadOrgLogo(org);
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const crew = workers.filter((w) => w.project === project.id);
   const trades = [...new Set(crew.map((w) => w.trade).filter(Boolean))];
@@ -139,6 +233,7 @@ export async function exportSwmsPack({ org, project, templates, workers, library
 
   let y = header(doc, {
     org,
+    logo,
     title: "SWMS Pack",
     meta: [
       `Project: ${project.name}${project.address ? ` — ${project.address}` : ""}`,
@@ -162,7 +257,7 @@ export async function exportSwmsPack({ org, project, templates, workers, library
     const lib = (library || []).find((l) => l.trade === t.trade);
     if (y > doc.internal.pageSize.getHeight() - 140) {
       doc.addPage();
-      y = header(doc, { org, title: "SWMS Pack", meta: [`Project: ${project.name}`] });
+      y = header(doc, { org, logo, title: "SWMS Pack", meta: [`Project: ${project.name}`] });
     }
     y = sectionTitle(doc, `${t.trade} — ${t.ref || ""}`, y);
     doc.setFont("helvetica", "normal");
@@ -223,10 +318,12 @@ function tradeDetail(doc, { ppe, hazards, legislation, signoff }, y) {
 // Single live SWMS template (from the SWMS card).
 export async function exportSwmsTemplate({ org, template, library }) {
   await loadPdfLibs();
+  const logo = await loadOrgLogo(org);
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const lib = (library || []).find((l) => l.trade === template.trade);
   let y = header(doc, {
     org,
+    logo,
     title: "SWMS",
     meta: [
       `Trade: ${template.trade}`,
@@ -243,9 +340,11 @@ export async function exportSwmsTemplate({ org, template, library }) {
 // A trade template straight from the reference library (A–Z).
 export async function exportSwmsLibrary({ org, entry }) {
   await loadPdfLibs();
+  const logo = await loadOrgLogo(org);
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   let y = header(doc, {
     org,
+    logo,
     title: "SWMS Template",
     meta: [`Trade: ${entry.trade}`, `Ref: ${entry.id}`, `${entry.hazards?.length || 0} hazards identified`],
   });
@@ -265,11 +364,13 @@ export async function exportSwmsLibrary({ org, entry }) {
 // ---------------------------------------------------------------------------
 // 2. Incident report — a single incident, with corrective actions + audit trail
 // ---------------------------------------------------------------------------
-export async function exportIncidentReport({ org, incident, audits = [] }) {
+export async function exportIncidentReport({ org, incident, audits = [], mode = "save" }) {
   await loadPdfLibs();
+  const logo = await loadOrgLogo(org);
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   let y = header(doc, {
     org,
+    logo,
     title: "Incident Report",
     meta: [
       `Project: ${incident.project || "—"}`,
@@ -306,6 +407,38 @@ export async function exportIncidentReport({ org, incident, audits = [] }) {
   const descLines = doc.splitTextToSize(incident.description || "—", width);
   doc.text(descLines, MARGIN, y + 6);
   y += 6 + descLines.length * 12 + 14;
+
+  // Body diagram — the front/back figure exactly as it was marked on the form,
+  // plus the written regions so the record still reads correctly if the images
+  // can't be rasterised (or if someone reads the text layer only).
+  const marks = incident.bodyMap || [];
+  if (marks.length) {
+    if (y > doc.internal.pageSize.getHeight() - 260) {
+      doc.addPage();
+      y = header(doc, { org, logo, title: "Incident Report", meta: [`Project: ${incident.project || "—"}`] });
+    }
+    y = sectionTitle(doc, "Injury / impact location", y);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+    doc.setTextColor(...INK);
+    const regions = summariseMarks(marks);
+    const regionLines = doc.splitTextToSize(regions.join(" · "), width);
+    doc.text(regionLines, MARGIN, y + 4);
+    y += 4 + regionLines.length * 12 + 8;
+
+    const imgH = 170;
+    const imgW = imgH * (100 / 228);
+    let drawn = false;
+    for (const [i, v] of BODY_VIEWS.entries()) {
+      const png = await bodyViewToPng(v.key, marks);
+      if (!png) continue;
+      try {
+        doc.addImage(png, "JPEG", MARGIN + i * (imgW + 24), y, imgW, imgH);
+        drawn = true;
+      } catch { /* fall through to the written regions above */ }
+    }
+    y += (drawn ? imgH : 0) + 18;
+  }
 
   if (incident.immediateAction) {
     y = sectionTitle(doc, "Immediate action taken", y);
@@ -352,7 +485,7 @@ export async function exportIncidentReport({ org, incident, audits = [] }) {
   }
 
   footers(doc, { org });
-  save(doc, `Incident-${incident.id}-${slug(incident.project)}.pdf`);
+  return output(doc, `Incident-${incident.id}-${slug(incident.project)}.pdf`, mode);
 }
 
 // ---------------------------------------------------------------------------
@@ -360,6 +493,7 @@ export async function exportIncidentReport({ org, incident, audits = [] }) {
 // ---------------------------------------------------------------------------
 export async function exportDiaryRange({ org, project, entries, from, to }) {
   await loadPdfLibs();
+  const logo = await loadOrgLogo(org);
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const inRange = entries
     .filter((e) => e.project === project.id && (!from || e.date >= from) && (!to || e.date <= to))
@@ -369,6 +503,7 @@ export async function exportDiaryRange({ org, project, entries, from, to }) {
 
   let y = header(doc, {
     org,
+    logo,
     title: "Site Diary",
     meta: [
       `Project: ${project.name}${project.address ? ` — ${project.address}` : ""}`,
@@ -398,4 +533,167 @@ export async function exportDiaryRange({ org, project, entries, from, to }) {
 
   footers(doc, { org });
   save(doc, `Site-Diary-${slug(project.name)}-${(from || "").slice(0, 7)}.pdf`);
+}
+
+// ---------------------------------------------------------------------------
+// 4. Management reports (Reports page)
+// These were plain-text downloads. They are now the same branded documents as
+// everything else, because they are what a builder actually forwards to a
+// client, an insurer or WorkSafe — and they can be emailed straight from the
+// app (mode "attach").
+// ---------------------------------------------------------------------------
+
+export async function exportMonthlySummary({ org, projects = [], workers = [], incidents = [], meetings = [], overall = 0, mode = "save" }) {
+  await loadPdfLibs();
+  const logo = await loadOrgLogo(org);
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const now = new Date();
+  const period = now.toLocaleDateString("en-AU", { month: "long", year: "numeric" });
+  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  const thisMonth = (d) => (d || "") >= monthStart;
+
+  const openIncidents = incidents.filter((i) => i.status !== "Closed");
+  const monthIncidents = incidents.filter((i) => thisMonth(i.date));
+  const lostTime = incidents.filter((i) => i.lostTime).length;
+
+  let y = header(doc, {
+    org,
+    logo,
+    title: "Monthly OHS Summary",
+    meta: [`Period: ${period}`, `Prepared: ${fmtDate(now.toISOString())}`],
+  });
+
+  y = sectionTitle(doc, "At a glance", y + 4);
+  table(doc, {
+    startY: y,
+    theme: "grid",
+    head: [],
+    body: [
+      ["Organisation compliance", `${overall}%`],
+      ["Active projects", String(projects.filter((p) => p.status === "Active").length)],
+      ["Projects total", String(projects.length)],
+      ["Stakeholders on site", String(workers.length)],
+      ["Stakeholders fully compliant", String(workers.filter((w) => w.status === "Active").length)],
+      ["Incidents this month", String(monthIncidents.length)],
+      ["Incidents still open", String(openIncidents.length)],
+      ["Lost-time injuries (all time)", String(lostTime)],
+      ["Toolbox meetings this month", String(meetings.filter((m) => thisMonth(m.date)).length)],
+    ],
+    columnStyles: { 0: { cellWidth: 200, fontStyle: "bold", fillColor: [248, 250, 252] }, 1: { cellWidth: "auto" } },
+  });
+  y = lastY(doc) + 22;
+
+  y = sectionTitle(doc, "Compliance by project", y);
+  table(doc, {
+    startY: y,
+    head: [["Project", "Status", "Crew", "Compliance", "Incidents"]],
+    body: projects.length
+      ? projects.map((p) => [p.name, p.status, String(p.workers ?? 0), `${p.compliance ?? 0}%`, String(p.incidents ?? 0)])
+      : [["No projects yet", "", "", "", ""]],
+  });
+  y = lastY(doc) + 22;
+
+  if (y > doc.internal.pageSize.getHeight() - 160) {
+    doc.addPage();
+    y = header(doc, { org, logo, title: "Monthly OHS Summary", meta: [`Period: ${period}`] });
+  }
+  y = sectionTitle(doc, "Open incidents", y);
+  table(doc, {
+    startY: y,
+    head: [["Date", "Type", "Project", "Severity", "Status"]],
+    body: openIncidents.length
+      ? openIncidents.map((i) => [fmtDate(i.date), i.type, i.project || "—", i.severity, i.status])
+      : [["—", "None open", "", "", ""]],
+  });
+
+  footers(doc, { org });
+  return output(doc, `Monthly-OHS-Summary-${slug(org?.name || brand.fullName)}-${monthStart.slice(0, 7)}.pdf`, mode);
+}
+
+export async function exportIncidentRegister({ org, incidents = [], mode = "save" }) {
+  await loadPdfLibs();
+  const logo = await loadOrgLogo(org);
+  const doc = new jsPDF({ unit: "pt", format: "a4", orientation: "landscape" });
+  const notifiable = incidents.filter((i) => i.notifiable);
+
+  let y = header(doc, {
+    org,
+    logo,
+    title: "WorkSafe Incident Register",
+    meta: [
+      `${incidents.length} incident${incidents.length === 1 ? "" : "s"} on record · ${notifiable.length} notifiable`,
+      `Prepared: ${fmtDate(new Date().toISOString())}`,
+      "Notifiable incidents must be reported to WorkSafe Victoria on 13 23 60 immediately.",
+    ],
+  });
+
+  y = sectionTitle(doc, "Register", y + 4);
+  table(doc, {
+    startY: y,
+    head: [["Date", "Type", "Project", "Location", "Injured / involved", "Severity", "Lost time", "Notifiable", "Status"]],
+    columnStyles: {
+      0: { cellWidth: 60 }, 1: { cellWidth: 78 }, 2: { cellWidth: 92 },
+      3: { cellWidth: 90 }, 4: { cellWidth: 92 }, 5: { cellWidth: 52 },
+      6: { cellWidth: 46 }, 7: { cellWidth: 52 }, 8: { cellWidth: "auto" },
+    },
+    body: incidents.length
+      ? incidents.map((i) => [
+          fmtDate(i.date), i.type, i.project || "—", i.location || "—",
+          i.involved || "—", i.severity, i.lostTime ? "Yes" : "No",
+          i.notifiable ? "YES" : "No", i.status,
+        ])
+      : [["—", "No incidents recorded", "", "", "", "", "", "", ""]],
+    didParseCell: (data) => {
+      if (data.section === "body" && data.column.index === 7 && data.cell.raw === "YES") {
+        data.cell.styles.textColor = [185, 28, 28];
+        data.cell.styles.fontStyle = "bold";
+      }
+    },
+  });
+
+  footers(doc, { org });
+  return output(doc, `WorkSafe-Incident-Register-${slug(org?.name || brand.fullName)}.pdf`, mode);
+}
+
+export async function exportSwmsSignoff({ org, templates = [], workers = [], mode = "save" }) {
+  await loadPdfLibs();
+  const logo = await loadOrgLogo(org);
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const signed = workers.filter((w) => w.swms === "Verified").length;
+
+  let y = header(doc, {
+    org,
+    logo,
+    title: "SWMS Sign-off Report",
+    meta: [
+      `${signed} of ${workers.length} stakeholders have signed their SWMS`,
+      `Prepared: ${fmtDate(new Date().toISOString())}`,
+    ],
+  });
+
+  y = sectionTitle(doc, "By trade template", y + 4);
+  table(doc, {
+    startY: y,
+    head: [["Trade", "Ref", "Version", "Signed", "Status", "Locked"]],
+    body: templates.length
+      ? templates.map((t) => [t.trade, t.ref || "—", t.version || "—", `${t.signed}/${t.total}`, t.status, t.locked ? "Yes" : "No"])
+      : [["No SWMS templates yet", "", "", "", "", ""]],
+  });
+  y = lastY(doc) + 22;
+
+  if (y > doc.internal.pageSize.getHeight() - 160) {
+    doc.addPage();
+    y = header(doc, { org, logo, title: "SWMS Sign-off Report", meta: [] });
+  }
+  y = sectionTitle(doc, "By stakeholder", y);
+  table(doc, {
+    startY: y,
+    head: [["Stakeholder", "Trade", "Employer", "SWMS", "Overall status"]],
+    body: workers.length
+      ? workers.map((w) => [w.name, w.trade || "—", w.employer || "—", w.swms, w.status])
+      : [["No stakeholders yet", "", "", "", ""]],
+  });
+
+  footers(doc, { org });
+  return output(doc, `SWMS-Signoff-${slug(org?.name || brand.fullName)}.pdf`, mode);
 }

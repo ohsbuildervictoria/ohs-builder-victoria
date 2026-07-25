@@ -20,6 +20,7 @@ const NAV = [
   { to: "/builder/reports", label: "Reports", icon: "📈", perm: "reports" },
   { to: "/builder/admin", label: "Admin Portal", icon: "🛡️", perm: "admin" },
   { to: "/builder/policies", label: "Policies", icon: "📜", perm: "policies" },
+  { to: "/builder/welcome", label: "Welcome", icon: "👋", perm: "welcome" },
 ];
 
 export default function BuilderLayout() {
@@ -104,7 +105,15 @@ export default function BuilderLayout() {
           <div className="lg:hidden">
             <Logo />
           </div>
-          <div className="hidden lg:block">
+          {/* The builder's own branding, where they see it every day. */}
+          <div className="hidden items-center gap-3 lg:flex">
+            {org?.logoUrl && (
+              <img
+                src={org.logoUrl}
+                alt={`${org.name} logo`}
+                className="max-h-9 max-w-[140px] object-contain"
+              />
+            )}
             <p className="text-sm text-slate-500">
               {org ? `${org.name} · ${org.state} · ${org.plan} Plan` : brand.fullName}
             </p>

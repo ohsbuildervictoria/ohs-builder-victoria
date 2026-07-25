@@ -1,15 +1,21 @@
+import { useState } from "react";
 import Card, { CardBody, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Badge from "../../components/ui/Badge";
 import ComplianceDonut from "../../components/charts/ComplianceDonut";
+import EmailReportModal from "../../components/shared/EmailReportModal";
 import { Table, THead, TBody, TR, TD } from "../../components/ui/Table";
 import { useProjects } from "../../hooks/useProjects";
 import { useWorkers } from "../../hooks/useWorkers";
 import { useIncidents } from "../../hooks/useIncidents";
 import { useToast } from "../../components/ui/Notification";
-import { downloadReport } from "../../utils/export";
 import { useAppContext } from "../../context/AppContext";
-import { complianceCategories, brand } from "../../data/constants";
+import {
+  exportMonthlySummary,
+  exportIncidentRegister,
+  exportSwmsSignoff,
+} from "../../lib/pdf";
+import { complianceCategories } from "../../data/constants";
 
 // Per-project, per-category compliance %, derived from worker records.
 function projectCompliance(workers, projectId) {
@@ -27,57 +33,43 @@ function projectCompliance(workers, projectId) {
   return stats;
 }
 
+// The three management reports. Each renders a real branded PDF (src/lib/pdf.js)
+// that can either be downloaded or emailed — `kind` is the identifier the
+// server-side send endpoint validates against its own allow-list.
 const REPORTS = [
   {
+    kind: "monthly_summary",
     title: "Monthly OHS Summary",
-    file: "ohs-monthly-summary.txt",
     desc: "Org-wide compliance, incidents and toolbox activity",
-    build: ({ org, projects, workers, incidents, overall }) => [
-      `${org?.name || brand.fullName} — Monthly OHS Summary`,
-      `Platform: ${brand.fullName} · ${brand.domain}`,
-      `Generated: ${new Date().toLocaleString("en-AU")}`,
-      "",
-      `Organisation compliance: ${overall}%`,
-      `Active projects: ${projects.filter((p) => p.status === "Active").length}`,
-      `Active stakeholders: ${workers.filter((w) => w.status === "Active").length}`,
-      `Open incidents: ${incidents.filter((i) => i.status !== "Closed").length}`,
-      "",
-      `Contact: ${brand.supportEmail}`,
-    ],
+    run: (ctx, mode) =>
+      exportMonthlySummary({
+        org: ctx.org,
+        projects: ctx.projects,
+        workers: ctx.workers,
+        incidents: ctx.incidents,
+        meetings: ctx.meetings,
+        overall: ctx.overall,
+        mode,
+      }),
+    summary: (ctx) =>
+      `${ctx.overall}% organisation compliance · ${ctx.projects.filter((p) => p.status === "Active").length} active projects · ${ctx.incidents.filter((i) => i.status !== "Closed").length} open incidents.`,
   },
   {
+    kind: "incident_register",
     title: "WorkSafe Incident Register",
-    file: "worksafe-incident-register.txt",
     desc: "All notifiable and recordable incidents",
-    build: ({ org, incidents }) => [
-      `${org?.name || brand.fullName} — WorkSafe Incident Register`,
-      `Generated: ${new Date().toLocaleString("en-AU")}`,
-      "",
-      ...incidents.map(
-        (i) =>
-          `[${i.type}] ${i.description} — ${i.project} (${i.status})${i.notifiable ? " · NOTIFIABLE" : ""}`
-      ),
-      "",
-      `Contact: ${brand.supportEmail}`,
-    ],
+    run: (ctx, mode) => exportIncidentRegister({ org: ctx.org, incidents: ctx.incidents, mode }),
+    summary: (ctx) =>
+      `${ctx.incidents.length} incident${ctx.incidents.length === 1 ? "" : "s"} on record · ${ctx.incidents.filter((i) => i.notifiable).length} notifiable to WorkSafe Victoria.`,
   },
   {
+    kind: "swms_signoff",
     title: "SWMS Sign-off Report",
-    file: "swms-signoff-report.txt",
     desc: "Sign-off status per trade template",
-    build: ({ org, workers }) => {
-      const signed = workers.filter((w) => w.swms === "Verified").length;
-      return [
-        `${org?.name || brand.fullName} — SWMS Sign-off Report`,
-        `Generated: ${new Date().toLocaleString("en-AU")}`,
-        "",
-        `Signed: ${signed} / ${workers.length} stakeholders`,
-        "",
-        ...workers.map((w) => `${w.name} (${w.trade}): ${w.swms}`),
-        "",
-        `Contact: ${brand.supportEmail}`,
-      ];
-    },
+    run: (ctx, mode) =>
+      exportSwmsSignoff({ org: ctx.org, templates: ctx.templates, workers: ctx.workers, mode }),
+    summary: (ctx) =>
+      `${ctx.workers.filter((w) => w.swms === "Verified").length} of ${ctx.workers.length} stakeholders have signed their SWMS.`,
   },
 ];
 
@@ -85,8 +77,10 @@ export default function Reports() {
   const { projects } = useProjects();
   const { workers } = useWorkers();
   const { incidents } = useIncidents();
-  const { org } = useAppContext();
+  const { org, meetings, templates } = useAppContext();
   const toast = useToast();
+  const [emailing, setEmailing] = useState(null); // report being emailed
+  const [busy, setBusy] = useState(null); // report currently rendering
 
   // Org-wide compliance: % of Verified cells across all workers/categories.
   const totalCells = workers.length * complianceCategories.length;
@@ -96,10 +90,18 @@ export default function Reports() {
   );
   const overall = totalCells ? Math.round((verifiedCells / totalCells) * 100) : 100;
 
-  const exportReport = (r) => {
-    const lines = r.build({ org, projects, workers, incidents, overall });
-    downloadReport(r.file, lines);
-    toast(`${r.file} downloaded`, "success");
+  const ctx = { org, projects, workers, incidents, meetings, templates, overall };
+
+  const downloadReportPdf = async (r) => {
+    setBusy(r.kind);
+    try {
+      const { filename } = await r.run(ctx, "save");
+      toast(`${filename} downloaded`, "success");
+    } catch (err) {
+      toast(err.message || "Could not build the report", "error");
+    } finally {
+      setBusy(null);
+    }
   };
 
   return (
@@ -167,17 +169,39 @@ export default function Reports() {
                 </div>
                 <h3 className="text-base font-semibold text-slate-800">{r.title}</h3>
                 <p className="mt-1 flex-1 text-sm text-slate-500">{r.desc}</p>
-                <Button
-                  className="mt-4 w-full"
-                  onClick={() => exportReport(r)}
-                >
-                  Download Report
-                </Button>
+                <div className="mt-4 flex gap-2">
+                  <Button
+                    className="flex-1"
+                    disabled={busy === r.kind}
+                    onClick={() => downloadReportPdf(r)}
+                  >
+                    {busy === r.kind ? "Building…" : "Download PDF"}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setEmailing(r)}
+                    title={`Email ${r.title}`}
+                  >
+                    ✉️ Send
+                  </Button>
+                </div>
               </CardBody>
             </Card>
           ))}
         </div>
       </div>
+
+      {/* Email a report — renders the same PDF in "attach" mode and posts it
+          to /api/send-report (Resend). */}
+      <EmailReportModal
+        open={!!emailing}
+        onClose={() => setEmailing(null)}
+        kind={emailing?.kind}
+        title={emailing?.title || "report"}
+        summary={emailing ? emailing.summary(ctx) : ""}
+        defaultTo={org?.billingContact || ""}
+        build={() => emailing.run(ctx, "attach")}
+      />
     </div>
   );
 }

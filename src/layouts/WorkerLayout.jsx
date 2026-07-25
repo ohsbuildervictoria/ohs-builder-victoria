@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { useAppContext } from "../context/AppContext";
 import Logo from "../components/shared/Logo";
 import OfflineSyncBanner from "../components/shared/OfflineSyncBanner";
 
@@ -12,6 +13,7 @@ const NAV = [
 
 export default function WorkerLayout() {
   const { logout, isBuilder, isWorker, user } = useAuth();
+  const { org } = useAppContext();
   const navigate = useNavigate();
 
   // A worker session that hasn't identified a tradie yet belongs on the
@@ -39,7 +41,17 @@ export default function WorkerLayout() {
       <div className="flex min-h-screen w-full max-w-[430px] flex-col bg-slate-50 shadow-xl">
         {/* Top bar */}
         <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-blue-900 px-4 py-3">
-          <Logo light />
+          <div className="flex min-w-0 items-center gap-2">
+            <Logo light compact={!!org?.logoUrl} />
+            {/* Whose site this is — the tradie's builder, branded. */}
+            {org?.logoUrl && (
+              <img
+                src={org.logoUrl}
+                alt={`${org.name} logo`}
+                className="max-h-7 max-w-[110px] rounded bg-white/95 object-contain p-0.5"
+              />
+            )}
+          </div>
           <span className="rounded-full bg-yellow-500 px-2 py-0.5 text-[11px] font-bold text-blue-950">
             STAKEHOLDER
           </span>

@@ -7,6 +7,7 @@ import {
   insertCorrectiveAction,
 } from "../lib/api";
 import { enqueue, isNetworkError } from "../lib/offlineQueue";
+import { summariseMarks } from "../lib/bodyMap";
 import { useAudit, diffFields } from "./useAudit";
 
 // Incident fields that are editable + audited.
@@ -21,6 +22,9 @@ export const INCIDENT_EDIT_FIELDS = [
   { key: "immediateAction", label: "Immediate action" },
   { key: "notifiable", label: "WorkSafe notifiable" },
   { key: "lostTime", label: "Lost-time injury" },
+  // Body-diagram marks are audited as their written regions ("Front — Left
+  // forearm"), not raw coordinates — that's what a reader of the trail needs.
+  { key: "bodyMapSummary", label: "Body diagram" },
 ];
 
 // { incidents, addIncident, updateStatus, editIncident, addCorrectiveAction, getByType }
@@ -67,6 +71,7 @@ export function useIncidents(projectId = null) {
         witnesses: row.witnesses,
         immediateAction: row.immediate_action,
         notifiable: row.notifiable,
+        bodyMap: Array.isArray(row.body_map) ? row.body_map : [],
         correctiveActions: [],
       };
       setIncidents((prev) => [created, ...prev]);
@@ -96,7 +101,11 @@ export function useIncidents(projectId = null) {
         !!patch.notifiable;
       const full = { ...patch, notifiable };
       const after = { ...before, ...full };
-      const changes = diffFields(before, after, INCIDENT_EDIT_FIELDS);
+      const changes = diffFields(
+        { ...before, bodyMapSummary: summariseMarks(before.bodyMap).join("; ") },
+        { ...after, bodyMapSummary: summariseMarks(after.bodyMap).join("; ") },
+        INCIDENT_EDIT_FIELDS
+      );
       if (Object.keys(changes).length === 0) return false;
       await updateIncidentRow(Number(id), full);
       await record("incident", Number(id), changes);

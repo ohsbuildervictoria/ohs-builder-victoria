@@ -59,8 +59,11 @@ export default function Registration() {
       <h1 className="text-xl font-bold text-slate-800">My Profile</h1>
       <p className="text-sm text-slate-500">Stakeholder registration &amp; documents</p>
 
-      <div className="mt-3 overflow-x-auto scrollbar-thin">
-        <Tabs tabs={TABS} active={tab} onChange={setTab} />
+      {/* Pills, not underline tabs: four labels don't fit one phone-width row,
+          and a wrapped underline tab reads as a stray heading rather than
+          something you can tap. Pills wrap and still look like controls. */}
+      <div className="mt-3">
+        <Tabs tabs={TABS} active={tab} onChange={setTab} variant="pills" />
       </div>
 
       <form onSubmit={handleSubmit(onSave)} className="mt-4 space-y-4">

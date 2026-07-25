@@ -41,14 +41,18 @@ export async function adminSelect(env, path) {
   return r.json();
 }
 
-export async function sendEmail(env, { to, subject, html, text }) {
+// `attachments` is Resend's shape: [{ filename, content }] where content is
+// base64. Only /api/send-report uses it (report + incident PDFs).
+export async function sendEmail(env, { to, subject, html, text, attachments }) {
+  const payload = { from: FROM, reply_to: REPLY_TO, to, subject, html, text };
+  if (attachments?.length) payload.attachments = attachments;
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${env.RESEND_API_KEY}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ from: FROM, reply_to: REPLY_TO, to, subject, html, text }),
+    body: JSON.stringify(payload),
   });
   const body = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(body?.message || `resend ${r.status}`);

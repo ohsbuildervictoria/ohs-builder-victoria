@@ -25,6 +25,12 @@ export const COMPLIANCE_BUCKET = "compliance-docs";
 // Private bucket for diary/incident photo evidence.
 export const PHOTO_BUCKET = "site-photos";
 
+// Private bucket for project files (drawings, permits, certificates).
+export const PROJECT_DOC_BUCKET = "project-docs";
+
+// Public bucket for organisation branding (the builder's own logo).
+export const BRANDING_BUCKET = "org-branding";
+
 // ---------------------------------------------------------------------------
 // Row mappers (DB → UI)
 // ---------------------------------------------------------------------------
@@ -109,6 +115,8 @@ const mapIncident = (r, projectsById = {}) => ({
   witnesses: r.witnesses,
   immediateAction: r.immediate_action,
   notifiable: r.notifiable,
+  // Marked points on the front/back body diagram (see src/lib/bodyMap.js).
+  bodyMap: Array.isArray(r.body_map) ? r.body_map : [],
   correctiveActions: (r.corrective_actions || []).map(mapAction),
 });
 
@@ -181,6 +189,19 @@ const mapCompanyDoc = (r) => ({
   uploadedAt: r.uploaded_at,
 });
 
+// A file attached to a project (working drawing, permit, certificate…).
+const mapProjectDoc = (r) => ({
+  id: r.id,
+  projectId: r.project_id,
+  category: r.category || "General",
+  filePath: r.file_path,
+  fileName: r.file_name || "",
+  fileSize: Number(r.file_size) || 0,
+  mimeType: r.mime_type || "",
+  uploadedBy: r.uploaded_by || "",
+  createdAt: r.created_at,
+});
+
 const mapCheckin = (r) => ({
   id: r.id,
   projectId: r.project_id,
@@ -241,6 +262,10 @@ const mapOrg = (r) => ({
   billingContact: r.billing_contact,
   tagline: r.tagline,
   builtBy: r.built_by,
+  // The builder's own logo — used on their PDFs and anywhere client branding
+  // shows. Blank falls back to the platform mark everywhere.
+  logoUrl: r.logo_url || "",
+  createdAt: r.created_at,
   notifications: r.notifications || {},
 });
 
@@ -274,7 +299,7 @@ function fail(error, action) {
 // Fetch everything the app needs after login
 // ---------------------------------------------------------------------------
 export async function fetchAppData() {
-  const [projects, workers, templates, incidents, entries, meetings, policies, org, profiles, invites, documents, audits, checkins, companies, companyDocs, recordPhotos] =
+  const [projects, workers, templates, incidents, entries, meetings, policies, org, profiles, invites, documents, audits, checkins, companies, companyDocs, recordPhotos, projectDocs] =
     await Promise.all([
       supabase.from("projects").select("*").order("id"),
       supabase.from("workers").select("*").order("id"),
@@ -293,6 +318,7 @@ export async function fetchAppData() {
       supabase.from("subbie_companies").select("*").order("name"),
       supabase.from("company_documents").select("*").order("id"),
       supabase.from("record_photos").select("*").order("id"),
+      supabase.from("project_documents").select("*").order("created_at", { ascending: false }),
     ]);
 
   for (const res of [projects, workers, templates, incidents, entries, meetings, policies, org, profiles]) {
@@ -366,7 +392,92 @@ export async function fetchAppData() {
     companies: companyList,
     companyDocs: companyDocList,
     photos: recordPhotos.error ? [] : (recordPhotos.data || []).map(mapPhoto),
+    // Tolerant like the other optional tables: a builder-staff-only table
+    // returns nothing for a tradie, and nothing at all until the migration
+    // that creates it has run.
+    projectDocs: projectDocs.error ? [] : (projectDocs.data || []).map(mapProjectDoc),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Project documents — private project-docs bucket + project_documents rows.
+// Same shape as compliance evidence and site photos: bytes in Storage,
+// org-scoped metadata in Postgres, short-lived signed URLs for viewing.
+// ---------------------------------------------------------------------------
+
+export async function uploadProjectDocument({ projectId, category, file, uploadedBy }) {
+  const path = `${projectId}/${Date.now()}-${safeName(file.name)}`;
+  const up = await supabase.storage
+    .from(PROJECT_DOC_BUCKET)
+    .upload(path, file, { upsert: false, contentType: file.type || undefined });
+  if (up.error) fail(up.error, "Uploading document");
+
+  const { data, error } = await supabase
+    .from("project_documents")
+    .insert({
+      project_id: Number(projectId),
+      category: category || "General",
+      file_path: path,
+      file_name: file.name || "document",
+      file_size: file.size || 0,
+      mime_type: file.type || "",
+      uploaded_by: uploadedBy || "",
+    })
+    .select()
+    .single();
+  if (error) {
+    // Don't leave an orphan file in the bucket if the metadata row is rejected.
+    await supabase.storage.from(PROJECT_DOC_BUCKET).remove([path]);
+    fail(error, "Recording document");
+  }
+  return mapProjectDoc(data);
+}
+
+export async function deleteProjectDocument(doc) {
+  if (doc.filePath) {
+    await supabase.storage.from(PROJECT_DOC_BUCKET).remove([doc.filePath]);
+  }
+  const { error } = await supabase.from("project_documents").delete().eq("id", doc.id);
+  if (error) fail(error, "Removing document");
+}
+
+export async function getProjectDocUrl(filePath) {
+  const { data, error } = await supabase.storage
+    .from(PROJECT_DOC_BUCKET)
+    .createSignedUrl(filePath, 300);
+  if (error) fail(error, "Opening document");
+  return data.signedUrl;
+}
+
+// ---------------------------------------------------------------------------
+// Organisation branding
+// ---------------------------------------------------------------------------
+
+// Uploads the builder's logo to the public branding bucket and stores its URL
+// on the organisation. Public by design: a logo on a PDF and in an <img> needs
+// a plain URL, and a company logo is not private information.
+export async function uploadOrgLogo(orgId, file) {
+  const path = `${orgId}/logo-${Date.now()}-${safeName(file.name)}`;
+  const up = await supabase.storage
+    .from(BRANDING_BUCKET)
+    .upload(path, file, { upsert: true, contentType: file.type || undefined });
+  if (up.error) fail(up.error, "Uploading logo");
+  const { data: pub } = supabase.storage.from(BRANDING_BUCKET).getPublicUrl(path);
+  const url = pub?.publicUrl || "";
+  const { error } = await supabase
+    .from("organizations")
+    .update({ logo_url: url })
+    .eq("id", orgId);
+  if (error) fail(error, "Saving logo");
+  return url;
+}
+
+export async function clearOrgLogo(orgId) {
+  const { error } = await supabase
+    .from("organizations")
+    .update({ logo_url: "" })
+    .eq("id", orgId);
+  if (error) fail(error, "Removing logo");
 }
 
 // ---------------------------------------------------------------------------
@@ -479,7 +590,7 @@ const INCIDENT_PATCH_COLS = {
   type: "type", description: "description", date: "date", status: "status",
   severity: "severity", location: "location", involved: "involved",
   witnesses: "witnesses", immediateAction: "immediate_action",
-  notifiable: "notifiable", lostTime: "lost_time",
+  notifiable: "notifiable", lostTime: "lost_time", bodyMap: "body_map",
 };
 
 export async function updateIncidentRow(id, patch) {
@@ -488,7 +599,17 @@ export async function updateIncidentRow(id, patch) {
     if (patch[k] !== undefined) row[col] = patch[k];
   }
   const { error } = await supabase.from("incidents").update(row).eq("id", id);
-  if (error) fail(error, "Updating incident");
+  if (error) {
+    if (missingBodyMap(error) && row.body_map !== undefined) {
+      // Same pre-migration fallback as insertIncident: save the correction,
+      // just without the diagram.
+      delete row.body_map;
+      const retry = await supabase.from("incidents").update(row).eq("id", id);
+      if (retry.error) fail(retry.error, "Updating incident");
+      return;
+    }
+    fail(error, "Updating incident");
+  }
 }
 
 export async function fetchProfile(userId) {
@@ -781,6 +902,25 @@ export async function emailInvite(workerId) {
   return j; // { sent, to }
 }
 
+// Emails a generated report/incident PDF via the server-side send endpoint
+// (Cloudflare Pages Function -> Resend). The server re-checks role + org and
+// composes the wording itself; we supply the recipients, the builder's note
+// and the document bytes.
+export async function emailReport({ kind, to, note, filename, base64, summary }) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const r = await fetch("/api/send-report", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session?.access_token || ""}`,
+    },
+    body: JSON.stringify({ kind, to, note, filename, pdfBase64: base64, summary }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) fail(new Error(j.error || `HTTP ${r.status}`), "Emailing the report");
+  return j; // { sent, to, filename }
+}
+
 // Public invite preview shown on the /join page before the tradie sets a password.
 export async function fetchInviteInfo(token) {
   const { data, error } = await supabase.rpc("worker_invite_info", { token });
@@ -877,7 +1017,44 @@ export async function updateMyCompliance(categoryKey, value) {
   if (error) fail(error, "Updating your compliance");
 }
 
+// True when Postgres rejected a write because the body_map column isn't there
+// yet. The app is deployed from git and the migration is applied separately;
+// if the two land out of order, reporting an incident must still work — the
+// body diagram is an addition to the report, never a gate on filing one.
+const missingBodyMap = (error) =>
+  /body_map/.test(error?.message || "") &&
+  /column|schema cache|does not exist/i.test(error?.message || "");
+
 export async function insertIncident(i) {
+  const { data, error } = await supabase
+    .from("incidents")
+    .insert({
+      type: i.type,
+      description: i.description || "",
+      project_id: i.projectId ?? null,
+      reported_by: i.reportedBy || "",
+      date: i.date || localDate(),
+      status: i.status || "Open",
+      severity: i.severity || "Low",
+      location: i.location || "",
+      involved: i.involved || "",
+      witnesses: i.witnesses || "",
+      immediate_action: i.immediateAction || "",
+      notifiable: !!i.notifiable,
+      lost_time: !!i.lostTime,
+      body_map: Array.isArray(i.bodyMap) ? i.bodyMap : [],
+    })
+    .select("*, corrective_actions(*)")
+    .single();
+  if (error) {
+    if (missingBodyMap(error)) return insertIncidentWithoutBodyMap(i);
+    fail(error, "Reporting incident");
+  }
+  return data;
+}
+
+// Fallback for the window before the body_map migration is applied.
+async function insertIncidentWithoutBodyMap(i) {
   const { data, error } = await supabase
     .from("incidents")
     .insert({

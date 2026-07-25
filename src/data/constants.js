@@ -154,18 +154,22 @@ export const rolePermissions = {
   builder_admin: {
     dashboard: true, projects: true, compliance: true, swms: true, diary: true,
     incidents: true, toolbox: true, reports: true, admin: true, policies: true,
+    welcome: true,
   },
   hse_manager: {
     dashboard: true, projects: false, compliance: true, swms: true, diary: false,
     incidents: true, toolbox: true, reports: true, admin: false, policies: false,
+    welcome: true,
   },
   site_supervisor: {
     dashboard: true, projects: false, compliance: false, swms: false, diary: true,
     incidents: true, toolbox: true, reports: false, admin: false, policies: false,
+    welcome: true,
   },
   worker: {
     dashboard: false, projects: false, compliance: false, swms: false, diary: false,
     incidents: false, toolbox: false, reports: false, admin: false, policies: false,
+    welcome: false,
   },
 };
 

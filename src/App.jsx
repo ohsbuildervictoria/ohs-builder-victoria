@@ -14,6 +14,7 @@ import StakeholderLogin from "./pages/StakeholderLogin";
 import JoinTradie from "./pages/JoinTradie";
 import JoinStaff from "./pages/JoinStaff";
 import SiteCheckin from "./pages/SiteCheckin";
+import Pricing from "./pages/Pricing";
 
 import Dashboard from "./pages/builder/Dashboard";
 import Projects from "./pages/builder/Projects";
@@ -27,6 +28,7 @@ import Toolbox from "./pages/builder/Toolbox";
 import Reports from "./pages/builder/Reports";
 import AdminPortal from "./pages/builder/AdminPortal";
 import Policies from "./pages/builder/Policies";
+import Welcome from "./pages/builder/Welcome";
 
 import WorkerHome from "./pages/worker/WorkerHome";
 import Induction from "./pages/worker/Induction";
@@ -78,6 +80,7 @@ function AppRoutes() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+      <Route path="/pricing" element={<Pricing />} />
       {/* Tradie sign-in (real per-tradie accounts + legacy pilot usernames) */}
       <Route path="/stakeholder" element={<StakeholderLogin />} />
       {/* Subbie invite link — set up a real per-tradie account */}
@@ -114,6 +117,7 @@ function AppRoutes() {
             </RequireAdmin>
           }
         />
+        <Route path="welcome" element={<Welcome />} />
         <Route path="policies" element={<Policies />} />
         <Route path="settings" element={<Navigate to="/builder/policies" replace />} />
       </Route>

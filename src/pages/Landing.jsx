@@ -67,6 +67,12 @@ export default function Landing() {
         <Logo light />
         <nav className="flex items-center gap-3">
           <Link
+            to="/pricing"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:text-white"
+          >
+            Pricing
+          </Link>
+          <Link
             to="/login"
             className="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:text-white"
           >

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useParams, Link } from "react-router-dom";
 import Card, { CardBody, CardHeader } from "../../components/ui/Card";
@@ -13,6 +13,7 @@ import { useProjects } from "../../hooks/useProjects";
 import { useWorkers } from "../../hooks/useWorkers";
 import { useIncidents } from "../../hooks/useIncidents";
 import { useDiary } from "../../hooks/useDiary";
+import { useProjectDocs } from "../../hooks/useProjectDocs";
 import { useAppContext } from "../../context/AppContext";
 import { useToast } from "../../components/ui/Notification";
 import { formatAUD, complianceCategories } from "../../data/constants";
@@ -26,7 +27,6 @@ export default function ProjectDetail() {
   const { incidents } = useIncidents(id);
   const { entries } = useDiary(id);
   const { policies, org } = useAppContext();
-  const toast = useToast();
   const [tab, setTab] = useState("Overview");
   const [qrOpen, setQrOpen] = useState(false);
 
@@ -213,43 +213,7 @@ export default function ProjectDetail() {
       )}
 
       {tab === "Documents" && (
-        <Card>
-          <CardHeader title="Project Documents" />
-          <CardBody>
-            <div
-              onClick={() =>
-                toast("Document upload is coming in the next release", "warning")
-              }
-              className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 py-12 text-center hover:border-blue-900 hover:bg-slate-50"
-            >
-              <span className="text-3xl">📤</span>
-              <p className="mt-2 text-sm font-medium text-slate-700">
-                Drag & drop or click to upload
-              </p>
-              <p className="text-xs text-slate-400">
-                File storage arrives in the next release
-              </p>
-            </div>
-            <div className="mt-4">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Organisation Policies (apply to all projects)
-              </p>
-              <div className="space-y-2">
-                {policies.map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-2.5 text-sm"
-                  >
-                    <span className="text-slate-700">
-                      📄 {p.name} · {p.version}
-                    </span>
-                    <Badge status="Active">{p.status}</Badge>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </CardBody>
-        </Card>
+        <ProjectDocuments project={project} policies={policies} />
       )}
 
       {tab === "Diary" && (
@@ -302,6 +266,216 @@ export default function ProjectDetail() {
         onClose={() => setQrOpen(false)}
       />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Project Documents — real file storage.
+// Uses the same mechanism as compliance evidence and site photos: the file
+// goes to a private Supabase Storage bucket, a row in project_documents holds
+// the org-scoped metadata, and viewing goes through a short-lived signed URL.
+// ---------------------------------------------------------------------------
+const DOC_CATEGORIES = [
+  "Working Drawings",
+  "Permits & Approvals",
+  "Certificates",
+  "Contracts",
+  "Compliance Records",
+  "Site Photos & Surveys",
+  "General",
+];
+
+const fmtSize = (bytes) => {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const iconFor = (doc) => {
+  const n = (doc.fileName || "").toLowerCase();
+  if (doc.mimeType?.startsWith("image/") || /\.(png|jpe?g|gif|webp|heic)$/.test(n)) return "🖼️";
+  if (/\.pdf$/.test(n)) return "📕";
+  if (/\.(dwg|dxf)$/.test(n)) return "📐";
+  if (/\.(xlsx?|csv)$/.test(n)) return "📊";
+  if (/\.(docx?|rtf)$/.test(n)) return "📝";
+  return "📄";
+};
+
+function ProjectDocuments({ project, policies }) {
+  const { docs, addDocs, removeDoc, open } = useProjectDocs(project.id);
+  const toast = useToast();
+  const inputRef = useRef(null);
+  const [category, setCategory] = useState("General");
+  const [busy, setBusy] = useState(false);
+  const [dragging, setDragging] = useState(false);
+
+  const upload = async (files) => {
+    if (!files?.length) return;
+    setBusy(true);
+    try {
+      const { saved, failures } = await addDocs(project.id, files, category);
+      if (saved) {
+        toast(`${saved} document${saved === 1 ? "" : "s"} uploaded`);
+      }
+      // Never report a partial upload as a clean one.
+      if (failures.length) {
+        toast(
+          `${failures.length} file${failures.length === 1 ? "" : "s"} failed — ${failures[0]}`,
+          "error"
+        );
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onView = async (doc) => {
+    try {
+      window.open(await open(doc), "_blank", "noopener");
+    } catch (err) {
+      toast(err.message || "Could not open document", "error");
+    }
+  };
+
+  const onRemove = async (doc) => {
+    try {
+      await removeDoc(doc);
+      toast(`${doc.fileName} removed`);
+    } catch (err) {
+      toast(err.message || "Could not remove document", "error");
+    }
+  };
+
+  // Group by category so a project with 40 files still reads as a filing
+  // cabinet rather than a dump.
+  const grouped = DOC_CATEGORIES.map((c) => ({
+    category: c,
+    items: docs.filter((d) => d.category === c),
+  })).filter((g) => g.items.length);
+
+  return (
+    <Card>
+      <CardHeader
+        title="Project Documents"
+        subtitle={`${docs.length} file${docs.length === 1 ? "" : "s"} stored for this project`}
+      />
+      <CardBody>
+        <div className="mb-3 flex flex-wrap items-end gap-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Upload as
+            </span>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              {DOC_CATEGORIES.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            upload(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        <div
+          onClick={() => !busy && inputRef.current?.click()}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            upload(e.dataTransfer.files);
+          }}
+          className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed py-12 text-center transition-colors ${
+            dragging ? "border-blue-900 bg-blue-50" : "border-slate-300 hover:border-blue-900 hover:bg-slate-50"
+          } ${busy ? "opacity-60" : ""}`}
+        >
+          <span className="text-3xl">📤</span>
+          <p className="mt-2 text-sm font-medium text-slate-700">
+            {busy ? "Uploading…" : "Drag & drop or click to upload"}
+          </p>
+          <p className="text-xs text-slate-400">
+            Drawings, permits, certificates — stored privately against this project
+          </p>
+        </div>
+
+        {docs.length > 0 && (
+          <div className="mt-5 space-y-4">
+            {grouped.map((g) => (
+              <div key={g.category}>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  {g.category} ({g.items.length})
+                </p>
+                <div className="space-y-2">
+                  {g.items.map((d) => (
+                    <div
+                      key={d.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-slate-800">
+                          {iconFor(d)} {d.fileName}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {[
+                            fmtSize(d.fileSize),
+                            d.uploadedBy && `uploaded by ${d.uploadedBy}`,
+                            d.createdAt && new Date(d.createdAt).toLocaleDateString("en-AU"),
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="secondary" onClick={() => onView(d)}>
+                          View / Download
+                        </Button>
+                        <Button size="sm" variant="danger" onClick={() => onRemove(d)}>
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-6 border-t border-slate-100 pt-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Organisation Policies (apply to all projects)
+          </p>
+          <div className="space-y-2">
+            {policies.map((p) => (
+              <div
+                key={p.id}
+                className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-2.5 text-sm"
+              >
+                <span className="text-slate-700">
+                  📄 {p.name} · {p.version}
+                </span>
+                <Badge status="Active">{p.status}</Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      </CardBody>
+    </Card>
   );
 }
 

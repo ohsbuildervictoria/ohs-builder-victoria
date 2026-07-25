@@ -6,6 +6,8 @@ import Button from "../../components/ui/Button";
 import Tabs from "../../components/ui/Tabs";
 import Modal from "../../components/ui/Modal";
 import AuditTrail from "../../components/shared/AuditTrail";
+import BodyMap from "../../components/shared/BodyMap";
+import EmailReportModal from "../../components/shared/EmailReportModal";
 import { useIncidents } from "../../hooks/useIncidents";
 import { useProjects } from "../../hooks/useProjects";
 import { useAppContext } from "../../context/AppContext";
@@ -40,6 +42,14 @@ export default function Incidents() {
   const [createOpen, setCreateOpen] = useState(false);
   const [actionFor, setActionFor] = useState(null);
   const [editing, setEditing] = useState(null); // incident being corrected
+  // Body-diagram marks live outside react-hook-form (it registers inputs, and
+  // this is a tap-on-a-picture control). Reset alongside the form.
+  const [bodyMarks, setBodyMarks] = useState([]);
+  const [editBodyMarks, setEditBodyMarks] = useState([]);
+  // BodyMap owns its marks internally; bumping these keys remounts it, which
+  // is how the diagram is cleared for a new report or loaded for an edit.
+  const [bodyMapKey, setBodyMapKey] = useState(0);
+  const [emailing, setEmailing] = useState(null); // incident being emailed
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
   const actionForm = useForm();
@@ -51,6 +61,8 @@ export default function Incidents() {
       description: i.description, location: i.location, involved: i.involved,
       immediateAction: i.immediateAction, lostTime: i.lostTime,
     });
+    setEditBodyMarks(i.bodyMap || []);
+    setBodyMapKey((k) => k + 1);
     setEditing(i);
   };
 
@@ -60,7 +72,7 @@ export default function Incidents() {
         type: data.type, date: (data.date || "").slice(0, 10), severity: data.severity,
         status: data.status, description: data.description, location: data.location,
         involved: data.involved, immediateAction: data.immediateAction,
-        lostTime: !!data.lostTime,
+        lostTime: !!data.lostTime, bodyMap: editBodyMarks,
       });
       toast(changed ? "Incident corrected — change logged" : "No changes to save");
       setEditing(null);
@@ -87,6 +99,7 @@ export default function Incidents() {
         date: (data.date || "").slice(0, 10),
         projectId: Number(data.project) || null,
         reportedBy: user?.name || "Unknown",
+        bodyMap: bodyMarks,
       });
       if (saved?.queued) {
         // Dead spot: the report syncs automatically; photos need signal.
@@ -105,6 +118,8 @@ export default function Incidents() {
       }
       reset();
       setPhotoFiles([]);
+      setBodyMarks([]);
+      setBodyMapKey((k) => k + 1);
       setCreateOpen(false);
     } catch (err) {
       toast(err.message || "Could not log incident", "error");
@@ -214,12 +229,19 @@ export default function Incidents() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => {
-                          exportIncidentReport({ org, incident: i, audits });
-                          toast("Incident report downloaded");
+                        onClick={async () => {
+                          try {
+                            await exportIncidentReport({ org, incident: i, audits });
+                            toast("Incident report downloaded");
+                          } catch (err) {
+                            toast(err.message || "Could not build the report", "error");
+                          }
                         }}
                       >
                         Download PDF
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEmailing(i)}>
+                        ✉️ Send PDF
                       </Button>
                     </div>
                   </div>
@@ -243,6 +265,17 @@ export default function Incidents() {
                         </span>
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {/* Where it happened on the body — the same figure the
+                    reporter tapped, and the same one the PDF carries. */}
+                {i.bodyMap?.length > 0 && (
+                  <div className="mt-3 rounded-lg bg-slate-50 p-3">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Injury location
+                    </p>
+                    <BodyMap value={i.bodyMap} readOnly compact />
                   </div>
                 )}
 
@@ -358,6 +391,11 @@ export default function Incidents() {
             </p>
           </div>
           <div className="col-span-2">
+            <FieldGroup label="Where on the body (if someone was hurt)">
+              <BodyMap key={`new-${bodyMapKey}`} value={bodyMarks} onChange={setBodyMarks} />
+            </FieldGroup>
+          </div>
+          <div className="col-span-2">
             <PhotoPicker files={photoFiles} onChange={setPhotoFiles} />
           </div>
         </form>
@@ -422,6 +460,11 @@ export default function Incidents() {
               <span><span className="font-medium">Lost-time injury</span> (counts toward LTIFR)</span>
             </label>
           </div>
+          <div className="col-span-2">
+            <FieldGroup label="Where on the body">
+              <BodyMap key={`edit-${editing?.id}-${bodyMapKey}`} value={editBodyMarks} onChange={setEditBodyMarks} />
+            </FieldGroup>
+          </div>
         </form>
       </Modal>
 
@@ -459,6 +502,22 @@ export default function Incidents() {
         </form>
       </Modal>
 
+      {/* Email one incident report as a PDF (same document as Download PDF) */}
+      <EmailReportModal
+        open={!!emailing}
+        onClose={() => setEmailing(null)}
+        kind="incident_report"
+        title={emailing ? `Incident #${emailing.id} report` : "incident report"}
+        summary={
+          emailing
+            ? `${emailing.type} · ${emailing.severity} severity · ${emailing.project} · ${emailing.date}${emailing.notifiable ? " · NOTIFIABLE to WorkSafe Victoria" : ""}`
+            : ""
+        }
+        build={() =>
+          exportIncidentReport({ org, incident: emailing, audits, mode: "attach" })
+        }
+      />
+
       <style>{`
         .modal-input {
           width: 100%;
@@ -481,5 +540,24 @@ function Field({ label, children }) {
       </span>
       {children}
     </label>
+  );
+}
+
+// Same look as Field, but a <div> rather than a <label>.
+//
+// This is not cosmetic. A click anywhere inside a <label> is forwarded by the
+// browser to the first labelable element it contains. Wrapping the body
+// diagram in a <label> therefore meant that every tap after the first also
+// "pressed" the ✕ button of mark 1 — so a second injury added a mark and
+// silently deleted the first, and the diagram could never hold more than one
+// point. Group controls that aren't a single input belong in a div.
+function FieldGroup({ label, children }) {
+  return (
+    <div className="block">
+      <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+        {label}
+      </span>
+      {children}
+    </div>
   );
 }
