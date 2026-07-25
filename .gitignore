@@ -31,3 +31,8 @@ TIME_TRACKER.json
 
 # Local agent permissions — machine-specific, not part of the app
 .claude/settings.local.json
+
+# Live verification scripts — they sign in as real QA accounts, so they hold
+# passwords and stay on this machine.
+*.local.mjs
+graphify-out/

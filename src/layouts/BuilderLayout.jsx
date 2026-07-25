@@ -7,7 +7,7 @@ import Logo from "../components/shared/Logo";
 import OfflineSyncBanner from "../components/shared/OfflineSyncBanner";
 import RoleBadge from "../components/shared/RoleBadge";
 import { NotificationItem } from "../components/ui/Notification";
-import { brand, rolePermissions } from "../data/constants";
+import { brand } from "../data/constants";
 
 const NAV = [
   { to: "/builder/dashboard", label: "Dashboard", icon: "📊", perm: "dashboard" },
@@ -24,7 +24,7 @@ const NAV = [
 ];
 
 export default function BuilderLayout() {
-  const { user, role, logout } = useAuth();
+  const { user, role, permissions, logout } = useAuth();
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
   const { org, loading, loadError, refresh } = useAppContext();
   const [bellOpen, setBellOpen] = useState(false);
@@ -36,12 +36,26 @@ export default function BuilderLayout() {
     navigate("/login");
   };
 
-  const perms = rolePermissions[role] || rolePermissions.builder_admin;
+  // Navigation is rendered from the permission set the DATABASE returns
+  // (public.my_permissions), not from a table compiled into the bundle. The
+  // database is the only thing that actually enforces access; the menu has to
+  // agree with it rather than assert its own version.
+  const perms = permissions || {};
   const visibleNav = NAV.filter((n) => perms[n.perm]);
 
   // Workers (stakeholders) have no builder workspace access at all.
   if (role === "worker") {
     return <Navigate to="/worker/home" replace />;
+  }
+
+  // Wait for the answer before acting on it — bouncing someone off a deep link
+  // because the reply hasn't landed yet would look like a permission error.
+  if (!permissions) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50 text-sm text-slate-400">
+        Loading…
+      </div>
+    );
   }
 
   const currentPerm = NAV.find((n) => location.pathname.startsWith(n.to))?.perm;

@@ -169,53 +169,204 @@ export const formatAUD = (amount) =>
   new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD", maximumFractionDigits: 0 }).format(amount);
 
 // ---------------------------------------------------------------------------
-// Role permissions (enforced in BuilderLayout nav)
+// Permission matrix — DOCUMENTATION of what the database enforces.
+//
+// There used to be a `rolePermissions` table here that the sidebar filtered
+// itself with, and an Admin Portal matrix generated from it. Both described
+// access the database never checked: hiding a menu item stops nobody who can
+// type a URL or call PostgREST. Enforcement now lives entirely in RLS policies
+// (supabase/migrations/009_database_enforced_rbac.sql) and the sidebar renders
+// from public.my_permissions(), so the menu can no longer claim more than the
+// database will honour.
+//
+// What follows is a transcription of those policies for the Admin Portal, kept
+// deliberately as text: it is a description of the rules, not the rules
+// themselves. Letters are C(reate) R(ead) U(pdate) D(elete); "—" is no access
+// at all, refused by the database with a 42501.
 // ---------------------------------------------------------------------------
-export const rolePermissions = {
-  builder_admin: {
-    dashboard: true, projects: true, compliance: true, swms: true, diary: true,
-    incidents: true, toolbox: true, reports: true, admin: true, policies: true,
-    welcome: true,
-  },
-  hse_manager: {
-    dashboard: true, projects: false, compliance: true, swms: true, diary: false,
-    incidents: true, toolbox: true, reports: true, admin: false, policies: false,
-    welcome: true,
-  },
-  site_supervisor: {
-    dashboard: true, projects: false, compliance: false, swms: false, diary: true,
-    incidents: true, toolbox: true, reports: false, admin: false, policies: false,
-    welcome: true,
-  },
-  worker: {
-    dashboard: false, projects: false, compliance: false, swms: false, diary: false,
-    incidents: false, toolbox: false, reports: false, admin: false, policies: false,
-    welcome: false,
-  },
-};
+export const permissionRoles = [
+  "builder_admin",
+  "hse_manager",
+  "site_supervisor",
+  "worker",
+];
 
-// Admin Portal permission matrix table
-const matrixRoles = ["builder_admin", "hse_manager", "site_supervisor"];
-const matrixFeatureMap = {
-  Projects: "projects",
-  Compliance: "compliance",
-  SWMS: "swms",
-  "Site Diary": "diary",
-  Incidents: "incidents",
-  Toolbox: "toolbox",
-  Reports: "reports",
-  Admin: "admin",
-  Policies: "policies",
-};
+const NONE = { rights: "—", scope: "No access" };
 
-export const permissionMatrix = {
-  roles: matrixRoles,
-  features: Object.keys(matrixFeatureMap),
-  grid: Object.fromEntries(
-    Object.entries(matrixFeatureMap).map(([label, key]) => [
-      label,
-      matrixRoles.map((r) => rolePermissions[r][key]),
-    ])
-  ),
-};
+export const permissionMatrix = [
+  {
+    resource: "Organisation & branding",
+    cells: [
+      { rights: "R U", scope: "Own company" },
+      { rights: "R", scope: "Read-only" },
+      { rights: "R", scope: "Read-only" },
+      { rights: "R", scope: "Read-only" },
+    ],
+  },
+  {
+    resource: "Billing & subscription",
+    cells: [{ rights: "R U", scope: "Account owner" }, NONE, NONE, NONE],
+  },
+  {
+    resource: "User accounts",
+    cells: [
+      { rights: "C R U D", scope: "Whole roster" },
+      { rights: "R", scope: "Roster, read-only" },
+      { rights: "R U", scope: "Own account" },
+      { rights: "R U", scope: "Own account" },
+    ],
+  },
+  {
+    resource: "Roles & site assignment",
+    cells: [{ rights: "U", scope: "Audited RPC" }, NONE, NONE, NONE],
+  },
+  {
+    resource: "Invitations",
+    cells: [{ rights: "C R U D", scope: "Whole org" }, NONE, NONE, NONE],
+  },
+  {
+    resource: "Projects",
+    cells: [
+      { rights: "C R U D", scope: "All sites" },
+      { rights: "R", scope: "All sites" },
+      { rights: "R", scope: "Assigned sites" },
+      { rights: "R", scope: "Their own site" },
+    ],
+  },
+  {
+    resource: "Crew records",
+    cells: [
+      { rights: "C R U D", scope: "Whole crew" },
+      { rights: "C R U D", scope: "Whole crew" },
+      { rights: "R", scope: "Crew on assigned sites" },
+      { rights: "R", scope: "Own record only" },
+    ],
+  },
+  {
+    resource: "SWMS documents",
+    cells: [
+      { rights: "C R U D", scope: "All trades" },
+      { rights: "C R U D", scope: "All trades" },
+      { rights: "R", scope: "All trades" },
+      { rights: "R", scope: "Their trade only" },
+    ],
+  },
+  {
+    resource: "SWMS signatures",
+    cells: [
+      { rights: "C R", scope: "All · never editable" },
+      { rights: "C R", scope: "All · never editable" },
+      { rights: "R", scope: "Crew on assigned sites" },
+      { rights: "C R", scope: "Own signature only" },
+    ],
+  },
+  {
+    resource: "Incidents",
+    cells: [
+      { rights: "C R U D", scope: "All sites" },
+      { rights: "C R U", scope: "All sites · no delete" },
+      { rights: "C R U", scope: "Assigned sites" },
+      { rights: "C R", scope: "Reported by or involving them" },
+    ],
+  },
+  {
+    resource: "Corrective actions",
+    cells: [
+      { rights: "C R U D", scope: "All sites" },
+      { rights: "C R U D", scope: "All sites" },
+      { rights: "C R U D", scope: "Assigned sites" },
+      { rights: "R", scope: "On their own incidents" },
+    ],
+  },
+  {
+    resource: "Site diary",
+    cells: [
+      { rights: "C R U D", scope: "All sites" },
+      { rights: "C R U D", scope: "All sites" },
+      { rights: "C R U D", scope: "Assigned sites" },
+      NONE,
+    ],
+  },
+  {
+    resource: "Toolbox meetings",
+    cells: [
+      { rights: "C R U D", scope: "All sites" },
+      { rights: "C R U D", scope: "All sites" },
+      { rights: "C R U D", scope: "Assigned sites" },
+      NONE,
+    ],
+  },
+  {
+    resource: "Policy register",
+    cells: [
+      { rights: "C R U D", scope: "Whole org" },
+      { rights: "C R U D", scope: "Whole org" },
+      { rights: "R", scope: "Read-only" },
+      { rights: "R", scope: "Read-only" },
+    ],
+  },
+  {
+    resource: "Compliance documents",
+    cells: [
+      { rights: "C R U D", scope: "Whole crew" },
+      { rights: "C R U D", scope: "Whole crew" },
+      { rights: "R", scope: "Crew on assigned sites" },
+      { rights: "C R U D", scope: "Own documents only" },
+    ],
+  },
+  {
+    resource: "Subcontractor companies",
+    cells: [
+      { rights: "C R U D", scope: "Whole org" },
+      { rights: "C R U D", scope: "Whole org" },
+      { rights: "R", scope: "Read-only" },
+      { rights: "R", scope: "Their own company" },
+    ],
+  },
+  {
+    resource: "Project documents",
+    cells: [
+      { rights: "C R U D", scope: "All sites" },
+      { rights: "R", scope: "All sites" },
+      { rights: "C R U D", scope: "Assigned sites" },
+      NONE,
+    ],
+  },
+  {
+    resource: "Site check-ins",
+    cells: [
+      { rights: "R", scope: "All sites" },
+      { rights: "R", scope: "All sites" },
+      { rights: "R", scope: "Assigned sites" },
+      { rights: "R", scope: "Own check-ins" },
+    ],
+  },
+  {
+    resource: "Quiz attempts",
+    cells: [
+      { rights: "R", scope: "Whole crew" },
+      { rights: "R", scope: "Whole crew" },
+      { rights: "R", scope: "Crew on assigned sites" },
+      { rights: "R", scope: "Own attempts · graded server-side" },
+    ],
+  },
+  {
+    resource: "Photos on records",
+    cells: [
+      { rights: "C R D", scope: "Records they can see" },
+      { rights: "C R D", scope: "Records they can see" },
+      { rights: "C R", scope: "Records they can see" },
+      { rights: "C R", scope: "Their own incidents" },
+    ],
+  },
+  {
+    resource: "Security audit log",
+    cells: [
+      { rights: "R", scope: "Whole org · append-only" },
+      { rights: "R", scope: "Whole org · append-only" },
+      NONE,
+      NONE,
+    ],
+  },
+];
 

@@ -1164,6 +1164,15 @@ export async function signSwmsRpc(templateId, { signedName, workerId } = {}) {
 
 // The quiz questions, WITHOUT their answers. The answer key stays in the
 // database — it used to ship in the JS bundle, so anyone could read it.
+// The effective permission set, computed by the database from the caller's
+// role. The client renders navigation from this instead of a hardcoded table,
+// so the UI cannot claim an access level the database won't honour.
+export async function fetchPermissions() {
+  const { data, error } = await supabase.rpc("my_permissions");
+  if (error) fail(error, "Loading your permissions");
+  return data;
+}
+
 export async function fetchQuiz() {
   const { data, error } = await supabase.rpc("get_quiz");
   if (error) fail(error, "Loading the quiz");

@@ -10,7 +10,7 @@ import { Table, THead, TBody, TR, TD } from "../../components/ui/Table";
 import { useToast } from "../../components/ui/Notification";
 import { useProjects } from "../../hooks/useProjects";
 import { useAppContext } from "../../context/AppContext";
-import { roleLabels, permissionMatrix } from "../../data/constants";
+import { roleLabels, permissionMatrix, permissionRoles } from "../../data/constants";
 import { updateProfileStatus, insertInvite, emailStaffInvite } from "../../lib/api";
 
 const formatLastLogin = (iso) => {
@@ -172,31 +172,49 @@ export default function AdminPortal() {
         </CardBody>
       </Card>
 
-      {/* Permission matrix */}
+      {/* Permission matrix. This is a description of the RLS policies in the
+          database, not a switchboard — changing it here would change nothing. */}
       <Card>
-        <CardHeader title="Role Permission Matrix" subtitle="Read-only reference" />
+        <CardHeader
+          title="Role Permission Matrix"
+          subtitle="Enforced by the database · C·reate R·ead U·pdate D·elete"
+        />
         <CardBody className="pt-2">
-          <Table>
-            <THead
-              columns={["Feature", ...permissionMatrix.roles.map((r) => roleLabels[r])]}
-            />
-            <TBody>
-              {permissionMatrix.features.map((f) => (
-                <TR key={f}>
-                  <TD className="font-medium text-slate-700">{f}</TD>
-                  {permissionMatrix.grid[f].map((allowed, idx) => (
-                    <TD key={idx}>
-                      {allowed ? (
-                        <span className="text-green-600">✓</span>
-                      ) : (
-                        <span className="text-slate-300">✕</span>
-                      )}
+          <p className="mb-3 text-xs text-slate-500">
+            Every rule below is enforced inside the database itself, so it holds
+            no matter how the system is reached — the app, the mobile view, or a
+            direct API call. Anything marked “—” is refused outright.
+          </p>
+          <div className="overflow-x-auto scrollbar-thin">
+            <Table>
+              <THead
+                columns={["Resource", ...permissionRoles.map((r) => roleLabels[r])]}
+              />
+              <TBody>
+                {permissionMatrix.map((row) => (
+                  <TR key={row.resource}>
+                    <TD className="whitespace-nowrap font-medium text-slate-700">
+                      {row.resource}
                     </TD>
-                  ))}
-                </TR>
-              ))}
-            </TBody>
-          </Table>
+                    {row.cells.map((cell, idx) => (
+                      <TD key={idx} className="align-top">
+                        <span
+                          className={`font-semibold tracking-wide ${
+                            cell.rights === "—" ? "text-slate-300" : "text-green-700"
+                          }`}
+                        >
+                          {cell.rights}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] leading-tight text-slate-400">
+                          {cell.scope}
+                        </span>
+                      </TD>
+                    ))}
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          </div>
         </CardBody>
       </Card>
 

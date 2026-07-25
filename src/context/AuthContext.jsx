@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { fetchProfile, touchLastLogin, signUpBuilder } from "../lib/api";
+import { fetchPermissions, fetchProfile, touchLastLogin, signUpBuilder } from "../lib/api";
 import { acceptWorkerInvite, acceptStaffInvite } from "../lib/api";
 
 const AuthContext = createContext(null);
@@ -12,6 +12,18 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [initialising, setInitialising] = useState(true);
+  // Permissions come FROM the database (public.my_permissions), never from a
+  // table compiled into the bundle — the UI must not be able to claim access
+  // the database will refuse.
+  const [permissions, setPermissions] = useState(null);
+
+  // Every path that establishes a session goes through this, so the permission
+  // set is never left over from a previous account and never guessed locally.
+  const loadPermissions = useCallback(async () => {
+    const perms = await fetchPermissions().catch(() => null);
+    setPermissions(perms);
+    return perms;
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -26,8 +38,14 @@ export function AuthProvider({ children }) {
         if (!cancelled) {
           setUser(profile || null);
         }
+        // Ask the database what this account may actually do.
+        const perms = profile ? await fetchPermissions().catch(() => null) : null;
+        if (!cancelled) setPermissions(perms);
       } catch {
-        if (!cancelled) setUser(null);
+        if (!cancelled) {
+          setUser(null);
+          setPermissions(null);
+        }
       }
     }
 
@@ -42,6 +60,7 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         setUser(null);
+        setPermissions(null);
       } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
         loadProfileFor(session);
       }
@@ -67,8 +86,9 @@ export function AuthProvider({ children }) {
     }
     touchLastLogin(data.user.id);
     setUser(profile);
+    await loadPermissions();
     return profile;
-  }, []);
+  }, [loadPermissions]);
 
   // Real per-tradie signup via an invite link: create the account, claim the
   // invite (links profile → worker + org, role worker), then load the profile.
@@ -86,8 +106,9 @@ export function AuthProvider({ children }) {
     if (!profile?.workerId) throw new Error("Could not link your account to the invite.");
     touchLastLogin(data.user.id);
     setUser(profile);
+    await loadPermissions();
     return profile;
-  }, []);
+  }, [loadPermissions]);
 
   // Staff signup/sign-in via an invite link: establish a session (new account
   // or existing one), claim the invite (attaches profile → org + role), then
@@ -118,12 +139,14 @@ export function AuthProvider({ children }) {
     if (!profile) throw new Error("Could not link your account to the invite.");
     touchLastLogin(authUser.id);
     setUser(profile);
+    await loadPermissions();
     return profile;
-  }, []);
+  }, [loadPermissions]);
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
+    setPermissions(null);
   }, []);
 
   const resetPassword = useCallback(async (email) => {
@@ -141,14 +164,16 @@ export function AuthProvider({ children }) {
     if (!profile) throw new Error("Account created but profile is missing.");
     touchLastLogin(data.user.id);
     setUser(profile);
+    await loadPermissions();
     return profile;
-  }, []);
+  }, [loadPermissions]);
 
   const value = useMemo(() => {
     const role = user?.role || null;
     return {
       user,
       role,
+      permissions,
       initialising,
       login,
       signup,
@@ -160,7 +185,7 @@ export function AuthProvider({ children }) {
       isWorker: role === "worker",
       hasRole: (roleName) => role === roleName,
     };
-  }, [user, initialising, login, signup, joinAsTradie, joinAsStaff, logout, resetPassword]);
+  }, [user, permissions, initialising, login, signup, joinAsTradie, joinAsStaff, logout, resetPassword]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
