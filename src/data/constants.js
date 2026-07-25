@@ -98,6 +98,9 @@ export const NOTIFIABLE_SEVERITIES = [
 export const isNotifiableIncident = (type, severity) =>
   NOTIFIABLE_TYPES.includes(type) || NOTIFIABLE_SEVERITIES.includes(severity);
 
+// A corrective action's own lifecycle, independent of the incident's.
+export const correctiveActionStatuses = ["Open", "In Progress", "Done"];
+
 export const incidentLifecycle = [
   "Open", "Investigating", "Corrective Actions Assigned",
   "Corrective Actions Complete", "Closed",
@@ -263,10 +266,3 @@ export const permissionMatrix = {
   ),
 };
 
-// Roles offered on the login screen quick-access select
-export const demoLoginRoles = [
-  { role: "builder_admin", label: "Builder Admin", user: "David Caruana", email: "admin@ohsbuildervictoria.com.au" },
-  { role: "hse_manager", label: "HSE Manager", user: "Rebecca Lawson", email: "admin+hse@ohsbuildervictoria.com.au" },
-  { role: "site_supervisor", label: "Site Supervisor", user: "Tom Wallace", email: "admin+supervisor@ohsbuildervictoria.com.au" },
-  { role: "worker", label: "Stakeholder / Tradie", user: "Liam Nguyen", email: "admin+stakeholder@ohsbuildervictoria.com.au" },
-];

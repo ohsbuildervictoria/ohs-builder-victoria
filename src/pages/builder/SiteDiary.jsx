@@ -422,13 +422,6 @@ export default function SiteDiary() {
 
               <div className="flex flex-wrap gap-2">
                 <Button type="submit">Save Entry</Button>
-                <Button
-                  type="button"
-                  variant="gold"
-                  onClick={() => toast("Email delivery is coming in the next release", "warning")}
-                >
-                  ✉️ Email diary entry
-                </Button>
               </div>
             </form>
           </CardBody>

@@ -5,6 +5,7 @@ import {
   updateIncidentStatusRow,
   updateIncidentRow,
   insertCorrectiveAction,
+  updateCorrectiveActionRow,
 } from "../lib/api";
 import { enqueue, isNetworkError } from "../lib/offlineQueue";
 import { summariseMarks } from "../lib/bodyMap";
@@ -130,6 +131,26 @@ export function useIncidents(projectId = null) {
     [setIncidents]
   );
 
+  const updateCorrectiveAction = useCallback(
+    async (incidentId, actionId, patch) => {
+      const saved = await updateCorrectiveActionRow(Number(actionId), patch);
+      setIncidents((prev) =>
+        prev.map((i) =>
+          i.id !== Number(incidentId)
+            ? i
+            : {
+                ...i,
+                correctiveActions: (i.correctiveActions || []).map((a) =>
+                  a.id === saved.id ? saved : a
+                ),
+              }
+        )
+      );
+      return saved;
+    },
+    [setIncidents]
+  );
+
   const getByType = useCallback(
     (type) =>
       !type || type === "All"
@@ -138,5 +159,5 @@ export function useIncidents(projectId = null) {
     [scoped]
   );
 
-  return { incidents: scoped, addIncident, updateStatus, editIncident, addCorrectiveAction, getByType };
+  return { incidents: scoped, addIncident, updateStatus, editIncident, addCorrectiveAction, updateCorrectiveAction, getByType };
 }

@@ -1099,6 +1099,26 @@ export async function insertCorrectiveAction(incidentId, action) {
   return mapAction(data);
 }
 
+// Corrective actions could only ever be created. The dashboard's "Open
+// Corrective Actions" counter could only go up, and the Welcome page sells
+// exactly this ("assigned to a responsible person and tracked through to
+// completion"), so the one thing the feature promised was the one thing it
+// couldn't do.
+export async function updateCorrectiveActionRow(id, patch) {
+  const row = {};
+  if (patch.status !== undefined) row.status = patch.status;
+  if (patch.assignedTo !== undefined) row.assigned_to = patch.assignedTo;
+  if (patch.due !== undefined) row.due = patch.due || null;
+  const { data, error } = await supabase
+    .from("corrective_actions")
+    .update(row)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) fail(error, "Updating corrective action");
+  return mapAction(data);
+}
+
 export async function signSwmsRpc(templateId) {
   const { error } = await supabase.rpc("sign_swms", { template_id: templateId });
   if (error) fail(error, "Signing SWMS");

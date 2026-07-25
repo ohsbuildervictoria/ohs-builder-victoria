@@ -154,9 +154,6 @@ export default function AdminPortal() {
                         </>
                       ) : (
                         <>
-                          <Button size="sm" variant="secondary" onClick={() => toast(`Editing ${u.name}`)}>
-                            Edit
-                          </Button>
                           <Button
                             size="sm"
                             variant={u.status === "Active" ? "danger" : "success"}

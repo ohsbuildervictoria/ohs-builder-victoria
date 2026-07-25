@@ -24,6 +24,7 @@ import {
   legacyIncidentTypes,
   legacyIncidentSeverities,
   incidentLifecycle,
+  correctiveActionStatuses,
 } from "../../data/constants";
 
 const TABS = ["All Incidents", "Near Miss", "WorkSafe Notifiable"];
@@ -36,7 +37,7 @@ const TODAY_LOCAL = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.g
 const MAX_INCIDENT_DATETIME = `${TODAY_LOCAL}T23:59`;
 
 export default function Incidents() {
-  const { incidents, addIncident, updateStatus, editIncident, addCorrectiveAction } = useIncidents();
+  const { incidents, addIncident, updateStatus, editIncident, addCorrectiveAction, updateCorrectiveAction } = useIncidents();
   const { projects } = useProjects();
   const { org, audits } = useAppContext();
   const { user } = useAuth();
@@ -264,7 +265,24 @@ export default function Incidents() {
                       >
                         <span className="text-slate-700">{a.description}</span>
                         <span className="flex items-center gap-2 text-xs text-slate-500">
-                          {a.assignedTo} · due {a.due}
+                          {a.assignedTo}
+                          {a.due ? ` · due ${a.due}` : ""}
+                          {/* An action you can't close isn't tracking — it's a
+                              list that only grows. */}
+                          <select
+                            value={a.status}
+                            onChange={(e) =>
+                              updateCorrectiveAction(i.id, a.id, { status: e.target.value })
+                                .then(() => toast(`Action marked ${e.target.value}`))
+                                .catch((err) => toast(err.message || "Update failed", "error"))
+                            }
+                            className="rounded-lg border border-slate-300 px-2 py-1 text-xs focus:outline-none"
+                            aria-label={`Status of corrective action: ${a.description}`}
+                          >
+                            {correctiveActionStatuses.map((st) => (
+                              <option key={st}>{st}</option>
+                            ))}
+                          </select>
                           <Badge status={a.status} />
                         </span>
                       </div>

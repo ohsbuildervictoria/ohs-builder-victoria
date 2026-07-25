@@ -112,16 +112,16 @@ export default function SWMS() {
                 <Button
                   size="sm"
                   variant="secondary"
-                  onClick={() => toast(`Viewing ${t.trade} SWMS ${t.version}`)}
+                  onClick={async () => {
+                    try {
+                      await exportSwmsTemplate({ org, template: t, library: swmsLibrary });
+                      toast(`${t.trade} SWMS downloaded`);
+                    } catch (err) {
+                      toast(err.message || "Could not open the SWMS", "error");
+                    }
+                  }}
                 >
-                  View
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => toast(`Editing ${t.trade} SWMS template`)}
-                >
-                  Edit
+                  View / Download
                 </Button>
                 <Button
                   size="sm"
@@ -169,7 +169,7 @@ export default function SWMS() {
           <div>
             <h2 className="text-lg font-bold text-slate-800">SWMS Library</h2>
             <p className="text-xs text-slate-500">
-              {swmsLibrary.length} WorkSafe Victoria trade templates — David Caruana's complete library
+              {swmsLibrary.length} trade templates aligned to the OHS Regulations 2017 (Vic)
             </p>
           </div>
           <input

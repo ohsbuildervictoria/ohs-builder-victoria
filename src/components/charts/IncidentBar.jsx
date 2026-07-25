@@ -15,13 +15,16 @@ export default function IncidentBar({ data, height = 240 }) {
     <div style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
+          {/* paddingAngle only makes sense with more than one slice. With a
+              single incident type it ate the whole ring and left a 4-degree
+              sliver that read as an empty chart. */}
           <Pie
             data={data}
             dataKey="value"
             nameKey="name"
             innerRadius="50%"
             outerRadius="80%"
-            paddingAngle={2}
+            paddingAngle={data.length > 1 ? 2 : 0}
             stroke="none"
           >
             {data.map((entry, i) => (
