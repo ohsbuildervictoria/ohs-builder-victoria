@@ -277,11 +277,15 @@ export default function Incidents() {
                               list that only grows. */}
                           <select
                             value={a.status}
-                            onChange={(e) =>
-                              updateCorrectiveAction(i.id, a.id, { status: e.target.value })
-                                .then(() => toast(`Action marked ${e.target.value}`))
-                                .catch((err) => toast(err.message || "Update failed", "error"))
-                            }
+                            onChange={(e) => {
+                              // Read the value now, not inside the callback —
+                              // by then the select has re-rendered from state
+                              // and the toast reported the old status.
+                              const next = e.target.value;
+                              updateCorrectiveAction(i.id, a.id, { status: next })
+                                .then(() => toast(`Action marked ${next}`))
+                                .catch((err) => toast(err.message || "Update failed", "error"));
+                            }}
                             className="rounded-lg border border-slate-300 px-2 py-1 text-xs focus:outline-none"
                             aria-label={`Status of corrective action: ${a.description}`}
                           >
