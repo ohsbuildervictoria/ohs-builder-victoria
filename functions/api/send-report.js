@@ -62,6 +62,19 @@ const escapeHtml = (s) =>
 // Rough decoded size of a base64 payload without allocating it.
 const base64Bytes = (b64) => Math.floor((b64.length * 3) / 4);
 
+// Trims a long attachment name from the END, keeping the extension.
+// Chopping the front instead turned "Monthly-OHS-Summary-…" into
+// "hly-OHS-Summary-…" in a real send — the recipient sees this name, so it has
+// to stay readable from its first character.
+const MAX_FILENAME = 80;
+function sanitiseFilename(name) {
+  const clean = String(name || "").replace(/[^A-Za-z0-9._-]+/g, "-");
+  if (clean.length <= MAX_FILENAME) return clean;
+  const dot = clean.lastIndexOf(".");
+  const ext = dot > 0 ? clean.slice(dot) : "";
+  return clean.slice(0, MAX_FILENAME - ext.length) + ext;
+}
+
 export async function onRequestPost({ request, env }) {
   try {
     if (!env.RESEND_API_KEY) {
@@ -92,7 +105,7 @@ export async function onRequestPost({ request, env }) {
     if (base64Bytes(pdfBase64) > ATTACHMENT_LIMIT) {
       return json(413, { error: "That report is too large to email — download it instead." });
     }
-    const safeName = String(filename || "").replace(/[^A-Za-z0-9._-]+/g, "-").slice(-80);
+    const safeName = sanitiseFilename(filename);
     if (!/\.pdf$/i.test(safeName)) return json(400, { error: "Only PDF reports can be emailed." });
 
     const [profile] = await adminSelect(

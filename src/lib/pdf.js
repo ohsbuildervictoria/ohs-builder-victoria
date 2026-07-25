@@ -215,7 +215,17 @@ function output(doc, filename, mode = "save") {
   return { filename };
 }
 const save = (doc, filename) => output(doc, filename, "save");
-const slug = (s) => (s || "document").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
+// Filenames are read by whoever receives the document, so keep them short
+// enough to survive an email client. Org names can be long ("QA MASTER —
+// Internal Test (do not delete without asking)"); cap the slug rather than
+// generate a name that later has to be truncated.
+const slug = (s, max = 40) =>
+  (s || "document")
+    .replace(/[^A-Za-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase()
+    .slice(0, max)
+    .replace(/-$/, "");
 
 // ---------------------------------------------------------------------------
 // 1. SWMS pack — one project's Safe Work Method Statements + sign-off status
