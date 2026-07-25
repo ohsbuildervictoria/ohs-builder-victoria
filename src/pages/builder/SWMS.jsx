@@ -10,6 +10,7 @@ import { useProjects } from "../../hooks/useProjects";
 import { useWorkers } from "../../hooks/useWorkers";
 import { useAppContext } from "../../context/AppContext";
 import { useToast } from "../../components/ui/Notification";
+import Modal from "../../components/ui/Modal";
 import { swmsLibrary } from "../../data/swmsLibrary";
 import { exportSwmsPack, exportSwmsTemplate, exportSwmsLibrary } from "../../lib/pdf";
 
@@ -18,6 +19,9 @@ export default function SWMS() {
   const { projects } = useProjects();
   const { workers } = useWorkers();
   const { org } = useAppContext();
+  const [signing, setSigning] = useState(null); // template being signed off
+  const [signWorker, setSignWorker] = useState("");
+  const [signName, setSignName] = useState("");
   const toast = useToast();
   const [librarySearch, setLibrarySearch] = useState("");
   const [expandedRef, setExpandedRef] = useState(null);
@@ -146,16 +150,9 @@ export default function SWMS() {
                   <Button
                     size="sm"
                     variant="success"
-                    onClick={async () => {
-                      try {
-                        await signSWMS(t.id);
-                        toast(`Signature recorded for ${t.trade}`);
-                      } catch (err) {
-                        toast(err.message || "Could not record signature", "error");
-                      }
-                    }}
+                    onClick={() => setSigning(t)}
                   >
-                    + Sign
+                    + Record sign-off
                   </Button>
                 )}
               </div>
@@ -243,6 +240,83 @@ export default function SWMS() {
           ))}
         </div>
       </div>
+
+      {/* A signature with no signer is not a signature. This used to increment
+          a counter with no dialog at all, so the register could not say who
+          signed, which version, or when — and a builder could "sign" for a
+          tradie with the record unable to tell the difference. Staff-recorded
+          sign-offs are stamped as such. */}
+      <Modal
+        open={!!signing}
+        onClose={() => setSigning(null)}
+        title={signing ? `Record SWMS sign-off — ${signing.trade}` : ""}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setSigning(null)}>Cancel</Button>
+            <Button
+              onClick={async () => {
+                const worker = workers.find((w) => String(w.id) === String(signWorker));
+                const name = (signName || worker?.name || "").trim();
+                if (!name) return toast("Enter the name of the person who signed", "warning");
+                try {
+                  await signSWMS(signing.id, { signedName: name, workerId: worker?.id ?? null });
+                  toast(`${signing.trade} ${signing.version} signed by ${name}`);
+                  setSigning(null);
+                  setSignWorker("");
+                  setSignName("");
+                } catch (err) {
+                  toast(err.message || "Could not record signature", "error");
+                }
+              }}
+            >
+              Record sign-off
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4 text-sm">
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Recording a sign-off here is for a SWMS signed on paper or in front
+            of you. It is stored against <strong>{signing?.version}</strong> and
+            marked as recorded by staff — a tradie signing in their own portal
+            is recorded as their own signature.
+          </p>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Who signed
+            </span>
+            <select
+              className="swms-input"
+              value={signWorker}
+              onChange={(e) => {
+                setSignWorker(e.target.value);
+                const w = workers.find((x) => String(x.id) === e.target.value);
+                setSignName(w?.name || "");
+              }}
+            >
+              <option value="">— Select a stakeholder —</option>
+              {workers.map((w) => (
+                <option key={w.id} value={w.id}>{w.name}{w.trade ? ` (${w.trade})` : ""}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Name as signed
+            </span>
+            <input
+              className="swms-input"
+              value={signName}
+              onChange={(e) => setSignName(e.target.value)}
+              placeholder="Full name on the signed document"
+            />
+          </label>
+        </div>
+        <style>{`
+          .swms-input { width:100%; border-radius:0.5rem; border:1px solid #cbd5e1; padding:0.5rem 0.75rem; font-size:0.875rem; }
+          .swms-input:focus { outline:none; border-color:#1e3a8a; box-shadow:0 0 0 1px #1e3a8a; }
+        `}</style>
+      </Modal>
     </div>
   );
 }

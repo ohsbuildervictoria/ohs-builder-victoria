@@ -16,6 +16,8 @@ import {
   updateOrgNotifications,
   uploadOrgLogo,
   clearOrgLogo,
+  insertPolicy,
+  deletePolicyRow,
 } from "../../lib/api";
 
 const TABS = ["Policy Register", "Notifications", "Organisation", "Subscription", "Platform"];
@@ -56,6 +58,38 @@ export default function Policies() {
   const { policies, setPolicies, org, setOrg } = useAppContext();
   const [tab, setTab] = useState("Policy Register");
   const [modal, setModal] = useState(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [draft, setDraft] = useState({ name: "", version: "v1.0", category: policyCategories[0] });
+  const [saving, setSaving] = useState(false);
+
+  // The register had no insert path anywhere in the codebase, so the page that
+  // promises "OHS policy register … pushed to all stakeholders on site" could
+  // never hold a single policy.
+  const onAddPolicy = async () => {
+    if (!draft.name.trim()) return toast("Give the policy a name", "warning");
+    setSaving(true);
+    try {
+      const created = await insertPolicy(draft);
+      setPolicies((prev) => [...prev, created]);
+      setAddOpen(false);
+      setDraft({ name: "", version: "v1.0", category: policyCategories[0] });
+      toast(`${created.name} added to the register`);
+    } catch (err) {
+      toast(err.message || "Could not add the policy", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onRemovePolicy = async (p) => {
+    try {
+      await deletePolicyRow(p.id);
+      setPolicies((prev) => prev.filter((x) => x.id !== p.id));
+      toast(`${p.name} removed from the register`);
+    } catch (err) {
+      toast(err.message || "Could not remove the policy", "error");
+    }
+  };
 
   // Source of truth is org_settings.notifications; worksafe is always locked on.
   const toggles = {
@@ -106,6 +140,7 @@ export default function Policies() {
             <CardHeader
               title="Active Policies"
               subtitle={`${org?.name || brand.fullName} · ${brand.region}`}
+              action={<Button size="sm" onClick={() => setAddOpen(true)}>+ Add Policy</Button>}
             />
             <CardBody className="pt-2">
               <Table>
@@ -113,6 +148,14 @@ export default function Policies() {
                   columns={["Name", "Version", "Category", "Status", "Last Updated", "Actions"]}
                 />
                 <TBody>
+                  {policies.length === 0 && (
+                    <TR>
+                      <TD className="py-6 text-center text-sm text-slate-400">
+                        No policies in the register yet — add your OHS Management
+                        Plan and site policies so every stakeholder sees them.
+                      </TD>
+                    </TR>
+                  )}
                   {policies.map((p) => (
                     <TR key={p.id}>
                       <TD className="font-medium text-slate-800">{p.name}</TD>
@@ -124,17 +167,11 @@ export default function Policies() {
                       <TD>{p.updated}</TD>
                       <TD>
                         <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() =>
-                              toast("Policy editing opens in a future release", "warning")
-                            }
-                          >
-                            Edit
-                          </Button>
                           <Button size="sm" onClick={() => onUploadVersion(p)}>
-                            Upload New Version
+                            New Version
+                          </Button>
+                          <Button size="sm" variant="danger" onClick={() => onRemovePolicy(p)}>
+                            Remove
                           </Button>
                         </div>
                       </TD>
@@ -235,6 +272,63 @@ export default function Policies() {
           </CardBody>
         </Card>
       )}
+
+      <Modal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        title="Add a policy"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setAddOpen(false)}>Cancel</Button>
+            <Button onClick={onAddPolicy} disabled={saving}>
+              {saving ? "Adding…" : "Add to register"}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Policy name
+            </span>
+            <input
+              className="pol-input"
+              autoFocus
+              value={draft.name}
+              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              placeholder="e.g. OHS Management Plan"
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-4">
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Version
+              </span>
+              <input
+                className="pol-input"
+                value={draft.version}
+                onChange={(e) => setDraft({ ...draft, version: e.target.value })}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Category
+              </span>
+              <select
+                className="pol-input"
+                value={draft.category}
+                onChange={(e) => setDraft({ ...draft, category: e.target.value })}
+              >
+                {policyCategories.map((c) => <option key={c}>{c}</option>)}
+              </select>
+            </label>
+          </div>
+        </div>
+        <style>{`
+          .pol-input { width:100%; border-radius:0.5rem; border:1px solid #cbd5e1; padding:0.5rem 0.75rem; font-size:0.875rem; }
+          .pol-input:focus { outline:none; border-color:#1e3a8a; box-shadow:0 0 0 1px #1e3a8a; }
+        `}</style>
+      </Modal>
 
       <Modal
         open={!!modal}

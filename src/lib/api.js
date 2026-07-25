@@ -1119,9 +1119,60 @@ export async function updateCorrectiveActionRow(id, patch) {
   return mapAction(data);
 }
 
-export async function signSwmsRpc(templateId) {
-  const { error } = await supabase.rpc("sign_swms", { template_id: templateId });
-  if (error) fail(error, "Signing SWMS");
+// Records WHO signed WHICH VERSION and when, not just a counter. Falls back to
+// the old counter-only RPC if migration 006 hasn't been applied yet, so signing
+// never breaks between a deploy and the migration.
+export async function signSwmsRpc(templateId, { signedName, workerId } = {}) {
+  const { data, error } = await supabase.rpc("sign_swms_v2", {
+    template_id: templateId,
+    p_signed_name: signedName || "",
+    p_worker_id: workerId ?? null,
+  });
+  if (!error) return data;
+  if (/sign_swms_v2|PGRST202|does not exist|schema cache/i.test(error.message || "")) {
+    const legacy = await supabase.rpc("sign_swms", { template_id: templateId });
+    if (legacy.error) fail(legacy.error, "Signing SWMS");
+    return { recorded: true, signedName: signedName || "", legacy: true };
+  }
+  fail(error, "Signing SWMS");
+}
+
+export async function insertPolicy(policy) {
+  const { data, error } = await supabase
+    .from("policies")
+    .insert({
+      name: (policy.name || "").trim(),
+      version: (policy.version || "v1.0").trim(),
+      category: policy.category || "",
+      status: policy.status || "Active",
+      updated: localDate(),
+    })
+    .select()
+    .single();
+  if (error) fail(error, "Adding policy");
+  return mapPolicy(data);
+}
+
+export async function updatePolicyRow(id, patch) {
+  const row = {};
+  if (patch.name !== undefined) row.name = patch.name;
+  if (patch.version !== undefined) row.version = patch.version;
+  if (patch.category !== undefined) row.category = patch.category;
+  if (patch.status !== undefined) row.status = patch.status;
+  row.updated = localDate();
+  const { data, error } = await supabase
+    .from("policies")
+    .update(row)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) fail(error, "Updating policy");
+  return mapPolicy(data);
+}
+
+export async function deletePolicyRow(id) {
+  const { error } = await supabase.from("policies").delete().eq("id", id);
+  if (error) fail(error, "Removing policy");
 }
 
 // Re-reads one template so callers can derive status from what the DB really

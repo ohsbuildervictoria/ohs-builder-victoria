@@ -25,10 +25,10 @@ export function useSWMS(trade = null) {
   );
 
   const signSWMS = useCallback(
-    async (id) => {
+    async (id, { signedName, workerId } = {}) => {
       const current = templates.find((t) => t.id === Number(id));
       if (!current) return;
-      await signSwmsRpc(Number(id));
+      const result = await signSwmsRpc(Number(id), { signedName, workerId });
       // The RPC no-ops on locked templates, so status must come from what the
       // DB actually holds — never from an optimistic local increment.
       const fresh = await fetchTemplateRow(Number(id));
@@ -40,11 +40,14 @@ export function useSWMS(trade = null) {
       setTemplates((prev) =>
         prev.map((t) => (t.id === fresh.id ? { ...fresh, status } : t))
       );
-      if (fresh.signed === current.signed) {
+      if (fresh.signed === current.signed && !result?.recorded) {
         throw new Error(
-          "No signature recorded — this SWMS is locked for sign-off. Unlock it first."
+          result?.alreadySigned
+            ? "That person has already signed this version of the SWMS."
+            : "No signature recorded — this SWMS is locked for sign-off. Unlock it first."
         );
       }
+      return result;
     },
     [templates, setTemplates]
   );
