@@ -52,15 +52,35 @@ export default function WorkerHome() {
         G'day, {worker?.name?.split(" ")[0] || "Mate"}! 👋
       </h1>
 
-      {/* Site card */}
+      {/* Site card. Every field here can legitimately be empty — a tradie can
+          be added before they're assigned to a project, or without an employer
+          — and an empty card on the first screen leaves them unable to tell
+          which site they're even on. Say so instead of rendering blanks. */}
       <div className="mt-3 rounded-xl bg-blue-900 p-4 text-white">
         <p className="text-xs uppercase tracking-wider text-blue-200">Assigned Site</p>
-        <p className="mt-0.5 text-lg font-semibold">{project?.name}</p>
-        <p className="text-sm text-blue-100">{project?.address}</p>
-        <div className="mt-2 flex items-center gap-2 text-sm text-blue-100">
-          <span>{worker?.trade}</span>
-          <span>·</span>
-          <span>{worker?.employer}</span>
+        {project ? (
+          <>
+            <p className="mt-0.5 text-lg font-semibold">{project.name}</p>
+            {project.address && (
+              <p className="text-sm text-blue-100">{project.address}</p>
+            )}
+          </>
+        ) : (
+          <>
+            <p className="mt-0.5 text-lg font-semibold">Not assigned yet</p>
+            <p className="text-sm text-blue-100">
+              Your builder hasn&apos;t put you on a site yet — you can still get
+              your documents and induction done below.
+            </p>
+          </>
+        )}
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-blue-100">
+          {[worker?.trade, worker?.employer].filter(Boolean).map((bit, i, all) => (
+            <span key={bit} className="flex items-center gap-2">
+              {bit}
+              {i < all.length - 1 && <span aria-hidden>·</span>}
+            </span>
+          ))}
         </div>
       </div>
 
