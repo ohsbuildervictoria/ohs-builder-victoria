@@ -337,12 +337,20 @@ export default function Incidents() {
       >
         <form className="grid grid-cols-2 gap-4" onSubmit={handleSubmit(onCreate)}>
           <Field label="Incident type">
-            <select className="modal-input" {...register("type", { required: true })}>
+            <select
+              className="modal-input"
+              defaultValue=""
+              {...register("type", { required: "Choose what happened" })}
+            >
+              <option value="" disabled>— Select incident type —</option>
               {incidentTypeValues.map((t) => (
                 <option key={t}>{t}</option>
               ))}
             </select>
             <Hint text={incidentTypePurpose[watch("type")]} />
+            {errors.type && (
+              <p className="mt-1 text-xs text-red-500">{errors.type.message}</p>
+            )}
           </Field>
           <Field label="Date / time">
             <input
@@ -373,12 +381,20 @@ export default function Incidents() {
             <input className="modal-input" {...register("location")} />
           </Field>
           <Field label="Severity">
-            <select className="modal-input" {...register("severity", { required: true })}>
+            <select
+              className="modal-input"
+              defaultValue=""
+              {...register("severity", { required: "Grade the consequence" })}
+            >
+              <option value="" disabled>— Select severity —</option>
               {incidentSeverityValues.map((s) => (
                 <option key={s}>{s}</option>
               ))}
             </select>
             <Hint text={incidentSeverityMeaning[watch("severity")]} />
+            {errors.severity && (
+              <p className="mt-1 text-xs text-red-500">{errors.severity.message}</p>
+            )}
           </Field>
           <Field label="Injured / involved person">
             <input className="modal-input" {...register("involved")} />
