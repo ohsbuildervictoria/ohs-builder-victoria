@@ -1,4 +1,4 @@
-import { json, adminSelect, sendEmail, layout, button } from "./_lib/email";
+import { json, adminSelect, sendEmail, layout, button, escapeHtml } from "./_lib/email";
 
 // POST /api/cron-nudges  (header: x-cron-secret)
 // Daily compliance digest, one email per organisation to its builder admins:
@@ -39,13 +39,13 @@ export async function onRequestPost({ request, env }) {
       const w = workerById[d.worker_id];
       if (!w) continue;
       const state = d.expiry_date < today ? "EXPIRED" : `expires ${d.expiry_date}`;
-      add(d.organization_id, `${w.name} — ${label[d.category] || d.category} ${state}`);
+      add(d.organization_id, `${escapeHtml(w.name)} — ${escapeHtml(label[d.category] || d.category)} ${state}`);
     }
     for (const d of companyDocs) {
       const c = companyById[d.company_id];
       if (!c) continue;
       const state = d.expiry_date < today ? "EXPIRED" : `expires ${d.expiry_date}`;
-      add(d.organization_id, `${c.name} — ${label[d.category] || d.category} ${state}`);
+      add(d.organization_id, `${escapeHtml(c.name)} — ${escapeHtml(label[d.category] || d.category)} ${state}`);
     }
     for (const w of workers) {
       if (w.account_status === "invited" && w.created_at < staleInvite) {

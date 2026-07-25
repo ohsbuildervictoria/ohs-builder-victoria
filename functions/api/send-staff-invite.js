@@ -5,6 +5,8 @@ import {
   sendEmail,
   layout,
   button,
+  escapeHtml,
+  serverError,
 } from "./_lib/email";
 
 const ROLE_LABELS = {
@@ -28,7 +30,8 @@ export async function onRequestPost({ request, env }) {
     if (!user?.id) return json(401, { error: "Not signed in." });
 
     const { inviteId } = await request.json().catch(() => ({}));
-    if (!inviteId) return json(400, { error: "inviteId required" });
+    const iid = Number(inviteId);
+    if (!Number.isInteger(iid) || iid <= 0) return json(400, { error: "A valid inviteId is required." });
 
     const [profile] = await adminSelect(
       env,
@@ -40,7 +43,7 @@ export async function onRequestPost({ request, env }) {
 
     const [invite] = await adminSelect(
       env,
-      `invites?select=id,name,email,role,status,invite_token,organization_id&id=eq.${Number(inviteId)}`
+      `invites?select=id,name,email,role,status,invite_token,organization_id&id=eq.${iid}`
     );
     if (!invite || invite.organization_id !== profile.organization_id) {
       return json(404, { error: "Invite not found." });
@@ -61,14 +64,14 @@ export async function onRequestPost({ request, env }) {
     const roleLabel = ROLE_LABELS[invite.role] || invite.role;
 
     const html = layout({
-      heading: `${orgName} has invited you to their team`,
+      heading: `${escapeHtml(orgName)} has invited you to their team`,
       bodyHtml: `
-        <p style="margin:0 0 12px;">G'day ${firstName},</p>
-        <p style="margin:0 0 12px;"><strong>${orgName}</strong> uses OHS Builder Victoria to run their site safety paperwork, and has invited you to join as their <strong>${roleLabel}</strong>.</p>
+        <p style="margin:0 0 12px;">G'day ${escapeHtml(firstName)},</p>
+        <p style="margin:0 0 12px;"><strong>${escapeHtml(orgName)}</strong> uses OHS Builder Victoria to run their site safety paperwork, and has invited you to join as their <strong>${escapeHtml(roleLabel)}</strong>.</p>
         <p style="margin:0 0 4px;">Set up your sign-in here (takes about a minute):</p>
         ${button(link, "Set up my account")}
-        <p style="margin:14px 0 0;font-size:13px;color:#64748b;">This link is yours only, works once, and only for the email address it was sent to. If you weren't expecting this, check with ${orgName} before clicking — or just ignore this email.</p>`,
-      footerNote: `You're receiving this because ${orgName} invited you (as their ${roleLabel}) to their team on OHS Builder Victoria.`,
+        <p style="margin:14px 0 0;font-size:13px;color:#64748b;">This link is yours only, works once, and only for the email address it was sent to. If you weren't expecting this, check with ${escapeHtml(orgName)} before clicking — or just ignore this email.</p>`,
+      footerNote: `You're receiving this because ${escapeHtml(orgName)} invited you (as their ${escapeHtml(roleLabel)}) to their team on OHS Builder Victoria.`,
     });
     const text = `G'day ${firstName},
 
@@ -89,6 +92,6 @@ This link is yours only, works once, and only for the email address it was sent 
     });
     return json(200, { sent: true, to: invite.email });
   } catch (err) {
-    return json(500, { error: err.message || "Could not send the email." });
+    return serverError(err, "Could not send the email.");
   }
 }

@@ -4,6 +4,8 @@ import {
   adminSelect,
   sendEmail,
   layout,
+  escapeHtml,
+  serverError,
 } from "./_lib/email";
 
 // POST /api/send-report
@@ -51,13 +53,6 @@ const KINDS = {
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-
-const escapeHtml = (s) =>
-  String(s || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 
 // Rough decoded size of a base64 payload without allocating it.
 const base64Bytes = (b64) => Math.floor((b64.length * 3) / 4);
@@ -161,6 +156,6 @@ The full report is attached as a PDF: ${safeName}
 
     return json(200, { sent: true, to: recipients, filename: safeName });
   } catch (err) {
-    return json(500, { error: err.message || "Could not send the report." });
+    return serverError(err, "Could not send the report.");
   }
 }

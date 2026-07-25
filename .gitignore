@@ -28,3 +28,6 @@ git_output.log
 TIME_TRACKER.json
 
 .temp/
+
+# Local agent permissions — machine-specific, not part of the app
+.claude/settings.local.json

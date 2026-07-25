@@ -18,6 +18,30 @@ export function json(status, body) {
   });
 }
 
+// Escapes a value before it goes into email HTML.
+//
+// Every one of these values is attacker-influenced: a builder chooses their own
+// organisation name, and their workers' names and trades. Unescaped, a worker
+// called `<a href="http://evil">Click here</a>` renders as a working link
+// inside a legitimately signed email from our own domain — which turns
+// transactional mail into a phishing carrier with our SPF/DKIM behind it.
+export function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// A 500 must not hand the caller our schema. adminSelect throws with the full
+// PostgREST query (table + column list) in the message; log that server-side
+// and give the client something it can act on instead.
+export function serverError(err, friendly) {
+  console.error("[api]", err?.stack || err?.message || err);
+  return json(500, { error: friendly });
+}
+
 // Who is calling? Verifies the Supabase JWT and returns the auth user.
 export async function verifyUser(env, request) {
   const auth = request.headers.get("Authorization") || "";

@@ -5,6 +5,8 @@ import {
   sendEmail,
   layout,
   button,
+  escapeHtml,
+  serverError,
 } from "./_lib/email";
 
 // POST /api/send-invite { workerId }
@@ -20,7 +22,8 @@ export async function onRequestPost({ request, env }) {
     if (!user?.id) return json(401, { error: "Not signed in." });
 
     const { workerId } = await request.json().catch(() => ({}));
-    if (!workerId) return json(400, { error: "workerId required" });
+    const wid = Number(workerId);
+    if (!Number.isInteger(wid) || wid <= 0) return json(400, { error: "A valid workerId is required." });
 
     const [profile] = await adminSelect(
       env,
@@ -33,7 +36,7 @@ export async function onRequestPost({ request, env }) {
 
     const [worker] = await adminSelect(
       env,
-      `workers?select=id,name,trade,email,invite_token,account_status,organization_id,project_id&id=eq.${Number(workerId)}`
+      `workers?select=id,name,trade,email,invite_token,account_status,organization_id,project_id&id=eq.${wid}`
     );
     if (!worker || worker.organization_id !== profile.organization_id) {
       return json(404, { error: "Worker not found." });
@@ -58,19 +61,19 @@ export async function onRequestPost({ request, env }) {
     const firstName = (worker.name || "").split(" ")[0] || "there";
     const orgName = org?.name || "Your builder";
     const projectLine = project
-      ? `<p style="margin:0 0 12px;">Site: <strong>${project.name}</strong>${project.address ? ` — ${project.address}` : ""}</p>`
+      ? `<p style="margin:0 0 12px;">Site: <strong>${escapeHtml(project.name)}</strong>${project.address ? ` — ${escapeHtml(project.address)}` : ""}</p>`
       : "";
 
     const html = layout({
-      heading: `${orgName} has added you to their site team`,
+      heading: `${escapeHtml(orgName)} has added you to their site team`,
       bodyHtml: `
-        <p style="margin:0 0 12px;">G'day ${firstName},</p>
-        <p style="margin:0 0 12px;"><strong>${orgName}</strong> uses OHS Builder Victoria to run their site safety paperwork — induction, SWMS sign-off and your tickets, all from your phone.</p>
+        <p style="margin:0 0 12px;">G'day ${escapeHtml(firstName)},</p>
+        <p style="margin:0 0 12px;"><strong>${escapeHtml(orgName)}</strong> uses OHS Builder Victoria to run their site safety paperwork — induction, SWMS sign-off and your tickets, all from your phone.</p>
         ${projectLine}
         <p style="margin:0 0 4px;">Set up your sign-in here (takes about a minute):</p>
         ${button(link, "Set up my site sign-in")}
-        <p style="margin:14px 0 0;font-size:13px;color:#64748b;">This link is yours only and works once. If you weren't expecting this, check with ${orgName} before clicking — or just ignore this email.</p>`,
-      footerNote: `You're receiving this because ${orgName} added you (as their ${worker.trade || "tradesperson"}) to their team on OHS Builder Victoria.`,
+        <p style="margin:14px 0 0;font-size:13px;color:#64748b;">This link is yours only and works once. If you weren't expecting this, check with ${escapeHtml(orgName)} before clicking — or just ignore this email.</p>`,
+      footerNote: `You're receiving this because ${escapeHtml(orgName)} added you (as their ${escapeHtml(worker.trade || "tradesperson")}) to their team on OHS Builder Victoria.`,
     });
     const text = `G'day ${firstName},
 
@@ -91,6 +94,6 @@ This link is yours only and works once. If you weren't expecting this, check wit
     });
     return json(200, { sent: true, to: worker.email });
   } catch (err) {
-    return json(500, { error: err.message || "Could not send the email." });
+    return serverError(err, "Could not send the email.");
   }
 }
