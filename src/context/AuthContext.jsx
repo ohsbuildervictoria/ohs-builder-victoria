@@ -35,6 +35,18 @@ export function AuthProvider({ children }) {
       }
       try {
         const profile = await fetchProfile(session.user.id);
+        // Deactivation has to bite on an existing session, not just at the
+        // next sign-in. The database refuses a deactivated account as well;
+        // this is so the person is told why, instead of watching every screen
+        // come back empty.
+        if (profile && profile.status && profile.status !== "Active") {
+          await supabase.auth.signOut();
+          if (!cancelled) {
+            setUser(null);
+            setPermissions(null);
+          }
+          return;
+        }
         if (!cancelled) {
           setUser(profile || null);
         }

@@ -15,6 +15,7 @@ import { useAppContext } from "../../context/AppContext";
 import { useToast } from "../../components/ui/Notification";
 import { useAuth } from "../../hooks/useAuth";
 import { exportIncidentReport } from "../../lib/pdf";
+import { recordWorkSafeNotification } from "../../lib/api";
 import { PhotoPicker, PhotoStrip } from "../../components/shared/RecordPhotos";
 import { usePhotos } from "../../hooks/usePhotos";
 import {
@@ -40,13 +41,19 @@ const MAX_INCIDENT_DATETIME = `${TODAY_LOCAL}T23:59`;
 export default function Incidents() {
   const { incidents, addIncident, updateStatus, editIncident, addCorrectiveAction, updateCorrectiveAction } = useIncidents();
   const { projects } = useProjects();
-  const { org, audits } = useAppContext();
+  const { org, audits, refresh } = useAppContext();
   const { user } = useAuth();
   const toast = useToast();
   const [tab, setTab] = useState("All Incidents");
   const [typeFilter, setTypeFilter] = useState("All");
   const [createOpen, setCreateOpen] = useState(false);
   const [actionFor, setActionFor] = useState(null);
+  // The notifiable incident whose WorkSafe call is being recorded.
+  const [notifyFor, setNotifyFor] = useState(null);
+  const [notifyRef, setNotifyRef] = useState("");
+  const [notifyMethod, setNotifyMethod] = useState("Telephone 13 23 60");
+  const [notifyPreserved, setNotifyPreserved] = useState(true);
+  const [notifyBusy, setNotifyBusy] = useState(false);
   const [editing, setEditing] = useState(null); // incident being corrected
   // Body-diagram marks live outside react-hook-form (it registers inputs, and
   // this is a tap-on-a-picture control). Reset alongside the form.
@@ -215,6 +222,43 @@ export default function Incidents() {
                       {i.location ? ` · ${i.location}` : ""}
                     </p>
                     <PhotoStrip entity="incident" entityId={i.id} />
+                    {i.notifiable && (
+                      <div
+                        className={`mt-3 rounded-lg px-3 py-2 text-xs ${
+                          i.notifiedAt
+                            ? "bg-green-50 text-green-800"
+                            : "bg-red-50 text-red-700"
+                        }`}
+                      >
+                        {i.notifiedAt ? (
+                          <>
+                            <span className="font-semibold">
+                              WorkSafe notified
+                            </span>{" "}
+                            {new Date(i.notifiedAt).toLocaleString("en-AU")}
+                            {i.notifiedBy ? ` by ${i.notifiedBy}` : ""}
+                            {i.worksafeReference
+                              ? ` · ref ${i.worksafeReference}`
+                              : ""}
+                          </>
+                        ) : (
+                          <>
+                            <span className="font-semibold">
+                              WorkSafe has not been notified.
+                            </span>{" "}
+                            Call 13 23 60 immediately and leave the site
+                            undisturbed, then record the call here. This
+                            incident cannot be closed until you do.
+                            <button
+                              onClick={() => setNotifyFor(i)}
+                              className="ml-2 font-semibold underline"
+                            >
+                              Record the call
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="flex flex-col items-end gap-2">
                     <select
@@ -437,7 +481,9 @@ export default function Incidents() {
               If the incident involved death, immediate hospital treatment, or a
               dangerous occurrence, it must be notified to WorkSafe Victoria
               (13 23 60) immediately — set the type to{" "}
-              <span className="font-semibold">Notifiable (WorkSafe)</span>.
+              <span className="font-semibold">Notifiable Incident</span>, then
+              record the call on the incident so the register can prove it was
+              made.
             </p>
           </div>
           <div className="col-span-2">
@@ -559,6 +605,91 @@ export default function Incidents() {
       </Modal>
 
       {/* Email one incident report as a PDF (same document as Download PDF) */}
+      {/* Recording the WorkSafe notification. The database refuses to close a
+          notifiable incident until this exists, so it is the record, not a
+          reminder. */}
+      <Modal
+        open={!!notifyFor}
+        onClose={() => setNotifyFor(null)}
+        title="Record the WorkSafe notification"
+      >
+        <p className="text-sm text-slate-600">
+          Under section 38 of the OHS Act you must notify WorkSafe Victoria{" "}
+          <span className="font-semibold">immediately</span> on{" "}
+          <a href="tel:132360" className="font-semibold text-blue-700">
+            13 23 60
+          </a>
+          , give written notice within 48 hours, and leave the site undisturbed
+          until an inspector releases it. Record the call once you have made it
+          — this is what the register will show.
+        </p>
+
+        <label className="mt-4 block text-sm font-medium text-slate-700">
+          How you notified them
+          <select
+            value={notifyMethod}
+            onChange={(e) => setNotifyMethod(e.target.value)}
+            className="modal-input mt-1"
+          >
+            <option>Telephone 13 23 60</option>
+            <option>Online notification form</option>
+            <option>In person to an inspector</option>
+          </select>
+        </label>
+
+        <label className="mt-3 block text-sm font-medium text-slate-700">
+          WorkSafe reference number (if given)
+          <input
+            value={notifyRef}
+            onChange={(e) => setNotifyRef(e.target.value)}
+            placeholder="Optional"
+            className="modal-input mt-1"
+          />
+        </label>
+
+        <label className="mt-3 flex items-start gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            checked={notifyPreserved}
+            onChange={(e) => setNotifyPreserved(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            The site has been left undisturbed, except so far as needed to help
+            an injured person or make the area safe.
+          </span>
+        </label>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setNotifyFor(null)}>
+            Cancel
+          </Button>
+          <Button
+            disabled={notifyBusy}
+            onClick={async () => {
+              setNotifyBusy(true);
+              try {
+                await recordWorkSafeNotification(notifyFor.id, {
+                  method: notifyMethod,
+                  reference: notifyRef,
+                  sitePreserved: notifyPreserved,
+                });
+                await refresh();
+                toast("WorkSafe notification recorded");
+                setNotifyFor(null);
+                setNotifyRef("");
+              } catch (err) {
+                toast(err.message || "Could not record the notification", "error");
+              } finally {
+                setNotifyBusy(false);
+              }
+            }}
+          >
+            {notifyBusy ? "Recording…" : "Record notification"}
+          </Button>
+        </div>
+      </Modal>
+
       <EmailReportModal
         open={!!emailing}
         onClose={() => setEmailing(null)}

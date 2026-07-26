@@ -147,7 +147,10 @@ export default function Pricing() {
               ["🔒", "Australian data hosting", "Row-level security isolates every builder's records."],
               ["📄", "Unlimited PDF exports", "Branded, audit-ready documents for any record."],
               ["📱", "Works on site", "Phone-first, and keeps working through a dead spot."],
-              ["♾️", "Unlimited tradies", "Never pay per subbie — add the whole crew."],
+              // Not "unlimited" — every tier carries a stakeholder cap a few
+              // hundred pixels below this, and a builder who reads the promise
+              // first has a fair grievance when their crew hits the ceiling.
+              ["👷", "No per-seat charge", "Your crew counts toward your plan, not your invoice."],
             ].map(([icon, title, text]) => (
               <div key={title}>
                 <span className="text-2xl">{icon}</span>

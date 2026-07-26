@@ -115,6 +115,13 @@ const mapIncident = (r, projectsById = {}) => ({
   witnesses: r.witnesses,
   immediateAction: r.immediate_action,
   notifiable: r.notifiable,
+  // Evidence that WorkSafe was actually called, not just that the incident
+  // was classified as one that requires it. Absent until migration 011.
+  notifiedAt: r.notified_at ?? null,
+  notifiedBy: r.notified_by ?? null,
+  notificationMethod: r.notification_method ?? null,
+  worksafeReference: r.worksafe_reference ?? null,
+  sitePreserved: r.site_preserved ?? null,
   // Marked points on the front/back body diagram (see src/lib/bodyMap.js).
   bodyMap: Array.isArray(r.body_map) ? r.body_map : [],
   correctiveActions: (r.corrective_actions || []).map(mapAction),
@@ -990,15 +997,82 @@ export async function acceptWorkerInvite(token) {
   return data; // worker id
 }
 
-// Staff path: direct update of any worker's compliance category.
-export async function updateWorkerComplianceRow(workerId, categoryKey, value, newStatus) {
+// Staff path: record a compliance category against a worker.
+//
+// Induction and SWMS are evidence-backed — a green tick has to stand on a
+// signature or a recorded completion, so those go through an RPC that writes
+// the evidence first. The quiz has no manual path at all; it is graded when
+// it is sat. Documents (White Card, insurance, medical) are a staff
+// verification of a file that was uploaded, so they stay a direct update.
+const EVIDENCE_BACKED = new Set(["induction", "swms"]);
+
+export async function updateWorkerComplianceRow(workerId, categoryKey, value, newStatus, note) {
   const col = COMPLIANCE_COLS[categoryKey];
   if (!col) throw new Error(`Unknown compliance category: ${categoryKey}`);
+
+  if (EVIDENCE_BACKED.has(categoryKey)) {
+    const { error } = await supabase.rpc("record_compliance_signoff", {
+      p_worker_id: workerId,
+      p_category: categoryKey,
+      p_value: value,
+      p_note: note ?? null,
+    });
+    if (!error) return;
+    // Until migration 011 is applied the RPC won't exist; fall back to the
+    // direct write rather than blocking the builder.
+    if (!/record_compliance_signoff|PGRST202|does not exist|schema cache/i.test(error.message || "")) {
+      fail(error, "Recording sign-off");
+    }
+  }
+
   const { error } = await supabase
     .from("workers")
     .update({ [col]: value, status: newStatus })
     .eq("id", workerId);
   if (error) fail(error, "Updating compliance");
+}
+
+// Per-person toolbox attendance. The meeting's signature count is derived
+// from these rows by the database — a number on its own could never answer
+// "was this person at the talk?", which is the only thing consultation
+// evidence is for.
+export async function recordToolboxAttendanceRpc(meetingId, workerId, signedName) {
+  const { data, error } = await supabase.rpc("record_toolbox_attendance", {
+    p_meeting_id: meetingId,
+    p_worker_id: workerId,
+    p_signed_name: signedName || null,
+  });
+  if (error) fail(error, "Recording attendance");
+  return data;
+}
+
+export async function fetchToolboxAttendance(meetingId) {
+  const { data, error } = await supabase
+    .from("toolbox_signatures")
+    .select("id, worker_id, signed_name, signed_by_staff, signed_at")
+    .eq("meeting_id", meetingId)
+    .order("signed_at");
+  if (error) return [];
+  return (data || []).map((r) => ({
+    id: r.id,
+    workerId: r.worker_id,
+    signedName: r.signed_name,
+    byStaff: r.signed_by_staff,
+    signedAt: r.signed_at,
+  }));
+}
+
+// Records that WorkSafe was actually notified about a notifiable incident.
+// Until this exists against an incident, the database refuses to let it close.
+export async function recordWorkSafeNotification(incidentId, { method, reference, sitePreserved } = {}) {
+  const { data, error } = await supabase.rpc("record_worksafe_notification", {
+    p_incident_id: incidentId,
+    p_method: method || "Telephone 13 23 60",
+    p_reference: reference || null,
+    p_site_preserved: sitePreserved ?? null,
+  });
+  if (error) fail(error, "Recording the WorkSafe notification");
+  return data;
 }
 
 // Staff path: save a worker's registration details (contact, emergency, quals).
@@ -1362,9 +1436,22 @@ export async function signUpBuilder({ email, password, name, orgName }) {
   return data.user.id;
 }
 
+// Activating or deactivating someone is an access decision, so it goes
+// through the audited RPC rather than a bare column write. Until migration 010
+// is applied the RPC won't exist, so fall back to the direct update — which is
+// what the button did before, and no worse.
 export async function updateProfileStatus(id, status) {
-  const { error } = await supabase.from("profiles").update({ status }).eq("id", id);
-  if (error) fail(error, "Updating user");
+  const { error } = await supabase.rpc("set_user_status", {
+    p_user: id,
+    p_status: status,
+  });
+  if (!error) return;
+  if (/set_user_status|PGRST202|does not exist|schema cache/i.test(error.message || "")) {
+    const legacy = await supabase.from("profiles").update({ status }).eq("id", id);
+    if (legacy.error) fail(legacy.error, "Updating user");
+    return;
+  }
+  fail(error, "Updating user");
 }
 
 export async function insertInvite(invite) {

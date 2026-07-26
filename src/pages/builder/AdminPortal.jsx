@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import Card, { CardBody, CardHeader } from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
@@ -12,6 +13,10 @@ import { useProjects } from "../../hooks/useProjects";
 import { useAppContext } from "../../context/AppContext";
 import { roleLabels, permissionMatrix, permissionRoles } from "../../data/constants";
 import { updateProfileStatus, insertInvite, emailStaffInvite } from "../../lib/api";
+
+// Roles this screen may invite. "worker" is deliberately absent — see the
+// Role field below.
+const STAFF_ROLES = ["builder_admin", "hse_manager", "site_supervisor"];
 
 const formatLastLogin = (iso) => {
   if (!iso) return "—";
@@ -62,6 +67,12 @@ export default function AdminPortal() {
       return;
     }
     const status = u.status === "Active" ? "Deactivated" : "Active";
+    if (status === "Deactivated" &&
+        !window.confirm(
+          `Deactivate ${u.name}? They will be signed out of every device and lose access to this company's records immediately.`
+        )) {
+      return;
+    }
     try {
       await updateProfileStatus(u.id, status);
       setProfiles((prev) =>
@@ -108,7 +119,7 @@ export default function AdminPortal() {
             Platform users, roles and permissions
           </p>
         </div>
-        <Button onClick={() => setInviteOpen(true)}>+ Invite Stakeholder</Button>
+        <Button onClick={() => setInviteOpen(true)}>+ Invite Staff Member</Button>
       </div>
 
       {/* Roles summary */}
@@ -240,13 +251,25 @@ export default function AdminPortal() {
             <input type="email" className="adm-input" {...register("email", { required: true })} />
           </Field>
           <Field label="Role">
+            {/* Staff roles only. A tradie invited from here would get an
+                account with no worker record behind it — no White Card, no
+                induction, no SWMS could ever attach to them — while showing
+                as "Active" in the table above. Crew are added on the
+                Compliance page, which creates the worker record first. */}
             <select className="adm-input" {...register("role", { required: true })}>
-              {Object.entries(roleLabels).map(([key, label]) => (
+              {STAFF_ROLES.map((key) => (
                 <option key={key} value={key}>
-                  {label}
+                  {roleLabels[key]}
                 </option>
               ))}
             </select>
+            <p className="mt-1 text-xs text-slate-500">
+              Adding a tradie or subbie? Use{" "}
+              <Link to="/builder/compliance" className="font-medium text-blue-700 hover:underline">
+                Compliance → Invite Stakeholder
+              </Link>{" "}
+              so their compliance record is created with them.
+            </p>
           </Field>
           <Field label="Project assignment">
             <select className="adm-input" {...register("project")}>

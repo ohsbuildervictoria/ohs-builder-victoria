@@ -1,8 +1,12 @@
 import { useCallback, useMemo } from "react";
 import { useAppContext } from "../context/AppContext";
-import { insertToolboxMeeting, updateMeetingSignatures } from "../lib/api";
+import {
+  insertToolboxMeeting,
+  recordToolboxAttendanceRpc,
+  fetchToolboxAttendance,
+} from "../lib/api";
 
-// { meetings, addMeeting, recordAttendance, getStats }
+// { meetings, addMeeting, signFor, loadAttendance, getStats }
 export function useToolbox(projectId = null) {
   const { meetings, setMeetings } = useAppContext();
 
@@ -23,18 +27,34 @@ export function useToolbox(projectId = null) {
     [setMeetings]
   );
 
-  // Records (or removes) a digital signature for an attendee on a meeting.
-  const recordAttendance = useCallback(
-    async (id, delta = 1) => {
-      const current = meetings.find((m) => m.id === Number(id));
-      if (!current) return;
-      const signatures = Math.max(0, current.signatures + delta);
-      await updateMeetingSignatures(Number(id), signatures);
-      setMeetings((prev) =>
-        prev.map((m) => (m.id === Number(id) ? { ...m, signatures } : m))
+  // Records that a NAMED person was at the meeting.
+  //
+  // This used to be a counter: "+ Sign" added one to an integer, and anyone
+  // could press it repeatedly. A number cannot answer the only question
+  // consultation evidence exists to answer — was this person at the talk
+  // where that hazard was covered? Attendance is now a row per person, and
+  // the count on the meeting is derived from it by the database.
+  const signFor = useCallback(
+    async (meetingId, workerId, signedName) => {
+      const result = await recordToolboxAttendanceRpc(
+        Number(meetingId),
+        Number(workerId),
+        signedName
       );
+      const roll = await fetchToolboxAttendance(Number(meetingId));
+      setMeetings((prev) =>
+        prev.map((m) =>
+          m.id === Number(meetingId) ? { ...m, signatures: roll.length } : m
+        )
+      );
+      return { result, roll };
     },
-    [meetings, setMeetings]
+    [setMeetings]
+  );
+
+  const loadAttendance = useCallback(
+    (meetingId) => fetchToolboxAttendance(Number(meetingId)),
+    []
   );
 
   const getStats = useCallback(() => {
@@ -52,5 +72,5 @@ export function useToolbox(projectId = null) {
     return { total, signatures, avgAttendance };
   }, [scoped]);
 
-  return { meetings: scoped, addMeeting, recordAttendance, getStats };
+  return { meetings: scoped, addMeeting, signFor, loadAttendance, getStats };
 }

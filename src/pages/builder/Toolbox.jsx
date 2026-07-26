@@ -16,19 +16,46 @@ import { useAuth } from "../../hooks/useAuth";
 const THIRTY_DAYS_AGO = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
 export default function Toolbox() {
-  const { meetings, addMeeting, recordAttendance, getStats } = useToolbox();
+  const { meetings, addMeeting, signFor, loadAttendance, getStats } = useToolbox();
   const { projects, getProject } = useProjects();
   const { workers } = useWorkers();
   const { user } = useAuth();
   const toast = useToast();
   const [createOpen, setCreateOpen] = useState(false);
   const [attendees, setAttendees] = useState([]);
+  // The meeting whose attendance register is open, and the names already on it.
+  const [rollFor, setRollFor] = useState(null);
+  const [roll, setRoll] = useState([]);
+  const [rollBusy, setRollBusy] = useState(false);
+
+  const openRoll = async (meeting) => {
+    setRollFor(meeting);
+    setRoll([]);
+    setRoll(await loadAttendance(meeting.id));
+  };
+
+  const signAttendee = async (worker) => {
+    setRollBusy(true);
+    try {
+      const { roll: fresh } = await signFor(rollFor.id, worker.id, worker.name);
+      setRoll(fresh);
+      toast(`${worker.name} recorded as attending`);
+    } catch (err) {
+      toast(err.message || "Could not record attendance", "error");
+    } finally {
+      setRollBusy(false);
+    }
+  };
   const { register, handleSubmit, reset } = useForm();
 
   const stats = getStats();
   const meetings30d = meetings.filter(
     (m) => new Date(m.date).getTime() >= THIRTY_DAYS_AGO
   ).length;
+
+  // Only the crew on that site can meaningfully attend that site's pre-start.
+  const crewFor = (meeting) =>
+    meeting ? workers.filter((w) => w.project === meeting.project) : [];
 
   const toggleAttendee = (id) =>
     setAttendees((prev) =>
@@ -117,19 +144,9 @@ export default function Toolbox() {
                     />
                   </TD>
                   <TD>
-                    {m.signatures < m.attendees && (
-                      <Button
-                        size="sm"
-                        variant="success"
-                        onClick={() =>
-                          recordAttendance(m.id, 1)
-                            .then(() => toast("Signature collected"))
-                            .catch((err) => toast(err.message || "Failed", "error"))
-                        }
-                      >
-                        + Sign
-                      </Button>
-                    )}
+                    <Button size="sm" variant="secondary" onClick={() => openRoll(m)}>
+                      Attendance
+                    </Button>
                   </TD>
                 </TR>
               ))}
@@ -137,6 +154,61 @@ export default function Toolbox() {
           </Table>
         </CardBody>
       </Card>
+
+      {/* Attendance register — who was actually at the talk, by name. */}
+      <Modal
+        open={!!rollFor}
+        onClose={() => setRollFor(null)}
+        title={rollFor ? `Attendance — ${rollFor.topic}` : "Attendance"}
+      >
+        <p className="text-sm text-slate-600">
+          Tick each person off as they sign. This is the record that proves who
+          was consulted about {rollFor?.points?.[0] || "this topic"} — a headcount
+          on its own proves nothing.
+        </p>
+        <div className="mt-4 max-h-80 space-y-1 overflow-y-auto scrollbar-thin">
+          {crewFor(rollFor).length === 0 && (
+            <p className="py-6 text-center text-sm text-slate-400">
+              No crew recorded on this site yet.
+            </p>
+          )}
+          {crewFor(rollFor).map((w) => {
+            const signed = roll.find((r) => r.workerId === w.id);
+            return (
+              <div
+                key={w.id}
+                className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2"
+              >
+                <div>
+                  <p className="text-sm font-medium text-slate-800">{w.name}</p>
+                  <p className="text-xs text-slate-500">
+                    {signed
+                      ? `Signed ${new Date(signed.signedAt).toLocaleString("en-AU")}${
+                          signed.byStaff ? " · recorded by staff" : ""
+                        }`
+                      : w.trade || "—"}
+                  </p>
+                </div>
+                {signed ? (
+                  <span className="text-sm font-semibold text-green-600">✓</span>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="success"
+                    disabled={rollBusy}
+                    onClick={() => signAttendee(w)}
+                  >
+                    Sign
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <p className="mt-3 text-xs text-slate-400">
+          {roll.length} of {crewFor(rollFor).length} on this site have signed.
+        </p>
+      </Modal>
 
       {/* Create meeting modal */}
       <Modal

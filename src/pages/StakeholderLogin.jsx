@@ -43,7 +43,7 @@ export default function StakeholderLogin() {
         <div className="mb-6 flex flex-col items-center text-center">
           <Logo />
           <h1 className="mt-4 text-2xl font-bold text-slate-800">
-            Worker Sign-in
+            Stakeholder Sign-in
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             Sign in with the email and password you set up from your invite link.
