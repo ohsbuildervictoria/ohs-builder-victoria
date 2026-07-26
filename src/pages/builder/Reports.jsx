@@ -8,6 +8,7 @@ import { Table, THead, TBody, TR, TD } from "../../components/ui/Table";
 import { useProjects } from "../../hooks/useProjects";
 import { useWorkers } from "../../hooks/useWorkers";
 import { useIncidents } from "../../hooks/useIncidents";
+import { useSwmsSignatures } from "../../hooks/useSwmsSignatures";
 import { useToast } from "../../components/ui/Notification";
 import { useAppContext } from "../../context/AppContext";
 import {
@@ -80,9 +81,15 @@ const REPORTS = [
     title: "SWMS Sign-off Report",
     desc: "Sign-off status per trade template",
     run: (ctx, mode) =>
-      exportSwmsSignoff({ org: ctx.org, templates: ctx.templates, workers: ctx.workers, mode }),
+      exportSwmsSignoff({
+        org: ctx.org,
+        templates: ctx.templates,
+        workers: ctx.workers,
+        signatures: ctx.signatures,
+        mode,
+      }),
     summary: (ctx) =>
-      `${ctx.workers.filter((w) => w.swms === "Verified").length} of ${ctx.workers.length} stakeholders have signed their SWMS.`,
+      `${ctx.workers.filter((w) => w.swms === "Verified").length} of ${ctx.workers.length} stakeholders have signed their SWMS · ${ctx.signatures.length} signature${ctx.signatures.length === 1 ? "" : "s"} on the register.`,
   },
 ];
 
@@ -95,6 +102,8 @@ export default function Reports() {
   const { workers } = useWorkers();
   const { incidents } = useIncidents();
   const { org, meetings, templates } = useAppContext();
+  // The sign-off report carries the signatures themselves, not just a count.
+  const { signatures } = useSwmsSignatures();
   const toast = useToast();
   const [emailing, setEmailing] = useState(null); // report being emailed
   const [busy, setBusy] = useState(null); // report currently rendering
@@ -103,7 +112,7 @@ export default function Reports() {
   const { docsFor } = useDocuments();
   const overall = orgCompliancePercent(workers, byWorkerFrom(docsFor, workers));
 
-  const ctx = { org, projects, workers, incidents, meetings, templates, overall };
+  const ctx = { org, projects, workers, incidents, meetings, templates, signatures, overall };
 
   const downloadReportPdf = async (r) => {
     setBusy(r.kind);

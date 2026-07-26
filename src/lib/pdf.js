@@ -665,7 +665,7 @@ export async function exportIncidentRegister({ org, incidents = [], mode = "save
   return output(doc, `WorkSafe-Incident-Register-${slug(org?.name || brand.fullName)}.pdf`, mode);
 }
 
-export async function exportSwmsSignoff({ org, templates = [], workers = [], mode = "save" }) {
+export async function exportSwmsSignoff({ org, templates = [], workers = [], signatures = [], mode = "save" }) {
   await loadPdfLibs();
   const logo = await loadOrgLogo(org);
   const doc = new jsPDF({ unit: "pt", format: "a4" });
@@ -702,6 +702,40 @@ export async function exportSwmsSignoff({ org, templates = [], workers = [], mod
     body: workers.length
       ? workers.map((w) => [w.name, w.trade || "—", w.employer || "—", w.swms, w.status])
       : [["No stakeholders yet", "", "", "", ""]],
+  });
+  y = lastY(doc) + 22;
+
+  // The signatures themselves. A percentage is a summary of this table; on its
+  // own it cannot answer "prove this person signed this version on this date",
+  // which is the first thing an inspector asks for.
+  if (y > doc.internal.pageSize.getHeight() - 160) {
+    doc.addPage();
+    y = header(doc, { org, logo, title: "SWMS Sign-off Report", meta: [] });
+  }
+  y = sectionTitle(doc, "Signature register", y);
+  const versionOf = {};
+  for (const t of templates) versionOf[t.id] = { trade: t.trade, version: t.version || "" };
+  const rows = signatures
+    .slice()
+    .sort((a, b) => String(a.signedAt).localeCompare(String(b.signedAt)))
+    .map((sig) => {
+      const t = versionOf[sig.templateId] || {};
+      const current = (sig.version || "") === (t.version || "");
+      return [
+        sig.signedName,
+        t.trade || "—",
+        sig.version || "—",
+        fmtDate(sig.signedAt),
+        sig.byStaff ? "Recorded on paper by staff" : "Signed in app",
+        current ? "Current" : "Superseded",
+      ];
+    });
+  table(doc, {
+    startY: y,
+    head: [["Signed by", "Trade", "Version", "Date", "How", "Against"]],
+    body: rows.length
+      ? rows
+      : [["No signatures recorded yet", "", "", "", "", ""]],
   });
 
   footers(doc, { org });

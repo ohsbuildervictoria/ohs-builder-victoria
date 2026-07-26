@@ -1032,6 +1032,36 @@ export async function updateWorkerComplianceRow(workerId, categoryKey, value, ne
   if (error) fail(error, "Updating compliance");
 }
 
+// The SWMS signature register: who signed which version, when, and whether
+// they signed it themselves or a supervisor recorded a paper sign-off.
+//
+// This has always been in the database and has never been visible anywhere.
+// Every screen and every export showed only "7 of 9 signed", which cannot
+// answer the one question an inspector asks: prove this person signed this
+// version on this date.
+export async function fetchSwmsSignatures(templateId = null) {
+  let q = supabase
+    .from("swms_signatures")
+    .select("id, template_id, worker_id, signed_name, template_version, signed_by_staff, signed_at")
+    .order("signed_at", { ascending: false });
+  if (templateId != null) q = q.eq("template_id", Number(templateId));
+  const { data, error } = await q;
+  if (error) {
+    // The register is evidence, not decoration — if it can't be read, say so
+    // rather than rendering an empty list that looks like "nobody signed".
+    fail(error, "Loading the SWMS signature register");
+  }
+  return (data || []).map((r) => ({
+    id: r.id,
+    templateId: r.template_id,
+    workerId: r.worker_id,
+    signedName: r.signed_name,
+    version: r.template_version || "",
+    byStaff: r.signed_by_staff,
+    signedAt: r.signed_at,
+  }));
+}
+
 // Per-person toolbox attendance. The meeting's signature count is derived
 // from these rows by the database — a number on its own could never answer
 // "was this person at the talk?", which is the only thing consultation

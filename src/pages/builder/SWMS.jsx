@@ -6,6 +6,7 @@ import ProgressBar from "../../components/ui/ProgressBar";
 import StatCard from "../../components/ui/StatCard";
 import ComplianceDonut from "../../components/charts/ComplianceDonut";
 import { useSWMS } from "../../hooks/useSWMS";
+import { useSwmsSignatures } from "../../hooks/useSwmsSignatures";
 import { useProjects } from "../../hooks/useProjects";
 import { useWorkers } from "../../hooks/useWorkers";
 import { useAppContext } from "../../context/AppContext";
@@ -16,6 +17,13 @@ import { exportSwmsPack, exportSwmsTemplate, exportSwmsLibrary } from "../../lib
 
 export default function SWMS() {
   const { templates, signSWMS, lockTemplate, signOffStats } = useSWMS();
+  const {
+    currentFor,
+    staleFor,
+    loading: sigsLoading,
+    error: sigsError,
+    reload: reloadSignatures,
+  } = useSwmsSignatures();
   const { projects } = useProjects();
   const { workers } = useWorkers();
   const { org } = useAppContext();
@@ -25,6 +33,7 @@ export default function SWMS() {
   const toast = useToast();
   const [librarySearch, setLibrarySearch] = useState("");
   const [expandedRef, setExpandedRef] = useState(null);
+  const [registerFor, setRegisterFor] = useState(null); // template whose register is open
   const [packProject, setPackProject] = useState("");
 
   const downloadPack = () => {
@@ -101,7 +110,7 @@ export default function SWMS() {
 
               <div className="mt-4">
                 <div className="mb-1 flex justify-between text-xs text-slate-500">
-                  <span>Signed</span>
+                  <span>Signed on {t.version}</span>
                   <span className="font-semibold text-slate-700">
                     {t.signed} / {t.total}
                   </span>
@@ -110,6 +119,14 @@ export default function SWMS() {
                   value={t.total ? (t.signed / t.total) * 100 : 0}
                   color={t.signed >= t.total ? "bg-green-500" : "bg-amber-500"}
                 />
+                {/* A signature against a superseded version is not a current
+                    sign-off. Counting the two together is how "9 of 9 signed"
+                    ends up meaning nothing. */}
+                {staleFor(t).length > 0 && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    {staleFor(t).length} signed an earlier version
+                  </p>
+                )}
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
@@ -145,6 +162,13 @@ export default function SWMS() {
                   }}
                 >
                   Download PDF
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setRegisterFor(t)}
+                >
+                  Signature register
                 </Button>
                 {t.signed < t.total && (
                   <Button
@@ -241,6 +265,89 @@ export default function SWMS() {
         </div>
       </div>
 
+      {/* The signature register. This is the evidence the sign-off percentage
+          is a summary of, and until now it existed only in the database —
+          "prove Worker X signed version 3.2 on this date" could not be
+          answered from anything a builder could show an inspector. */}
+      <Modal
+        open={!!registerFor}
+        onClose={() => setRegisterFor(null)}
+        title={registerFor ? `Signature register — ${registerFor.trade} ${registerFor.version}` : ""}
+      >
+        {sigsError ? (
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            {sigsError}
+          </p>
+        ) : sigsLoading ? (
+          <p className="py-6 text-center text-sm text-slate-400">Loading the register…</p>
+        ) : (
+          <>
+            <p className="text-sm text-slate-600">
+              Every signature held against this SWMS. Signatures cannot be
+              edited or removed by anyone, including you.
+            </p>
+
+            <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Current version ({registerFor?.version || "—"})
+            </h3>
+            {currentFor(registerFor).length === 0 ? (
+              <p className="mt-1 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                Nobody has signed this version yet.
+              </p>
+            ) : (
+              <div className="mt-1 divide-y divide-slate-100">
+                {currentFor(registerFor).map((sig) => (
+                  <div key={sig.id} className="flex items-start justify-between gap-3 py-2">
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">{sig.signedName}</p>
+                      <p className="text-xs text-slate-500">
+                        {new Date(sig.signedAt).toLocaleString("en-AU")}
+                      </p>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                        sig.byStaff
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-green-100 text-green-800"
+                      }`}
+                    >
+                      {sig.byStaff ? "Recorded on paper" : "Signed in app"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {staleFor(registerFor).length > 0 && (
+              <>
+                <h3 className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Earlier versions
+                </h3>
+                <p className="mt-1 text-xs text-amber-700">
+                  These people signed a version this SWMS has moved past. They
+                  have not signed off on the current controls.
+                </p>
+                <div className="mt-1 divide-y divide-slate-100">
+                  {staleFor(registerFor).map((sig) => (
+                    <div key={sig.id} className="flex items-start justify-between gap-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium text-slate-700">{sig.signedName}</p>
+                        <p className="text-xs text-slate-500">
+                          {new Date(sig.signedAt).toLocaleString("en-AU")}
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                        {sig.version || "no version"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </Modal>
+
       {/* A signature with no signer is not a signature. This used to increment
           a counter with no dialog at all, so the register could not say who
           signed, which version, or when — and a builder could "sign" for a
@@ -260,6 +367,7 @@ export default function SWMS() {
                 if (!name) return toast("Enter the name of the person who signed", "warning");
                 try {
                   await signSWMS(signing.id, { signedName: name, workerId: worker?.id ?? null });
+                  await reloadSignatures();
                   toast(`${signing.trade} ${signing.version} signed by ${name}`);
                   setSigning(null);
                   setSignWorker("");
