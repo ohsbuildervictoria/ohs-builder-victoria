@@ -6,6 +6,7 @@ import {
   deleteComplianceDoc,
   updateDocExpiry,
   getDocUrl,
+  fetchDocumentHistory,
 } from "../lib/api";
 
 // Compliance evidence documents. The builder matrix and the tradie Documents
@@ -39,6 +40,13 @@ export function useDocuments() {
     [setDocuments]
   );
 
+  // Everything this person has previously held for a category, and when it
+  // was replaced. Loaded on demand — it is history, not day-to-day state.
+  const historyFor = useCallback(
+    (workerId) => fetchDocumentHistory(Number(workerId)),
+    []
+  );
+
   const setExpiry = useCallback(
     async (doc, expiry) => {
       const saved = await updateDocExpiry(doc.id, expiry);
@@ -58,5 +66,5 @@ export function useDocuments() {
 
   const open = useCallback((doc) => getDocUrl(doc.filePath), []);
 
-  return { documents, byWorker, docsFor, upload, setExpiry, remove, open };
+  return { documents, byWorker, docsFor, historyFor, upload, setExpiry, remove, open };
 }

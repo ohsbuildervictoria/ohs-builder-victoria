@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import SubbiePanel, { CertControls } from "./Subcontractors";
 import { useCompanies } from "../../hooks/useCompanies";
 import { emailInvite, updateWorkerEmail } from "../../lib/api";
@@ -452,12 +452,27 @@ export default function Compliance() {
 // uploads a file + expiry and can view/replace/remove it; for the rest, the
 // completion status is set manually and a supporting file can still be attached.
 function CellModal({ cell, onClose, updateCompliance }) {
-  const { docsFor, upload, remove, open } = useDocuments();
+  const { docsFor, historyFor, upload, remove, open } = useDocuments();
   const { getCompany } = useCompanies();
   const toast = useToast();
   const [file, setFile] = useState(null);
   const [expiry, setExpiry] = useState("");
   const [busy, setBusy] = useState(false);
+  // What this person held before. Renewing used to overwrite the previous
+  // certificate, which destroyed the only answer to "were they licensed on
+  // the day of the incident?".
+  const [history, setHistory] = useState([]);
+
+  useEffect(() => {
+    let alive = true;
+    if (!cell?.worker?.id) return undefined;
+    historyFor(cell.worker.id)
+      .then((rows) => alive && setHistory(rows))
+      .catch(() => alive && setHistory([]));
+    return () => {
+      alive = false;
+    };
+  }, [cell?.worker?.id, historyFor]);
 
   if (!cell) return null;
   const { worker, category } = cell;
@@ -490,6 +505,8 @@ function CellModal({ cell, onClose, updateCompliance }) {
   const isExpiryCat = EXPIRY_CATEGORIES.includes(category);
   const isDocCat = DOC_CATEGORIES.includes(category);
   const today = new Date().toISOString().slice(0, 10);
+
+  const historyForCategory = history.filter((h) => h.category === category);
 
   const reset = () => { setFile(null); setExpiry(""); setBusy(false); };
 
@@ -540,6 +557,29 @@ function CellModal({ cell, onClose, updateCompliance }) {
       footer={<Button variant="secondary" onClick={close}>Close</Button>}
     >
       <div className="space-y-4">
+        {historyForCategory.length > 0 && (
+          <details className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+            <summary className="cursor-pointer text-sm font-medium text-slate-700">
+              Previously held ({historyForCategory.length})
+            </summary>
+            <p className="mt-2 text-xs text-slate-500">
+              Kept as the record of what was in force at the time. These cannot
+              be edited or removed.
+            </p>
+            <div className="mt-2 space-y-1.5">
+              {historyForCategory.map((h) => (
+                <div key={h.id} className="text-xs text-slate-600">
+                  <span className="font-medium text-slate-700">{h.fileName}</span>
+                  {h.expiry ? ` · expired ${h.expiry}` : ""}
+                  <span className="block text-slate-400">
+                    replaced {new Date(h.supersededAt).toLocaleDateString("en-AU")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+
         <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-4 py-3 text-sm">
           <span className="text-slate-500">Current status:</span>
           <Badge status={status} icon />
