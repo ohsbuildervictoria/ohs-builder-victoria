@@ -79,14 +79,27 @@ begin
   select id into v_previous from public.compliance_documents
    where worker_id = p_worker_id and category = p_category and superseded_at is null;
 
+  -- Order matters. The partial unique index allows exactly one CURRENT
+  -- document per category, so the outgoing one has to be marked superseded
+  -- before the new row is inserted — otherwise both are current for the
+  -- duration of the insert and the index rejects it. Both statements are in
+  -- the same transaction, so there is no window where the person appears to
+  -- hold nothing.
+  if v_previous is not null then
+    update public.compliance_documents
+       set superseded_at = now()
+     where id = v_previous;
+  end if;
+
   insert into public.compliance_documents
     (organization_id, worker_id, category, file_path, file_name, expiry_date)
   values (w.organization_id, p_worker_id, p_category, p_file_path, p_file_name, p_expiry)
   returning id into v_new;
 
+  -- Now the replacement exists, point the old row at it.
   if v_previous is not null then
     update public.compliance_documents
-       set superseded_at = now(), superseded_by = v_new
+       set superseded_by = v_new
      where id = v_previous;
   end if;
 
@@ -97,7 +110,12 @@ grant execute on function public.file_compliance_document(bigint, text, text, te
 -- ---------------------------------------------------------------------------
 -- Deletion: current documents only, and only by safety staff.
 -- ---------------------------------------------------------------------------
-drop policy if exists "compliance docs write" on public.compliance_documents;
+-- Each of these is dropped first so the migration is genuinely re-runnable —
+-- the header claims it and the first version did not honour it.
+drop policy if exists "compliance docs write"  on public.compliance_documents;
+drop policy if exists "compliance docs insert" on public.compliance_documents;
+drop policy if exists "compliance docs update" on public.compliance_documents;
+drop policy if exists "compliance docs delete" on public.compliance_documents;
 
 create policy "compliance docs insert" on public.compliance_documents
   for insert to authenticated
