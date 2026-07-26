@@ -169,6 +169,11 @@ const mapDocument = (r) => ({
   fileName: r.file_name || "",
   expiry: r.expiry_date || null,
   uploadedAt: r.uploaded_at,
+  // A renewed certificate supersedes the one before it rather than erasing
+  // it — "was he licensed on the day of the incident?" is answered by the
+  // document that was in force then, not the one in force now.
+  supersededAt: r.superseded_at ?? null,
+  supersededBy: r.superseded_by ?? null,
 });
 
 // Subcontractor company (org-scoped): business-level details + insurance.
@@ -375,6 +380,9 @@ export async function fetchAppData() {
   }
   const workersById = Object.fromEntries(workerList.map((w) => [w.id, w]));
   const documentList = (documents.error ? [] : (documents.data || []).map(mapDocument))
+    // Superseded certificates stay in the database as the record of what was
+    // in force at the time; the compliance matrix shows only what is current.
+    .filter((d) => !d.supersededAt)
     // A company-linked worker's personal insurance row (if any legacy one
     // exists) is superseded by the company certificate.
     .filter((d) => !(d.category === "insurance" && workersById[d.workerId]?.companyId));
@@ -865,6 +873,28 @@ export async function uploadComplianceDoc({ workerId, category, file, expiry }) 
     .upload(path, file, { upsert: false, contentType: file.type || undefined });
   if (up.error) fail(up.error, "Uploading document");
 
+  const fileName = file.name || `document.${ext || "bin"}`;
+  const filed = await supabase.rpc("file_compliance_document", {
+    p_worker_id: workerId,
+    p_category: dbCat,
+    p_file_path: path,
+    p_file_name: fileName,
+    p_expiry: expiry || null,
+  });
+  if (!filed.error) {
+    const { data, error } = await supabase
+      .from("compliance_documents")
+      .select("*")
+      .eq("id", filed.data.id)
+      .single();
+    if (error) fail(error, "Recording document");
+    return mapDocument(data);
+  }
+  if (!/file_compliance_document|PGRST202|does not exist|schema cache/i.test(filed.error.message || "")) {
+    fail(filed.error, "Recording document");
+  }
+
+  // Before migration 014: the old overwrite-in-place path.
   const { data, error } = await supabase
     .from("compliance_documents")
     .upsert(
@@ -872,7 +902,7 @@ export async function uploadComplianceDoc({ workerId, category, file, expiry }) 
         worker_id: workerId,
         category: dbCat,
         file_path: path,
-        file_name: file.name || `document.${ext || "bin"}`,
+        file_name: fileName,
         expiry_date: expiry || null,
       },
       { onConflict: "worker_id,category" }
@@ -881,6 +911,20 @@ export async function uploadComplianceDoc({ workerId, category, file, expiry }) 
     .single();
   if (error) fail(error, "Recording document");
   return mapDocument(data);
+}
+
+// The superseded certificates for a worker — what was in force before, and
+// until when. Read straight from the table so it reflects the history the
+// database actually holds.
+export async function fetchDocumentHistory(workerId) {
+  const { data, error } = await supabase
+    .from("compliance_documents")
+    .select("*")
+    .eq("worker_id", Number(workerId))
+    .not("superseded_at", "is", null)
+    .order("superseded_at", { ascending: false });
+  if (error) return [];
+  return (data || []).map(mapDocument);
 }
 
 // Updates just the expiry date on an existing document row.
@@ -1059,6 +1103,39 @@ export async function fetchSwmsSignatures(templateId = null) {
     version: r.template_version || "",
     byStaff: r.signed_by_staff,
     signedAt: r.signed_at,
+  }));
+}
+
+// Revising a SWMS. This is not an edit — it invalidates every signature
+// against the old version and asks that trade's crew to sign again, because
+// the document they agreed to is no longer the document in force.
+export async function reviseSwms(templateId, { version, reason }) {
+  const { data, error } = await supabase.rpc("revise_swms", {
+    p_template_id: Number(templateId),
+    p_new_version: version,
+    p_reason: reason,
+  });
+  if (error) fail(error, "Revising the SWMS");
+  return data;
+}
+
+export async function fetchSwmsRevisions(templateId = null) {
+  let q = supabase
+    .from("swms_revisions")
+    .select("id, template_id, from_version, to_version, reason, revised_by_name, signatures_invalidated, revised_at")
+    .order("revised_at", { ascending: false });
+  if (templateId != null) q = q.eq("template_id", Number(templateId));
+  const { data, error } = await q;
+  if (error) return [];
+  return (data || []).map((r) => ({
+    id: r.id,
+    templateId: r.template_id,
+    fromVersion: r.from_version,
+    toVersion: r.to_version,
+    reason: r.reason,
+    revisedBy: r.revised_by_name,
+    invalidated: r.signatures_invalidated,
+    revisedAt: r.revised_at,
   }));
 }
 

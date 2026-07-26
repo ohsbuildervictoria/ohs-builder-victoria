@@ -14,19 +14,21 @@ import { useToast } from "../../components/ui/Notification";
 import Modal from "../../components/ui/Modal";
 import { swmsLibrary } from "../../data/swmsLibrary";
 import { exportSwmsPack, exportSwmsTemplate, exportSwmsLibrary } from "../../lib/pdf";
+import { reviseSwms } from "../../lib/api";
 
 export default function SWMS() {
   const { templates, signSWMS, lockTemplate, signOffStats } = useSWMS();
   const {
     currentFor,
     staleFor,
+    revisionsFor,
     loading: sigsLoading,
     error: sigsError,
     reload: reloadSignatures,
   } = useSwmsSignatures();
   const { projects } = useProjects();
   const { workers } = useWorkers();
-  const { org } = useAppContext();
+  const { org, refresh } = useAppContext();
   const [signing, setSigning] = useState(null); // template being signed off
   const [signWorker, setSignWorker] = useState("");
   const [signName, setSignName] = useState("");
@@ -34,6 +36,10 @@ export default function SWMS() {
   const [librarySearch, setLibrarySearch] = useState("");
   const [expandedRef, setExpandedRef] = useState(null);
   const [registerFor, setRegisterFor] = useState(null); // template whose register is open
+  const [revising, setRevising] = useState(null); // template being revised
+  const [newVersion, setNewVersion] = useState("");
+  const [revisionReason, setRevisionReason] = useState("");
+  const [revisionBusy, setRevisionBusy] = useState(false);
   const [packProject, setPackProject] = useState("");
 
   const downloadPack = () => {
@@ -41,6 +47,19 @@ export default function SWMS() {
     if (!project) return toast("Create a project first", "warning");
     exportSwmsPack({ org, project, templates, workers, library: swmsLibrary });
     toast(`SWMS pack for ${project.name} downloaded`);
+  };
+
+  // v1.0 -> v1.1, v2 -> v2.1, anything unparseable -> leave it to them.
+  const suggestNextVersion = (version) => {
+    const m = /^v?(\d+)\.(\d+)$/.exec((version || "").trim());
+    if (!m) return "";
+    return `v${m[1]}.${Number(m[2]) + 1}`;
+  };
+
+  const openRevision = (t) => {
+    setRevising(t);
+    setNewVersion(suggestNextVersion(t.version));
+    setRevisionReason("");
   };
 
   const filteredLibrary = swmsLibrary.filter((s) =>
@@ -170,6 +189,9 @@ export default function SWMS() {
                 >
                   Signature register
                 </Button>
+                <Button size="sm" variant="secondary" onClick={() => openRevision(t)}>
+                  Revise
+                </Button>
                 {t.signed < t.total && (
                   <Button
                     size="sm"
@@ -265,6 +287,86 @@ export default function SWMS() {
         </div>
       </div>
 
+      {/* Revising a SWMS. Deliberately not framed as an edit: it invalidates
+          every signature against the old version and sends that trade's crew
+          back to Pending, so the screen says so before anything happens. */}
+      <Modal
+        open={!!revising}
+        onClose={() => setRevising(null)}
+        title={revising ? `Revise ${revising.trade} SWMS` : ""}
+      >
+        <p className="text-sm text-slate-600">
+          Revise when the work changes, a control changes, or the controls
+          turn out not to be working — which usually means after an incident.
+          The OHS Regulations require it; this is the record that it happened.
+        </p>
+
+        <div className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <span className="font-semibold">
+            {currentFor(revising).length}{" "}
+            {currentFor(revising).length === 1 ? "person has" : "people have"} signed{" "}
+            {revising?.version}.
+          </span>{" "}
+          They will be asked to sign again. Their old signatures are kept
+          against {revising?.version} — nothing is deleted — but they stop
+          counting, because that is no longer the document in force.
+        </div>
+
+        <label className="mt-4 block text-sm font-medium text-slate-700">
+          New version
+          <input
+            value={newVersion}
+            onChange={(e) => setNewVersion(e.target.value)}
+            placeholder="e.g. v1.1"
+            className="modal-input mt-1"
+          />
+        </label>
+
+        <label className="mt-3 block text-sm font-medium text-slate-700">
+          What changed, and why
+          <textarea
+            value={revisionReason}
+            onChange={(e) => setRevisionReason(e.target.value)}
+            rows={3}
+            placeholder="e.g. Edge protection added to the roof task after the 12 July near miss"
+            className="modal-input mt-1"
+          />
+          <span className="mt-1 block text-xs text-slate-500">
+            This is what an inspector reads to understand why the controls
+            changed. Write it for them.
+          </span>
+        </label>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setRevising(null)}>
+            Cancel
+          </Button>
+          <Button
+            disabled={revisionBusy || !newVersion.trim() || !revisionReason.trim()}
+            onClick={async () => {
+              setRevisionBusy(true);
+              try {
+                const result = await reviseSwms(revising.id, {
+                  version: newVersion.trim(),
+                  reason: revisionReason.trim(),
+                });
+                await Promise.all([reloadSignatures(), refresh()]);
+                toast(
+                  `${result.trade} SWMS revised to ${result.toVersion} — ${result.workersAskedToResign} asked to sign again`
+                );
+                setRevising(null);
+              } catch (err) {
+                toast(err.message || "Could not revise the SWMS", "error");
+              } finally {
+                setRevisionBusy(false);
+              }
+            }}
+          >
+            {revisionBusy ? "Revising…" : "Revise and ask for signatures"}
+          </Button>
+        </div>
+      </Modal>
+
       {/* The signature register. This is the evidence the sign-off percentage
           is a summary of, and until now it existed only in the database —
           "prove Worker X signed version 3.2 on this date" could not be
@@ -316,6 +418,29 @@ export default function SWMS() {
                   </div>
                 ))}
               </div>
+            )}
+
+            {revisionsFor(registerFor).length > 0 && (
+              <>
+                <h3 className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Revision history
+                </h3>
+                <div className="mt-1 space-y-2">
+                  {revisionsFor(registerFor).map((r) => (
+                    <div key={r.id} className="rounded-lg bg-slate-50 p-2.5">
+                      <p className="text-sm font-medium text-slate-800">
+                        {r.fromVersion || "—"} → {r.toVersion}
+                      </p>
+                      <p className="mt-0.5 text-sm text-slate-600">{r.reason}</p>
+                      <p className="mt-0.5 text-xs text-slate-400">
+                        {r.revisedBy || "Unknown"} ·{" "}
+                        {new Date(r.revisedAt).toLocaleString("en-AU")} ·{" "}
+                        {r.invalidated} signature{r.invalidated === 1 ? "" : "s"} superseded
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
 
             {staleFor(registerFor).length > 0 && (

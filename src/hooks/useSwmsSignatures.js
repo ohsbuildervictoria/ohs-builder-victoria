@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { fetchSwmsSignatures } from "../lib/api";
+import { fetchSwmsRevisions, fetchSwmsSignatures } from "../lib/api";
 
 // The SWMS signature register, loaded on demand.
 //
@@ -9,13 +9,19 @@ import { fetchSwmsSignatures } from "../lib/api";
 // the page loaded.
 export function useSwmsSignatures() {
   const [signatures, setSignatures] = useState([]);
+  const [revisions, setRevisions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      setSignatures(await fetchSwmsSignatures());
+      const [sigs, revs] = await Promise.all([
+        fetchSwmsSignatures(),
+        fetchSwmsRevisions(),
+      ]);
+      setSignatures(sigs);
+      setRevisions(revs);
       setError(null);
     } catch (err) {
       setError(err.message || "Could not load the signature register");
@@ -26,8 +32,12 @@ export function useSwmsSignatures() {
 
   useEffect(() => {
     let alive = true;
-    fetchSwmsSignatures()
-      .then((rows) => alive && setSignatures(rows))
+    Promise.all([fetchSwmsSignatures(), fetchSwmsRevisions()])
+      .then(([sigs, revs]) => {
+        if (!alive) return;
+        setSignatures(sigs);
+        setRevisions(revs);
+      })
       .catch((err) => alive && setError(err.message || "Could not load the signature register"))
       .finally(() => alive && setLoading(false));
     return () => {
@@ -60,5 +70,20 @@ export function useSwmsSignatures() {
     [byTemplate]
   );
 
-  return { signatures, byTemplate, currentFor, staleFor, loading, error, reload };
+  const revisionsFor = useCallback(
+    (template) => revisions.filter((r) => r.templateId === template?.id),
+    [revisions]
+  );
+
+  return {
+    signatures,
+    revisions,
+    byTemplate,
+    currentFor,
+    staleFor,
+    revisionsFor,
+    loading,
+    error,
+    reload,
+  };
 }
