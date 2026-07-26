@@ -550,11 +550,20 @@ create trigger zz_audit_record_photos
 -- swms_signatures, quiz_attempts and compliance_documents were all documented
 -- as immutable, and all three cascaded away with their worker or template.
 -- ---------------------------------------------------------------------------
+-- Only the CASCADE ones need changing, and each is rebuilt under its own name
+-- so this stays safe to re-run. A first attempt added the constraints blindly
+-- and collided with the ones that were already ON DELETE NO ACTION.
 do $$
 declare r record;
 begin
   for r in
-    select con.conname, con.conrelid::regclass as tbl
+    select con.conname,
+           con.conrelid::regclass::text  as tbl,
+           con.confrelid::regclass::text as reftbl,
+           (select attname from pg_attribute
+             where attrelid = con.conrelid and attnum = con.conkey[1])  as col,
+           (select attname from pg_attribute
+             where attrelid = con.confrelid and attnum = con.confkey[1]) as refcol
     from pg_constraint con
     where con.contype = 'f'
       and con.confdeltype = 'c'                      -- ON DELETE CASCADE
@@ -563,21 +572,11 @@ begin
         'toolbox_signatures','induction_completions')
   loop
     execute format('alter table %s drop constraint %I', r.tbl, r.conname);
+    execute format(
+      'alter table %s add constraint %I foreign key (%I) references %s(%I) on delete restrict',
+      r.tbl, r.conname, r.col, r.reftbl, r.refcol);
   end loop;
 end $$;
-
-alter table public.swms_signatures
-  add constraint swms_signatures_template_id_fkey
-  foreign key (template_id) references public.swms_templates(id) on delete restrict;
-alter table public.swms_signatures
-  add constraint swms_signatures_worker_id_fkey
-  foreign key (worker_id) references public.workers(id) on delete restrict;
-alter table public.quiz_attempts
-  add constraint quiz_attempts_worker_id_fkey
-  foreign key (worker_id) references public.workers(id) on delete restrict;
-alter table public.compliance_documents
-  add constraint compliance_documents_worker_id_fkey
-  foreign key (worker_id) references public.workers(id) on delete restrict;
 
 -- ---------------------------------------------------------------------------
 -- Verification

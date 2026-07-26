@@ -1,7 +1,8 @@
 # Permission Matrix — OHS Builder Victoria
 
 **Enforced by:** `supabase/migrations/009_database_enforced_rbac.sql` (PostgreSQL
-row-level security), applied to production 2026-07-26.
+row-level security), with `010_deactivation_and_file_scoping.sql` and
+`011_evidence_behind_every_tick.sql`. All applied to production 2026-07-26.
 **Verified by:** `matrix.local.mjs` (35 live checks) and `rbac.local.mjs`
 (28 bypass attempts) — both signing in as real accounts and going through
 PostgREST, the same door the browser uses.
@@ -41,13 +42,15 @@ C = Create · R = Read · U = Update · D = Delete · — = refused by the datab
 | Roles & site assignment | **U** — audited RPC | — | — | — |
 | Invitations | **C R U D** | — | — | — |
 | Projects | **C R U D** — all sites | **R** — all sites | **R** — assigned sites | **R** — their own site |
-| Crew records | **C R U D** — whole crew | **C R U D** — whole crew | **R** — crew on assigned sites | **R** — own record only |
+| Crew records | **C R U D** — whole crew¹ | **C R U D** — whole crew¹ | **R** — crew on assigned sites | **R** — own record only |
 | SWMS documents | **C R U D** — all trades | **C R U D** — all trades | **R** — all trades | **R** — their trade only |
 | SWMS signatures | **C R** — never editable | **C R** — never editable | **R** — crew on assigned sites | **C R** — own signature only |
-| Incidents | **C R U D** — all sites | **C R U** — no delete | **C R U** — assigned sites | **C R** — reported by or involving them |
+| Incidents | **C R U** — all sites · no delete | **C R U** — all sites | **C R U** — assigned sites | **C R** — reported by or involving them |
 | Corrective actions | **C R U D** | **C R U D** | **C R U D** — assigned sites | **R** — on their own incidents |
 | Site diary | **C R U D** — all sites | **C R U D** — all sites | **C R U D** — assigned sites | — |
 | Toolbox meetings | **C R U D** — all sites | **C R U D** — all sites | **C R U D** — assigned sites | — |
+| Toolbox attendance | **C R** — never editable | **C R** — never editable | **C R** — assigned sites | **C R** — own attendance |
+| Induction records | **C R** — never editable | **C R** — never editable | **R** — crew on assigned sites | **C R** — own completions |
 | Policy register | **C R U D** | **C R U D** | **R** | **R** |
 | Compliance documents | **C R U D** — whole crew | **C R U D** — whole crew | **R** — crew on assigned sites | **C R U D** — own documents only |
 | Subcontractor companies | **C R U D** | **C R U D** | **R** | **R** — their own company |
@@ -56,6 +59,11 @@ C = Create · R = Read · U = Update · D = Delete · — = refused by the datab
 | Quiz attempts | **R** — whole crew | **R** — whole crew | **R** — crew on assigned sites | **R** — own attempts |
 | Photos on records | **C R D** | **C R D** | **C R** | **C R** — their own incidents |
 | Security audit log | **R** — append-only | **R** — append-only | — | — |
+
+¹ Except the three evidence-backed columns. `induction`, `quiz` and `swms` are
+not writable by anyone at all — column-level GRANTs refuse it. They are set by
+`submit_quiz()`, `sign_swms_v2()` and `record_compliance_signoff()`, each of
+which writes the evidence first. A green tick is a consequence, never an input.
 
 The same table is shown in-app under **Admin Portal → Role Permission Matrix**,
 transcribed in `src/data/constants.js`. It is documentation of the policies, not
@@ -81,6 +89,23 @@ insert and select policies only. With no update or delete policy, nobody — not
 even the Builder — can quietly alter what someone signed or scored. The quiz is
 graded server-side by `submit_quiz()`; `update_my_compliance()` explicitly
 refuses `quiz`, so no one can self-certify.
+
+**A deactivated account is nobody.** `profiles.status` used to be decoration —
+no policy read it, so clicking Deactivate cut nothing. Every identity function
+(`my_org`, `my_role`, `my_worker_id`, and all the role predicates) now returns
+null or false for anyone not Active, which withdraws access everywhere at once
+and on the session already open. Status changes go through `set_user_status()`,
+which is Builder-only, refuses self-deactivation, and is audited.
+
+**Files answer to the same rules as the records they belong to.** Row policies
+and storage policies used to disagree: a tradie could only see their own
+incident, but could read the injury photos on anyone's. The storage predicates
+now call the same functions the row policies call.
+
+**A notifiable incident cannot be closed until WorkSafe has been notified.**
+The flag is recomputed by the database from type and severity, and a trigger
+refuses the close. `record_worksafe_notification()` stamps who called, when,
+how, the reference number and whether the site was preserved.
 
 **Privileged changes go through audited RPCs.** `set_user_role()` and
 `set_user_projects()` are Builder-only, and every call is written to
@@ -108,8 +133,12 @@ node matrix.local.mjs    # 35 checks that this table is accurate
 node navcheck.local.mjs  # the menu each role is actually served
 ```
 
+Also `node verify1011.local.mjs` — 23 checks that deactivation revokes, files
+are scoped, ticks cannot be hand-set and a notifiable incident cannot be closed
+without its notification.
+
 Result on 2026-07-26: **28/28** bypass attempts refused, **35/35** matrix checks
-correct. Menu served per role:
+correct, **23/23** enforcement checks correct. Menu served per role:
 
 | Role | Sidebar |
 |---|---|
