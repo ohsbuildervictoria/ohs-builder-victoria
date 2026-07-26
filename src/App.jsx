@@ -35,6 +35,7 @@ import Induction from "./pages/worker/Induction";
 import Quiz from "./pages/worker/Quiz";
 import SwmsSigning from "./pages/worker/SwmsSigning";
 import Registration from "./pages/worker/Registration";
+import ReportIncident from "./pages/worker/ReportIncident";
 
 // Blocks rendering until the Supabase session has been restored.
 function AuthGate({ children }) {
@@ -137,6 +138,7 @@ function AppRoutes() {
         <Route path="quiz" element={<Quiz />} />
         <Route path="swms" element={<SwmsSigning />} />
         <Route path="registration" element={<Registration />} />
+        <Route path="report" element={<ReportIncident />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -97,6 +97,26 @@ export default function WorkerHome() {
           : "Site Access Pending — Complete tasks below"}
       </div>
 
+      {/* Reporting is not a task to be ticked off — it is the thing we want
+          them doing every day, so it gets its own place above the checklist. */}
+      <Link
+        to="/worker/report"
+        className="mt-4 flex items-center gap-3 rounded-xl border-2 border-red-200 bg-red-50 p-4"
+      >
+        <span className="text-2xl" aria-hidden>
+          ⚠️
+        </span>
+        <span className="flex-1">
+          <span className="block text-sm font-bold text-red-800">
+            See something? Report it.
+          </span>
+          <span className="block text-xs text-red-700">
+            Hazard, near miss or injury — takes a minute, works without signal.
+          </span>
+        </span>
+        <span className="text-red-300">→</span>
+      </Link>
+
       {/* Checklist */}
       <div className="mt-4">
         <div className="mb-2 flex items-center justify-between">
