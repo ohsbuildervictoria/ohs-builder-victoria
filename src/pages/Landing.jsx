@@ -73,6 +73,12 @@ export default function Landing() {
             Pricing
           </Link>
           <Link
+            to="/help"
+            className="hidden rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:text-white sm:block"
+          >
+            Help
+          </Link>
+          <Link
             to="/login"
             className="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:text-white"
           >
@@ -284,7 +290,14 @@ export default function Landing() {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-5 text-center sm:flex-row sm:text-left">
           <Logo light />
           <p className="text-xs text-slate-500">
-            {brand.fullName} · {brand.domain} ·{" "}
+            <Link to="/help" className="font-medium text-slate-400 hover:text-white">
+              Help &amp; Documentation
+            </Link>{" "}
+            ·{" "}
+            <Link to="/help/faq" className="font-medium text-slate-400 hover:text-white">
+              FAQ
+            </Link>{" "}
+            · {brand.fullName} · {brand.domain} ·{" "}
             <a
               className="font-medium text-slate-400 hover:text-white"
               href={`mailto:${brand.supportEmail}`}

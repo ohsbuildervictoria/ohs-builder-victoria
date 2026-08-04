@@ -15,6 +15,9 @@ import JoinTradie from "./pages/JoinTradie";
 import JoinStaff from "./pages/JoinStaff";
 import SiteCheckin from "./pages/SiteCheckin";
 import Pricing from "./pages/Pricing";
+import HelpCentre from "./pages/help/HelpCentre";
+import HelpGuidePage from "./pages/help/HelpGuidePage";
+import HelpFaqPage from "./pages/help/HelpFaqPage";
 
 import Dashboard from "./pages/builder/Dashboard";
 import Projects from "./pages/builder/Projects";
@@ -82,6 +85,11 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/pricing" element={<Pricing />} />
+      {/* Help & Documentation Centre — public, shared with the in-app drawers */}
+      <Route path="/help" element={<HelpCentre />} />
+      <Route path="/help/faq" element={<HelpFaqPage />} />
+      <Route path="/help/:role" element={<HelpGuidePage />} />
+      <Route path="/help/:role/:slug" element={<HelpGuidePage />} />
       {/* Tradie sign-in (real per-tradie accounts + legacy pilot usernames) */}
       <Route path="/stakeholder" element={<StakeholderLogin />} />
       {/* Subbie invite link — set up a real per-tradie account */}

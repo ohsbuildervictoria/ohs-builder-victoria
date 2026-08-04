@@ -6,6 +6,7 @@ import { useAppContext } from "../context/AppContext";
 import Logo from "../components/shared/Logo";
 import OfflineSyncBanner from "../components/shared/OfflineSyncBanner";
 import RoleBadge from "../components/shared/RoleBadge";
+import HelpDrawer from "../components/shared/HelpDrawer";
 import { NotificationItem } from "../components/ui/Notification";
 import { brand } from "../data/constants";
 
@@ -134,6 +135,9 @@ export default function BuilderLayout() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Contextual help for the current page */}
+            <HelpDrawer />
+
             {/* Notifications bell */}
             <div className="relative">
               <button

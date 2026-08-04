@@ -3,6 +3,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useAppContext } from "../context/AppContext";
 import Logo from "../components/shared/Logo";
 import OfflineSyncBanner from "../components/shared/OfflineSyncBanner";
+import HelpDrawer from "../components/shared/HelpDrawer";
 
 // Reporting sits in the middle of the bar, where a thumb lands. The induction
 // asks every stakeholder to report near misses straight away; burying it two
@@ -56,9 +57,12 @@ export default function WorkerLayout() {
               />
             )}
           </div>
-          <span className="rounded-full bg-yellow-500 px-2 py-0.5 text-[11px] font-bold text-blue-950">
-            STAKEHOLDER
-          </span>
+          <div className="flex items-center gap-2">
+            <HelpDrawer compact />
+            <span className="rounded-full bg-yellow-500 px-2 py-0.5 text-[11px] font-bold text-blue-950">
+              STAKEHOLDER
+            </span>
+          </div>
         </header>
 
         {/* Content */}

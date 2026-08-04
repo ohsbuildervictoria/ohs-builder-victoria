@@ -15,7 +15,8 @@ npm-debug.log*
 *.docx
 *.pptx
 SWMS/
-docs/
+# Root docs/ only — public/docs/ ships the Help Centre's media assets.
+/docs/
 pdf_pages/
 pptx_slides/
 zoomed/

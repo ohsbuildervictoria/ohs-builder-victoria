@@ -20,10 +20,14 @@ export const PLANS = [
     price: 89,
     cadence: "per month",
     blurb: "For the solo builder running one or two sites at a time.",
-    limits: { projects: 2, stakeholders: 15 },
+    // A single residential build cycles through 25–40 subcontracting trades,
+    // and each subbie can bring a small crew. Two active sites therefore burn
+    // through ~50 individual stakeholders in a normal year — the cap exists to
+    // separate the tiers, not to make a builder ration their own trades.
+    limits: { projects: 2, stakeholders: 50 },
     features: [
       "Up to 2 active projects",
-      "Up to 15 stakeholders on site",
+      "Up to 50 stakeholders across your sites",
       "Digital site inductions + safety quiz",
       "Contractor compliance register",
       "Site diary and toolbox meetings",
@@ -39,10 +43,12 @@ export const PLANS = [
     cadence: "per month",
     popular: true,
     blurb: "For established builders running multiple sites and crews.",
-    limits: { projects: 10, stakeholders: 75 },
+    // Ten concurrent sites share a trade pool — the same plumber works three
+    // of them — so ~25 stakeholders per project is the realistic ceiling.
+    limits: { projects: 10, stakeholders: 250 },
     features: [
       "Up to 10 active projects",
-      "Up to 75 stakeholders on site",
+      "Up to 250 stakeholders across your sites",
       "Everything in Starter, plus:",
       "QR site sign-in and attendance records",
       "Your own branded induction per project",

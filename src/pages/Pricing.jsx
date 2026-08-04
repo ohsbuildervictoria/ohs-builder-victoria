@@ -175,6 +175,14 @@ export default function Pricing() {
             </div>
           ))}
         </div>
+        <p className="mt-6 text-center">
+          <Link
+            to="/help/faq"
+            className="text-sm font-bold text-yellow-400 hover:text-yellow-300"
+          >
+            More questions? Browse the full FAQ Centre →
+          </Link>
+        </p>
       </section>
 
       <footer className="border-t border-slate-800 py-8 text-center text-sm text-slate-500">
