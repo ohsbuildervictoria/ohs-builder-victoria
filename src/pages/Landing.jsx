@@ -74,21 +74,18 @@ export default function Landing() {
           </Link>
           <Link
             to="/help"
-            className="hidden rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:text-white sm:block"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:text-white"
           >
             Help
           </Link>
+          {/* No trial CTA up here — the hero owns that ask. The header is for
+              orientation; selling to someone who hasn't scrolled yet is how
+              nav ends up looking like a billboard. */}
           <Link
             to="/login"
             className="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:text-white"
           >
             Log in
-          </Link>
-          <Link
-            to="/signup"
-            className="rounded-lg bg-yellow-500 px-4 py-2 text-sm font-bold text-blue-950 transition hover:bg-yellow-400"
-          >
-            Start free trial
           </Link>
         </nav>
       </header>

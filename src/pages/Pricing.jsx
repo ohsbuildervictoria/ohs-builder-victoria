@@ -44,16 +44,17 @@ export default function Pricing() {
         </Link>
         <nav className="flex items-center gap-3">
           <Link
+            to="/help"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:text-white"
+          >
+            Help
+          </Link>
+          {/* No trial CTA in the header — the plan cards below carry it. */}
+          <Link
             to="/login"
             className="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:text-white"
           >
             Log in
-          </Link>
-          <Link
-            to="/signup"
-            className="rounded-lg bg-yellow-500 px-4 py-2 text-sm font-bold text-blue-950 transition hover:bg-yellow-400"
-          >
-            Start free trial
           </Link>
         </nav>
       </header>
