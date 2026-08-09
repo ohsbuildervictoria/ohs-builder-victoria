@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { fetchPermissions, fetchProfile, touchLastLogin, signUpBuilder } from "../lib/api";
+import { fetchPermissions, fetchProfile, touchLastLogin, signUpBuilder, sendHeartbeat } from "../lib/api";
 import { acceptWorkerInvite, acceptStaffInvite } from "../lib/api";
 
 const AuthContext = createContext(null);
@@ -83,6 +83,16 @@ export function AuthProvider({ children }) {
       subscription.unsubscribe();
     };
   }, []);
+
+  // Presence heartbeat while signed in — one straight away, then every two
+  // minutes. "Online now" on the platform dashboard means a heartbeat within
+  // the last five minutes; this is the only thing that feeds it.
+  useEffect(() => {
+    if (!user) return;
+    sendHeartbeat();
+    const timer = setInterval(sendHeartbeat, 2 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, [user]);
 
   const login = useCallback(async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({

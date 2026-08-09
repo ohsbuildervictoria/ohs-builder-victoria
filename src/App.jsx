@@ -32,6 +32,7 @@ import Reports from "./pages/builder/Reports";
 import AdminPortal from "./pages/builder/AdminPortal";
 import Policies from "./pages/builder/Policies";
 import Welcome from "./pages/builder/Welcome";
+import PlatformAdmin from "./pages/platform/PlatformAdmin";
 
 import WorkerHome from "./pages/worker/WorkerHome";
 import Induction from "./pages/worker/Induction";
@@ -68,6 +69,23 @@ function RequireAuth({ children }) {
   return children;
 }
 
+// Platform super admin only — the flag comes from the database
+// (platform_admins allow-list via my_permissions), never from the client.
+// The RPCs behind the page refuse everyone else regardless of this guard.
+function RequirePlatform({ children }) {
+  const { user, permissions } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (!permissions) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50 text-sm text-slate-400">
+        Loading…
+      </div>
+    );
+  }
+  if (!permissions.platform) return <Navigate to="/builder/dashboard" replace />;
+  return children;
+}
+
 // Builder Admin only.
 function RequireAdmin({ children }) {
   const { user, role } = useAuth();
@@ -97,6 +115,16 @@ function AppRoutes() {
       <Route path="/join-staff/:token" element={<JoinStaff />} />
       {/* QR site sign-in — scanned from the poster at the gate */}
       <Route path="/checkin/:token" element={<SiteCheckin />} />
+
+      {/* Platform administration — operator only, outside any tenant workspace */}
+      <Route
+        path="/platform"
+        element={
+          <RequirePlatform>
+            <PlatformAdmin />
+          </RequirePlatform>
+        }
+      />
 
       {/* Builder web */}
       <Route

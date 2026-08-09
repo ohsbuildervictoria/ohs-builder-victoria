@@ -22,6 +22,9 @@ const NAV = [
   { to: "/builder/admin", label: "Admin Portal", icon: "🛡️", perm: "admin" },
   { to: "/builder/policies", label: "Policies", icon: "📜", perm: "policies" },
   { to: "/builder/welcome", label: "Welcome", icon: "👋", perm: "welcome" },
+  // Operator only — the DB returns `platform` solely for the allow-listed
+  // platform super admin, so this stays invisible to every tenant user.
+  { to: "/platform", label: "Platform Admin", icon: "🌐", perm: "platform" },
 ];
 
 export default function BuilderLayout() {

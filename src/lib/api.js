@@ -1355,6 +1355,40 @@ export async function fetchPermissions() {
   return data;
 }
 
+// ---------------------------------------------------------------------------
+// Presence + platform administration (migration 016).
+// The heartbeat is fire-and-forget: "online now" is defined as a heartbeat
+// within the last 5 minutes. Never throws — presence must not break the app,
+// and the RPC may not exist until the migration is applied.
+// ---------------------------------------------------------------------------
+export async function sendHeartbeat() {
+  try {
+    await supabase.rpc("heartbeat");
+  } catch {
+    /* presence is best-effort */
+  }
+}
+
+// All three are refused by the database unless the caller is on the
+// platform_admins allow-list — the UI merely displays what the DB permits.
+export async function fetchPlatformOverview() {
+  const { data, error } = await supabase.rpc("platform_overview");
+  if (error) fail(error, "Loading platform overview");
+  return data;
+}
+
+export async function fetchPlatformOrgs() {
+  const { data, error } = await supabase.rpc("platform_orgs");
+  if (error) fail(error, "Loading organisations");
+  return data || [];
+}
+
+export async function fetchPlatformUsers() {
+  const { data, error } = await supabase.rpc("platform_users");
+  if (error) fail(error, "Loading platform users");
+  return data || [];
+}
+
 export async function fetchQuiz() {
   const { data, error } = await supabase.rpc("get_quiz");
   if (error) fail(error, "Loading the quiz");
