@@ -21,6 +21,7 @@ import {
   deletePolicyRow,
   updatePolicyRow,
   updateOrgDetails,
+  policyDocUrl,
 } from "../../lib/api";
 
 const TABS = ["Policy Register", "Templates", "Notifications", "Organisation", "Subscription", "Platform"];
@@ -88,6 +89,18 @@ export default function Policies() {
     }
   };
 
+  // Open a builder-supplied original document via a short-lived signed URL
+  // (private, org-scoped bucket — only resolves for the owning organisation).
+  const onOpenDoc = async (p) => {
+    try {
+      const url = await policyDocUrl(p.filePath);
+      if (url) window.open(url, "_blank", "noopener");
+      else toast("No file attached to this document", "warning");
+    } catch (err) {
+      toast(err.message || "Could not open the document", "error");
+    }
+  };
+
   const onRemovePolicy = async (p) => {
     try {
       await deletePolicyRow(p.id);
@@ -129,22 +142,33 @@ export default function Policies() {
     }
   };
 
+  // Prefill the placeholders the platform already knows (org name, ABN),
+  // leaving them fully editable. Project-level fields stay as placeholders
+  // because a register document isn't tied to a single project.
+  const prefillTemplate = (text) => {
+    let out = text;
+    if (org?.name) out = out.split("[Builder / Principal Contractor]").join(org.name);
+    if (org?.abn) out = out.split("[ABN]").join(org.abn);
+    return out;
+  };
+
   // Templates → Draft → customise → review → deliberate publish. A template is
   // never treated as the builder's adopted document; it lands as a Draft and
   // stays one until someone chooses to publish it.
   const onUseTemplate = async (t) => {
     setSaving(true);
     try {
+      const content = prefillTemplate(t.content);
       const created = await insertPolicy({
         name: t.name,
         version: "v0.1",
         category: t.category,
         status: "Draft",
-        content: t.content,
+        content,
       });
       setPolicies((prev) => [...prev, created]);
       setTab("Policy Register");
-      setEditing({ id: created.id, name: created.name, content: created.content || t.content, status: "Draft" });
+      setEditing({ id: created.id, name: created.name, content: created.content || content, status: "Draft" });
       toast("Template copied into your register as a draft — customise it, then publish when it's yours");
     } catch (err) {
       toast(err.message || "Could not create the draft", "error");
@@ -227,6 +251,20 @@ export default function Policies() {
                         {p.status === "Draft" && (
                           <span className="mt-0.5 block text-[11px] font-semibold uppercase tracking-wide text-amber-600">
                             {DRAFT_LABEL}
+                          </span>
+                        )}
+                        {(p.source || p.fileName) && (
+                          <span className="mt-0.5 block text-[11px] text-slate-400">
+                            {p.source ? `${p.source}` : ""}
+                            {p.source && p.fileName ? " · " : ""}
+                            {p.fileName ? (
+                              <button
+                                className="font-medium text-blue-700 hover:underline"
+                                onClick={() => onOpenDoc(p)}
+                              >
+                                {p.fileName}
+                              </button>
+                            ) : ""}
                           </span>
                         )}
                       </TD>

@@ -252,6 +252,9 @@ const mapPolicy = (r) => ({
   status: r.status,
   updated: r.updated,
   content: r.content ?? null,
+  source: r.source ?? null,
+  fileName: r.file_name ?? null,
+  filePath: r.file_path ?? null,
 });
 
 const mapProfile = (r) => ({
@@ -1453,6 +1456,19 @@ export async function updatePolicyRow(id, patch) {
 export async function deletePolicyRow(id) {
   const { error } = await supabase.from("policies").delete().eq("id", id);
   if (error) fail(error, "Removing policy");
+}
+
+// Short-lived signed URL for a builder-supplied policy document. The bucket is
+// private and org-scoped by RLS, so this only resolves for a user whose org
+// owns the file.
+export async function policyDocUrl(filePath) {
+  if (!filePath) return null;
+  const path = filePath.replace(/^policy-docs\//, "");
+  const { data, error } = await supabase.storage
+    .from("policy-docs")
+    .createSignedUrl(path, 300);
+  if (error) fail(error, "Opening document");
+  return data?.signedUrl || null;
 }
 
 // Re-reads one template so callers can derive status from what the DB really
