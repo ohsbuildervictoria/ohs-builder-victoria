@@ -323,6 +323,11 @@ export default function Compliance() {
                 <option key={s.id} value={s.trade} />
               ))}
             </datalist>
+            <span className="mt-1 block text-xs text-slate-400">
+              Type of work or trade performed on site, such as carpentry,
+              electrical, plumbing or concreting. Used to help identify relevant
+              site requirements and SWMS.
+            </span>
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">

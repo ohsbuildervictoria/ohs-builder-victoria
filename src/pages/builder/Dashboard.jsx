@@ -1,10 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import StatCard from "../../components/ui/StatCard";
 import Card, { CardHeader, CardBody } from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
-import Button from "../../components/ui/Button";
-import Modal from "../../components/ui/Modal";
 import ProgressBar from "../../components/ui/ProgressBar";
 import ComplianceByProject from "../../components/charts/ComplianceByProject";
 import IncidentBar from "../../components/charts/IncidentBar";
@@ -24,9 +22,8 @@ const dateLabel = (d) => {
 
 export default function Dashboard() {
   const { projects } = useProjects();
-  const { workers, incidents, templates, entries, meetings, policies } = useAppContext();
+  const { workers, incidents, templates, entries, meetings } = useAppContext();
   const { byWorker: docsByWorker } = useDocuments();
-  const [policyOpen, setPolicyOpen] = useState(false);
 
   // All KPIs are computed live from the database state.
   const kpis = useMemo(() => {
@@ -129,14 +126,9 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
-          <p className="text-sm text-slate-500">Organisation-wide OHS overview</p>
-        </div>
-        <Button variant="gold" onClick={() => setPolicyOpen(true)}>
-          OHS MGMT PLAN / POLICY / LEGISLATION
-        </Button>
+      <div>
+        <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
+        <p className="text-sm text-slate-500">Organisation-wide OHS overview</p>
       </div>
 
       {/* Primary KPI row */}
@@ -256,39 +248,6 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Policy modal */}
-      <Modal
-        open={policyOpen}
-        onClose={() => setPolicyOpen(false)}
-        title="OHS Management Plan / Policy / Legislation"
-        size="lg"
-        footer={
-          <Button variant="secondary" onClick={() => setPolicyOpen(false)}>
-            Close
-          </Button>
-        }
-      >
-        <p className="mb-4 text-sm text-slate-600">
-          Active policies governing this organisation. Refer to the Builder
-          Policy Site Induction before commencing on any site.
-        </p>
-        <div className="space-y-2">
-          {policies.map((p) => (
-            <div
-              key={p.id}
-              className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-2.5"
-            >
-              <div>
-                <p className="text-sm font-medium text-slate-800">{p.name}</p>
-                <p className="text-xs text-slate-500">
-                  {p.category} · {p.version}
-                </p>
-              </div>
-              <Badge status="Active">{p.status}</Badge>
-            </div>
-          ))}
-        </div>
-      </Modal>
     </div>
   );
 }

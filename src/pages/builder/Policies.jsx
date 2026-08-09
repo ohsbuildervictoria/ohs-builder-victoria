@@ -10,6 +10,7 @@ import { useToast } from "../../components/ui/Notification";
 import { useAppContext } from "../../context/AppContext";
 import { useAuth } from "../../hooks/useAuth";
 import { brand, policyCategories } from "../../data/constants";
+import { policyTemplates, TEMPLATE_WARNING, DRAFT_LABEL } from "../../data/policyTemplates";
 import { PLANS, TRIAL, BILLING_LIVE, planByKey, formatPrice } from "../../data/pricing";
 import {
   bumpPolicyVersion,
@@ -18,10 +19,11 @@ import {
   clearOrgLogo,
   insertPolicy,
   deletePolicyRow,
+  updatePolicyRow,
   updateOrgDetails,
 } from "../../lib/api";
 
-const TABS = ["Policy Register", "Notifications", "Organisation", "Subscription", "Platform"];
+const TABS = ["Policy Register", "Templates", "Notifications", "Organisation", "Subscription", "Platform"];
 
 const NOTIFICATION_TOGGLES = [
   { key: "incident", label: "Incident alerts", locked: false },
@@ -35,12 +37,12 @@ const PLATFORM_LINKS = [
   {
     key: "privacy",
     label: "Privacy Policy",
-    body: `${brand.fullName} collects only the information needed to manage workplace health and safety records: user accounts, site personnel compliance records, incident reports, site diaries and toolbox meeting records. Data is stored securely in Australia-region cloud infrastructure and is never sold or shared with third parties. Access is restricted by role. For privacy queries or data requests contact ${brand.supportEmail}.`,
+    body: `${brand.fullName} (a registered business name of ${brand.legalName}, ABN ${brand.abn}) collects only the information needed to manage workplace health and safety records: user accounts, site personnel compliance records, incident reports, site diaries and toolbox meeting records. Data is stored securely in Australia-region cloud infrastructure and is never sold or shared with third parties. Access is restricted by role. For privacy queries or data requests contact ${brand.supportEmail}.`,
   },
   {
     key: "terms",
     label: "Terms & Conditions",
-    body: `${brand.fullName} is provided to licensed builders and their nominated stakeholders for managing OHS obligations on Victorian construction sites. The platform assists with record keeping and does not replace your legal duties under the OHS Act 2004 (Vic) and OHS Regulations 2017 (Vic). You remain responsible for the accuracy of records entered. Questions: ${brand.supportEmail}.`,
+    body: `${brand.fullName} is a registered business name of ${brand.legalName} (ABN ${brand.abn}, ACN ${brand.acn}). The platform is provided to licensed builders and their nominated stakeholders for managing OHS obligations on Victorian construction sites. It assists with record keeping and does not replace your legal duties under the OHS Act 2004 (Vic) and OHS Regulations 2017 (Vic). ${brand.fullName} is software — not a regulator, policy maker, lawyer or OHS consultant — and you remain responsible for the accuracy of records entered. Questions: ${brand.supportEmail}.`,
   },
   {
     key: "refund",
@@ -62,10 +64,12 @@ export default function Policies() {
   const [addOpen, setAddOpen] = useState(false);
   const [draft, setDraft] = useState({ name: "", version: "v1.0", category: policyCategories[0] });
   const [saving, setSaving] = useState(false);
+  // Editor for a document's text — used by template drafts and any document
+  // that carries content. null = closed.
+  const [editing, setEditing] = useState(null);
 
-  // The register had no insert path anywhere in the codebase, so the page that
-  // promises "OHS policy register … pushed to all stakeholders on site" could
-  // never hold a single policy.
+  // The register had no insert path anywhere in the codebase, so the page
+  // could never hold a single policy.
   const onAddPolicy = async () => {
     if (!draft.name.trim()) return toast("Give the policy a name", "warning");
     setSaving(true);
@@ -123,13 +127,59 @@ export default function Policies() {
     }
   };
 
+  // Templates → Draft → customise → review → deliberate publish. A template is
+  // never treated as the builder's adopted document; it lands as a Draft and
+  // stays one until someone chooses to publish it.
+  const onUseTemplate = async (t) => {
+    setSaving(true);
+    try {
+      const created = await insertPolicy({
+        name: t.name,
+        version: "v0.1",
+        category: t.category,
+        status: "Draft",
+        content: t.content,
+      });
+      setPolicies((prev) => [...prev, created]);
+      setTab("Policy Register");
+      setEditing({ id: created.id, name: created.name, content: created.content || t.content, status: "Draft" });
+      toast("Template copied into your register as a draft — customise it, then publish when it's yours");
+    } catch (err) {
+      toast(err.message || "Could not create the draft", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onSaveContent = async (publish = false) => {
+    if (!editing) return;
+    setSaving(true);
+    try {
+      const patch = { name: editing.name, content: editing.content };
+      if (publish) patch.status = "Active";
+      const updated = await updatePolicyRow(editing.id, patch);
+      setPolicies((prev) => prev.map((x) => (x.id === editing.id ? updated : x)));
+      setEditing(null);
+      toast(
+        publish
+          ? `${updated.name} published — it is now an adopted document in your register`
+          : "Draft saved — publish it when you've finished reviewing"
+      );
+    } catch (err) {
+      toast(err.message || "Could not save the document", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-800">Policies</h1>
         <p className="text-sm text-slate-500">
-          OHS policy register, notifications, organisation details and platform
-          terms — pushed to all stakeholders on site.
+          Manage your OHS documents, stakeholder notifications, organisation
+          settings, subscription and platform information. Publish relevant
+          documents to the people who need them.
         </p>
       </div>
 
@@ -137,10 +187,20 @@ export default function Policies() {
 
       {tab === "Policy Register" && (
         <div className="space-y-4">
+          {/* What this page is for — in one honest sentence. */}
+          <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+            <p className="text-sm font-semibold text-blue-900">What is Policies?</p>
+            <p className="mt-0.5 text-sm text-blue-800">
+              Your organisation&apos;s document register for storing and
+              distributing OHS plans, policies and procedures to relevant site
+              stakeholders.
+            </p>
+          </div>
+
           <Card>
             <CardHeader
-              title="Active Policies"
-              subtitle={`${org?.name || brand.fullName} · ${brand.region}`}
+              title="Policy Register"
+              subtitle={`${org?.name || brand.fullName} · ${brand.region} — add and manage your organisation's own OHS plans, policies and procedures`}
               action={<Button size="sm" onClick={() => setAddOpen(true)}>+ Add Policy</Button>}
             />
             <CardBody className="pt-2">
@@ -152,25 +212,46 @@ export default function Policies() {
                   {policies.length === 0 && (
                     <TR>
                       <TD className="py-6 text-center text-sm text-slate-400">
-                        No policies in the register yet — add your OHS Management
-                        Plan and site policies so every stakeholder sees them.
+                        No documents in the register yet — add your OHS
+                        Management Plan and site policies with + Add Policy, or
+                        start from the Templates tab.
                       </TD>
                     </TR>
                   )}
                   {policies.map((p) => (
                     <TR key={p.id}>
-                      <TD className="font-medium text-slate-800">{p.name}</TD>
+                      <TD className="font-medium text-slate-800">
+                        {p.name}
+                        {p.status === "Draft" && (
+                          <span className="mt-0.5 block text-[11px] font-semibold uppercase tracking-wide text-amber-600">
+                            {DRAFT_LABEL}
+                          </span>
+                        )}
+                      </TD>
                       <TD>{p.version}</TD>
                       <TD>{p.category}</TD>
                       <TD>
-                        <Badge status="Active">{p.status}</Badge>
+                        <Badge status={p.status || "Active"}>{p.status || "Active"}</Badge>
                       </TD>
                       <TD>{p.updated}</TD>
                       <TD>
-                        <div className="flex gap-2">
-                          <Button size="sm" onClick={() => onUploadVersion(p)}>
-                            New Version
-                          </Button>
+                        <div className="flex flex-wrap gap-2">
+                          {p.content != null && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() =>
+                                setEditing({ id: p.id, name: p.name, content: p.content || "", status: p.status })
+                              }
+                            >
+                              {p.status === "Draft" ? "Edit Draft" : "View / Edit"}
+                            </Button>
+                          )}
+                          {p.status !== "Draft" && (
+                            <Button size="sm" onClick={() => onUploadVersion(p)}>
+                              New Version
+                            </Button>
+                          )}
                           <Button size="sm" variant="danger" onClick={() => onRemovePolicy(p)}>
                             Remove
                           </Button>
@@ -184,7 +265,10 @@ export default function Policies() {
           </Card>
 
           <Card>
-            <CardHeader title="Policy Categories" />
+            <CardHeader
+              title="Document Categories"
+              subtitle="Common groupings to keep the register organised — not an exhaustive list of legal requirements"
+            />
             <CardBody className="flex flex-wrap gap-2 pt-2">
               {policyCategories.map((c) => (
                 <span
@@ -196,6 +280,45 @@ export default function Policies() {
               ))}
             </CardBody>
           </Card>
+        </div>
+      )}
+
+      {tab === "Templates" && (
+        <div className="space-y-4">
+          {/* The responsibility warning, before any template is touched. */}
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-sm font-semibold text-amber-800">⚠ {TEMPLATE_WARNING.title}</p>
+            <p className="mt-1 text-sm leading-relaxed text-amber-800">{TEMPLATE_WARNING.body}</p>
+          </div>
+
+          {policyTemplates.map((t) => (
+            <Card key={t.key}>
+              <CardHeader
+                title={t.name}
+                subtitle={t.blurb}
+                action={
+                  <Button size="sm" disabled={saving} onClick={() => onUseTemplate(t)}>
+                    Use Template
+                  </Button>
+                }
+              />
+              <CardBody className="pt-2">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-600">
+                  {DRAFT_LABEL}
+                </p>
+                <pre className="max-h-72 overflow-y-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs leading-relaxed text-slate-600 scrollbar-thin">
+                  {t.content}
+                </pre>
+                <p className="mt-3 text-xs text-slate-500">
+                  Use Template copies this text into your Policy Register as a{" "}
+                  <span className="font-semibold">draft</span>. Customise it to
+                  your project, review it, and publish it only when it reflects
+                  how your site is actually run. Nothing is adopted on your
+                  behalf.
+                </p>
+              </CardBody>
+            </Card>
+          ))}
         </div>
       )}
 
@@ -331,6 +454,77 @@ export default function Policies() {
       >
         <p className="text-sm leading-relaxed text-slate-600">{modal?.body}</p>
       </Modal>
+
+      {/* Document editor — where a template draft becomes the builder's own
+          document. Publishing is a deliberate, separate act. */}
+      <Modal
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        title={editing?.status === "Draft" ? "Edit draft document" : "View / edit document"}
+        size="lg"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setEditing(null)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button variant="secondary" onClick={() => onSaveContent(false)} disabled={saving}>
+              {saving ? "Saving…" : "Save"}
+            </Button>
+            {editing?.status === "Draft" && (
+              <Button onClick={() => onSaveContent(true)} disabled={saving}>
+                Publish &amp; adopt
+              </Button>
+            )}
+          </>
+        }
+      >
+        {editing && (
+          <div className="space-y-4">
+            {editing.status === "Draft" && (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">
+                  {DRAFT_LABEL}
+                </p>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
+                  <span className="font-semibold">{TEMPLATE_WARNING.title}.</span>{" "}
+                  {TEMPLATE_WARNING.body}
+                </div>
+              </>
+            )}
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Document name
+              </span>
+              <input
+                className="pol-input"
+                value={editing.name}
+                onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Document text
+              </span>
+              <textarea
+                className="pol-input min-h-[320px] font-mono text-xs leading-relaxed"
+                value={editing.content}
+                onChange={(e) => setEditing({ ...editing, content: e.target.value })}
+              />
+            </label>
+            {editing.status === "Draft" && (
+              <p className="text-xs text-slate-500">
+                Publish &amp; adopt marks this as an active document in your
+                register. Do that only after you have customised and reviewed it
+                for your project.
+              </p>
+            )}
+            <style>{`
+              .pol-input { width:100%; border-radius:0.5rem; border:1px solid #cbd5e1; padding:0.5rem 0.75rem; font-size:0.875rem; }
+              .pol-input:focus { outline:none; border-color:#1e3a8a; box-shadow:0 0 0 1px #1e3a8a; }
+            `}</style>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
@@ -421,7 +615,10 @@ function OrganisationCard() {
             <Info label="Plan Tier" value={org?.plan || "—"} />
             <Info label="Billing Contact" value={org?.billingContact || brand.supportEmail} />
             <Info label="Support" value={brand.supportEmail} />
-            <Info label="Platform" value={brand.fullName} />
+            <Info
+              label="Platform"
+              value={`${brand.fullName} — ${brand.legalName} · ABN ${brand.abn}`}
+            />
             <Info label="Domain" value={brand.domain} />
           </>
         )}

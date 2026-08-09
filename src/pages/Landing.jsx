@@ -286,22 +286,25 @@ export default function Landing() {
       <footer className="border-t border-slate-800 py-8">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-5 text-center sm:flex-row sm:text-left">
           <Logo light />
-          <p className="text-xs text-slate-500">
-            <Link to="/help" className="font-medium text-slate-400 hover:text-white">
-              Help &amp; Documentation
-            </Link>{" "}
-            ·{" "}
-            <Link to="/help/faq" className="font-medium text-slate-400 hover:text-white">
-              FAQ
-            </Link>{" "}
-            · {brand.fullName} · {brand.domain} ·{" "}
-            <a
-              className="font-medium text-slate-400 hover:text-white"
-              href={`mailto:${brand.supportEmail}`}
-            >
-              {brand.supportEmail}
-            </a>
-          </p>
+          <div className="text-xs text-slate-500">
+            <p>
+              <Link to="/help" className="font-medium text-slate-400 hover:text-white">
+                Help &amp; Documentation
+              </Link>{" "}
+              ·{" "}
+              <Link to="/help/faq" className="font-medium text-slate-400 hover:text-white">
+                FAQ
+              </Link>{" "}
+              · {brand.domain} ·{" "}
+              <a
+                className="font-medium text-slate-400 hover:text-white"
+                href={`mailto:${brand.supportEmail}`}
+              >
+                {brand.supportEmail}
+              </a>
+            </p>
+            <p className="mt-2">{brand.copyright}</p>
+          </div>
         </div>
       </footer>
     </div>

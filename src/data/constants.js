@@ -12,6 +12,12 @@ export const brand = {
   fullName: "OHS Builder Victoria",
   supportEmail: "admin@ohsbuildervictoria.com.au",
   tagline: "Built by Builders for Builders.",
+  // Legal identity: OHS Builder Victoria is a registered business name of
+  // ConstructIQ Technologies Pty Ltd.
+  legalName: "ConstructIQ Technologies Pty Ltd",
+  abn: "39 699 824 238",
+  acn: "699 824 238",
+  copyright: "© 2026 OHS Builder Victoria · ConstructIQ Technologies Pty Ltd · ABN 39 699 824 238",
 };
 
 export const roleLabels = {

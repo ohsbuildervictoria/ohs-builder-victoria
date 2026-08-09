@@ -302,11 +302,11 @@ export const adminGuide = {
       summary:
         "The Policy Register your crew sees, your notification preferences, and the platform's own policies.",
       purpose:
-        "The Policies page is the organisation's control room: the OHS Policy Register pushed to everyone on site, notification preferences for the office, organisation details, and the platform's own terms and policies.",
+        "The Policies page is the organisation's control room: the document register for your OHS plans, policies and procedures — readable by every signed-in member of your organisation — plus notification preferences for the office, organisation details, and the platform's own terms and policies.",
       who: "Builder Admins and HSE Managers (organisation details and branding stay admin-only).",
       how: [
-        "On Policy Register, click + Add Policy — name, version, category. Issue a New Version when a policy is updated; Remove retires one.",
-        "Categories cover the OHS Management Plan, hazard identification and risk, first aid and investigation, fire emergency, WorkSafe reporting and site access/induction.",
+        "On Policy Register, click + Add Policy — name, version, category. Issue a New Version when a policy is updated; Remove retires one. The Templates tab offers editable starting documents that land as clearly-marked drafts until you publish them.",
+        "Document Categories cover common groupings — OHS Management Plan, hazard identification and risk, first aid and investigation, fire emergency, WorkSafe reporting and site access/induction. They're organisational, not an exhaustive list of legal requirements.",
         "On Notifications, set the alerts your office receives: incident alerts, compliance lapses, pending SWMS sign-offs, toolbox reminders. WorkSafe notifications are locked on — required for compliance.",
         "On Platform, read the platform's own Privacy Policy, Terms & Conditions, Refund Policy and Security Policy.",
       ],
@@ -315,7 +315,7 @@ export const adminGuide = {
         "Your organisation's notification preferences.",
       ],
       value:
-        "One current, versioned policy register — the exact thing the Dashboard's gold OHS MGMT PLAN / POLICY / LEGISLATION button shows your whole workspace — and alerts tuned so the right person hears about problems the day they happen.",
+        "One current, versioned document register for the whole organisation, and alerts tuned so the right person hears about problems the day they happen.",
       bestPractice: [
         "Version policies with New Version rather than editing in place — 'which policy applied last March?' should always be answerable.",
         "Leave incident alerts on for whoever holds the phone when things go wrong.",
@@ -331,11 +331,11 @@ export const adminGuide = {
         },
         {
           q: "Where do my tradies see these policies?",
-          a: "Active policies surface through the workspace's policy view and back the induction content your stakeholders complete.",
+          a: "Published register entries are readable by every signed-in member of your organisation — access is enforced in the database. Site rules and induction content are communicated through each project's induction, which every stakeholder completes before starting.",
         },
       ],
       screenshot: shot("admin-settings", "The Policies page tabs with the Policy Register active", [
-        "Five tabs — Policy Register, Notifications, Organisation, Subscription, Platform.",
+        "Six tabs — Policy Register, Templates, Notifications, Organisation, Subscription, Platform.",
         "+ Add Policy and per-row New Version / Remove.",
         "Notifications — WorkSafe alerts locked on.",
       ]),

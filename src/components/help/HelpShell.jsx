@@ -43,11 +43,12 @@ export default function HelpShell({ children }) {
 
       <footer className="border-t border-slate-800 py-8 text-center text-sm text-slate-500">
         <p>
-          {brand.fullName} · {brand.domain} ·{" "}
+          {brand.domain} ·{" "}
           <a href={`mailto:${brand.supportEmail}`} className="hover:text-slate-300">
             {brand.supportEmail}
           </a>
         </p>
+        <p className="mt-2 text-xs">{brand.copyright}</p>
         <p className="mt-2">
           <Link to="/" className="hover:text-slate-300">
             ← Back to home

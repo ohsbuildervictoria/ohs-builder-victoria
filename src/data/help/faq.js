@@ -328,7 +328,7 @@ export const FAQ_CATEGORIES = [
       },
       {
         q: "How do I manage my policy register?",
-        a: "Policies → Policy Register → + Add Policy, with New Version when a policy updates. The register is what the Dashboard's gold policy button shows your whole workspace.",
+        a: "Policies → Policy Register → + Add Policy, with New Version when a policy updates. Or start from the Templates tab — a template lands as a clearly-marked draft you customise and publish deliberately.",
       },
       {
         q: "Why can't I turn off WorkSafe notifications?",

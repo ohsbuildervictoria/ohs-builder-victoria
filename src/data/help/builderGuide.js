@@ -47,7 +47,7 @@ export const builderGuide = {
         "Use the Compliance by Project chart to spot the site dragging the average down, and Incidents by Type to see what keeps going wrong.",
         "Click any project name in the Builders Project Compliance table to jump straight into that project's detail page.",
         "Check Recent Activity — the five latest incidents, diary entries and toolbox meetings across all sites.",
-        "Need your safety policies? The gold OHS MGMT PLAN / POLICY / LEGISLATION button opens your active Policy Register in a modal.",
+        "Need your safety policies? Open 📜 Policies in the sidebar — the Policy Register lives there.",
       ],
       records: [
         "None — the Dashboard is read-only. Every number on it is calculated live from records created on other pages.",
@@ -81,7 +81,6 @@ export const builderGuide = {
       screenshot: shot("builder-dashboard", "The Dashboard with both KPI rows, charts and the project compliance table", [
         "Top KPI row — projects, stakeholders, compliance %, pending inductions, open incidents.",
         "Second row — SWMS sign-offs, WorkSafe (Urgent), near misses, corrective actions and LTIFR.",
-        "Gold OHS MGMT PLAN / POLICY / LEGISLATION button — opens your active policies.",
         "Project names in the table are links — click through to the site.",
       ]),
       video: video("builder-dashboard", "Dashboard in 60 seconds", "≈60s", [
@@ -560,6 +559,71 @@ export const builderGuide = {
         "Pick a report, download it — or email it to five people with a note.",
         "Generates branded, audit-ready PDFs from live data.",
         "Monthly reporting drops from an evening to a click.",
+      ]),
+    },
+
+    {
+      slug: "policies",
+      title: "Policies",
+      icon: "📜",
+      routes: ["/builder/policies"],
+      summary:
+        "Your organisation's document register — store your OHS plans, policies and procedures, start from a template, and publish deliberately.",
+      purpose:
+        "Policies is your organisation's document register for storing and distributing OHS plans, policies and procedures to relevant site stakeholders. It's where your OHS Management Plan and site policies live with a version, a category and a status — alongside your notification preferences, organisation details, subscription and the platform's own terms.",
+      who: "Builder Admins and HSE Managers maintain the register. Published documents are readable by every signed-in member of your organisation.",
+      how: [
+        "Policy Register → + Add Policy registers a document you already have: give it a name, a version (v1.0 by default) and a category.",
+        "Or start from Templates: Use Template copies an editable starting document — such as the Victorian Health & Safety Coordination Plan / OHS Management Plan — into your register as a DRAFT.",
+        "A draft is clearly marked DRAFT / TEMPLATE — NOT YET ADOPTED. Click Edit Draft to replace the bracketed prompts with your own project's details.",
+        "When the document reflects how your site is actually run, click Publish & adopt — only then does it become an Active document in your register.",
+        "When a document changes later, use New Version — the register keeps the version and last-updated date so 'which policy applied last March?' stays answerable.",
+        "Categories (OHS Mgmt Plan, Fire Emergency, Site Access & Induction and so on) keep the register organised — they're common groupings, not an exhaustive list of legal requirements.",
+      ],
+      records: [
+        "A register row per document — name, version, category, status (Draft or Active) and last-updated date.",
+        "For template-based documents, the document text itself, editable until you're happy with it.",
+      ],
+      value:
+        "One register that answers 'what safety documents do we run this company on, and which version is current?' — instead of a folder of PDFs on someone's laptop. Drafts can't be mistaken for adopted policy, and version history means an old question gets an honest answer.",
+      bestPractice: [
+        "Version documents with New Version rather than editing in place — the history is the point.",
+        "Review a template line by line before publishing; it's a starting structure, not your finished plan.",
+        "Keep category names meaningful so an auditor can navigate your register without a guide.",
+      ],
+      mistakes: [
+        "Publishing a template unchanged — a coordination plan full of bracketed prompts protects nobody and reads exactly like what it is.",
+        "Treating the register as write-once — a register frozen since setup reads as exactly that.",
+      ],
+      faqs: [
+        {
+          q: "Are the templates legally compliant documents?",
+          a: "No — and nothing here claims to be. A template is a starting point for organising OHS documentation. It is not legal advice and does not by itself satisfy legal obligations. The builder/principal contractor remains responsible for preparing, reviewing and maintaining documentation appropriate to the project, workplace, hazards, contractors and work performed. Refer to current Victorian legislation and WorkSafe Victoria guidance and obtain competent advice where required.",
+        },
+        {
+          q: "Who can see the documents I publish?",
+          a: "Every signed-in member of your organisation can read the register — enforced in the database. Only Builder Admins and HSE Managers can add, edit or publish documents.",
+        },
+        {
+          q: "What's the difference between a Draft and an Active document?",
+          a: "A Draft is a working copy — clearly marked DRAFT / TEMPLATE — NOT YET ADOPTED — that you're still customising. Publish & adopt is the deliberate step that makes it an Active document. The platform never adopts anything on your behalf.",
+        },
+        {
+          q: "Can I upload a PDF of my policy?",
+          a: "The register tracks each document's name, version, category and status; template-based documents also carry their editable text. File attachments for project paperwork live on each project's Documents tab.",
+        },
+      ],
+      screenshot: shot("builder-policies", "The Policy Register with a draft document and the Templates tab", [
+        "+ Add Policy registers an existing document; Templates starts a draft.",
+        "Drafts are marked DRAFT / TEMPLATE — NOT YET ADOPTED until published.",
+        "Publish & adopt is the deliberate step that makes a document Active.",
+        "Document Categories keep the register organised.",
+      ]),
+      video: video("builder-policies", "Policies in 60 seconds", "≈60s", [
+        "Your OHS documents in one register — versioned, categorised, honest.",
+        "Use a template, customise the draft, review it, publish it deliberately.",
+        "Creates register rows with version history and a clear Draft/Active status.",
+        "A register you can hand an auditor without explaining a folder structure.",
       ]),
     },
   ],

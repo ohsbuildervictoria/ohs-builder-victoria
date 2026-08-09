@@ -251,6 +251,7 @@ const mapPolicy = (r) => ({
   category: r.category,
   status: r.status,
   updated: r.updated,
+  content: r.content ?? null,
 });
 
 const mapProfile = (r) => ({
@@ -1368,18 +1369,27 @@ export async function submitQuiz(answers) {
   return data;
 }
 
+// The `content` column arrives with migration 015. Until it is applied the
+// insert/update would 400 on an unknown column, so retry without it rather
+// than leaving the whole register unusable between a deploy and the migration.
+const missingContentColumn = (error) =>
+  /content/.test(error?.message || "") &&
+  /column|schema cache|PGRST204/i.test(error?.message || "");
+
 export async function insertPolicy(policy) {
-  const { data, error } = await supabase
-    .from("policies")
-    .insert({
-      name: (policy.name || "").trim(),
-      version: (policy.version || "v1.0").trim(),
-      category: policy.category || "",
-      status: policy.status || "Active",
-      updated: localDate(),
-    })
-    .select()
-    .single();
+  const row = {
+    name: (policy.name || "").trim(),
+    version: (policy.version || "v1.0").trim(),
+    category: policy.category || "",
+    status: policy.status || "Active",
+    updated: localDate(),
+  };
+  if (policy.content !== undefined && policy.content !== null) row.content = policy.content;
+  let { data, error } = await supabase.from("policies").insert(row).select().single();
+  if (error && row.content !== undefined && missingContentColumn(error)) {
+    delete row.content;
+    ({ data, error } = await supabase.from("policies").insert(row).select().single());
+  }
   if (error) fail(error, "Adding policy");
   return mapPolicy(data);
 }
@@ -1390,13 +1400,18 @@ export async function updatePolicyRow(id, patch) {
   if (patch.version !== undefined) row.version = patch.version;
   if (patch.category !== undefined) row.category = patch.category;
   if (patch.status !== undefined) row.status = patch.status;
+  if (patch.content !== undefined) row.content = patch.content;
   row.updated = localDate();
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("policies")
     .update(row)
     .eq("id", id)
     .select()
     .single();
+  if (error && row.content !== undefined && missingContentColumn(error)) {
+    delete row.content;
+    ({ data, error } = await supabase.from("policies").update(row).eq("id", id).select().single());
+  }
   if (error) fail(error, "Updating policy");
   return mapPolicy(data);
 }

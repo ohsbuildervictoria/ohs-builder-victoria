@@ -89,6 +89,11 @@ export default function Registration() {
             </Field>
             <Field label="Trade">
               <input className="w-input" {...register("trade")} />
+              <span className="mt-1 block text-xs text-slate-400">
+                The type of work you perform on site — e.g. carpentry,
+                electrical, plumbing, concreting. It decides which SWMS you are
+                asked to read and sign.
+              </span>
             </Field>
             <Field label="Employer">
               <input className="w-input" {...register("employer")} />
