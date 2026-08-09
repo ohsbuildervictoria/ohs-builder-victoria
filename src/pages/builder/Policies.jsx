@@ -10,7 +10,7 @@ import { useToast } from "../../components/ui/Notification";
 import { useAppContext } from "../../context/AppContext";
 import { useAuth } from "../../hooks/useAuth";
 import { brand, policyCategories } from "../../data/constants";
-import { policyTemplates, TEMPLATE_WARNING, DRAFT_LABEL } from "../../data/policyTemplates";
+import { policyTemplates, TEMPLATE_WARNING, DRAFT_LABEL, ADOPTION_BANNER } from "../../data/policyTemplates";
 import { PLANS, TRIAL, BILLING_LIVE, planByKey, formatPrice } from "../../data/pricing";
 import {
   bumpPolicyVersion,
@@ -67,6 +67,8 @@ export default function Policies() {
   // Editor for a document's text — used by template drafts and any document
   // that carries content. null = closed.
   const [editing, setEditing] = useState(null);
+  // Which template's preview is expanded on the Templates tab (by key).
+  const [preview, setPreview] = useState(null);
 
   // The register had no insert path anywhere in the codebase, so the page
   // could never hold a single policy.
@@ -297,20 +299,43 @@ export default function Policies() {
                 title={t.name}
                 subtitle={t.blurb}
                 action={
-                  <Button size="sm" disabled={saving} onClick={() => onUseTemplate(t)}>
-                    Use Template
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => setPreview(preview === t.key ? null : t.key)}
+                    >
+                      {preview === t.key ? "Hide preview" : "Preview"}
+                    </Button>
+                    <Button size="sm" disabled={saving} onClick={() => onUseTemplate(t)}>
+                      Use Template
+                    </Button>
+                  </div>
                 }
               />
               <CardBody className="pt-2">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-600">
-                  {DRAFT_LABEL}
+                {/* Template metadata */}
+                <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+                  <Badge status="Draft">{t.status || "Template"}</Badge>
+                  <span className="rounded bg-slate-100 px-2 py-0.5 text-slate-600">Version {t.version}</span>
+                  <span className="rounded bg-slate-100 px-2 py-0.5 text-slate-600">Last reviewed {t.lastReviewed}</span>
+                  <span className="rounded bg-slate-100 px-2 py-0.5 text-slate-600">{t.category}</span>
+                </div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-amber-600">
+                  {ADOPTION_BANNER}
                 </p>
-                <pre className="max-h-72 overflow-y-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs leading-relaxed text-slate-600 scrollbar-thin">
-                  {t.content}
-                </pre>
+                {t.sourceBasis && (
+                  <p className="mb-3 text-xs text-slate-500">
+                    <span className="font-semibold">Source basis:</span> {t.sourceBasis}
+                  </p>
+                )}
+                {preview === t.key && (
+                  <pre className="max-h-96 overflow-y-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs leading-relaxed text-slate-600 scrollbar-thin">
+                    {t.content}
+                  </pre>
+                )}
                 <p className="mt-3 text-xs text-slate-500">
-                  Use Template copies this text into your Policy Register as a{" "}
+                  Use Template copies this document into your Policy Register as a{" "}
                   <span className="font-semibold">draft</span>. Customise it to
                   your project, review it, and publish it only when it reflects
                   how your site is actually run. Nothing is adopted on your
