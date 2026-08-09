@@ -6,15 +6,14 @@
 // regulator, policy maker, lawyer or OHS consultant — so nothing here is
 // presented as legal advice or as satisfying a legal duty by itself.
 //
-// PROVENANCE (internal): the OHS Management Plan / OHS Program template below
-// was developed with permission to adapt industry source material supplied by
-// David Caruana (Arlington Homes) — his "0000 OHS Program V3.pdf", approved in
-// writing for OHS Builder Victoria to use, adapt and rebrand. The published
-// template is a NEW, genericised OHS Builder Victoria document: all
-// Arlington-specific identity, people, ABN, project and contact details were
+// PROVENANCE: developed with permission to adapt industry source material.
+// The published template is a NEW, genericised OHS Builder Victoria document —
+// all source-specific identity, people, ABN, project and contact details were
 // removed and replaced with editable placeholders, and every clause was
 // checked against current Victorian requirements rather than carried over
-// verbatim. Do NOT surface the source individual/company to customers.
+// verbatim. Permission holder and source file are recorded privately in
+// docs/TEMPLATE_PROVENANCE.local.md (gitignored) — do NOT name the source
+// individual/company in committed code or to customers.
 //
 // Content checked against current authoritative Victorian sources:
 //   · Occupational Health and Safety Act 2004 (Vic) — general duties, ss.21–23
