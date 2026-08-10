@@ -38,7 +38,7 @@ const PLATFORM_LINKS = [
   {
     key: "privacy",
     label: "Privacy Policy",
-    body: `${brand.fullName} (a registered business name of ${brand.legalName}, ABN ${brand.abn}) collects only the information needed to manage workplace health and safety records: user accounts, site personnel compliance records, incident reports, site diaries and toolbox meeting records. Data is stored securely in Australia-region cloud infrastructure and is never sold or shared with third parties. Access is restricted by role. For privacy queries or data requests contact ${brand.supportEmail}.`,
+    body: `${brand.fullName} (a registered business name of ${brand.legalName}, ABN ${brand.abn}) collects only the information needed to manage workplace health and safety records: user accounts, site personnel compliance records, incident reports, site diaries and toolbox meeting records. Data is held with our cloud infrastructure provider with encryption in transit and at rest and role-based access control, and is not sold. Some data may be processed or stored outside Australia by our service providers — see the full Privacy Policy for details. For privacy queries or data requests contact ${brand.supportEmail}.`,
   },
   {
     key: "terms",
