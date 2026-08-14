@@ -282,32 +282,32 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Footer */}
+      {/* Footer — links row up top, then a quiet legal/credit bar so no single
+          line carries three unrelated jobs at once. */}
       <footer className="border-t border-slate-800 py-8">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-5 text-center sm:flex-row sm:text-left">
-          <Logo light />
-          <div className="text-xs text-slate-500">
-            <p>
-              <Link to="/help" className="font-medium text-slate-400 hover:text-white">
+        <div className="mx-auto max-w-6xl px-5">
+          <div className="flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
+            <Logo light />
+            <p className="text-xs text-slate-400">
+              <Link to="/help" className="font-medium hover:text-white">
                 Help &amp; Documentation
               </Link>{" "}
               ·{" "}
-              <Link to="/help/faq" className="font-medium text-slate-400 hover:text-white">
+              <Link to="/help/faq" className="font-medium hover:text-white">
                 FAQ
               </Link>{" "}
-              · {brand.domain} ·{" "}
-              <a
-                className="font-medium text-slate-400 hover:text-white"
-                href={`mailto:${brand.supportEmail}`}
-              >
+              ·{" "}
+              <a className="font-medium hover:text-white" href={`mailto:${brand.supportEmail}`}>
                 {brand.supportEmail}
               </a>
             </p>
-            <p className="mt-2">{brand.copyright}</p>
-            <p className="mt-1">
+          </div>
+          <div className="mt-6 flex flex-col items-center justify-between gap-2 border-t border-slate-800/60 pt-4 text-center sm:flex-row sm:text-left">
+            <p className="text-[11px] text-slate-500">{brand.copyright}</p>
+            <p className="text-[11px] text-slate-500">
               Designed &amp; architected by{" "}
               <a
-                className="font-medium text-slate-400 hover:text-white"
+                className="font-semibold text-slate-300 hover:text-white"
                 href="https://nexxtnestgroup.com.au/"
                 target="_blank"
                 rel="noopener noreferrer"
