@@ -38,6 +38,7 @@ export default function Induction() {
   const project = getProject(worker?.project);
   const { updateCategory } = useCompliance(worker?.id);
   const [modules, setModules] = useState(buildModuleState);
+  const [saveError, setSaveError] = useState(null);
 
   // The builder's own induction content for this site (blank fields fall back
   // to the standard content — a tradie never gets an empty screen).
@@ -49,7 +50,12 @@ export default function Induction() {
 
   useEffect(() => {
     if (completedCount === modules.length && worker?.id && worker.induction !== "Verified") {
-      updateCategory("induction", "Verified").catch(() => {});
+      // If this write is rejected, the tradie's screen says "complete" while
+      // the builder's matrix says otherwise — say so instead of diverging
+      // silently. (Network failures are queued for retry upstream.)
+      updateCategory("induction", "Verified")
+        .then(() => setSaveError(null))
+        .catch((err) => setSaveError(err?.message || "Couldn't record your induction."));
     }
   }, [completedCount, modules.length, worker?.id, worker?.induction, updateCategory]);
 
@@ -194,12 +200,20 @@ export default function Induction() {
       </div>
 
       {completedCount === modules.length && (
-        <Link
-          to="/worker/quiz"
-          className="mt-4 block rounded-xl bg-green-500 py-3 text-center text-sm font-semibold text-white"
-        >
-          Induction complete — Take the Safety Quiz →
-        </Link>
+        <>
+          {saveError && (
+            <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+              Your reading is done, but it couldn't be recorded: {saveError} Check
+              your connection and reopen this page — or tell your builder.
+            </p>
+          )}
+          <Link
+            to="/worker/quiz"
+            className="mt-4 block rounded-xl bg-green-500 py-3 text-center text-sm font-semibold text-white"
+          >
+            Induction complete — Take the Safety Quiz →
+          </Link>
+        </>
       )}
     </div>
     </FitnessDeclarationGate>

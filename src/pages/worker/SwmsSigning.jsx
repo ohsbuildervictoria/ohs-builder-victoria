@@ -206,8 +206,13 @@ export default function SwmsSigning() {
                 signedName: typedName.trim(),
                 workerId: worker?.id,
               });
+              // Since migration 011 the server flips the SWMS tick as part of
+              // sign_swms_v2 and REJECTS a direct status write — so a rejection
+              // here must never read as "your signature failed". The signature
+              // above is the source of truth; this call only back-fills the
+              // tick on databases that predate 011.
               if (worker?.id && worker.swms !== "Verified") {
-                await updateCategory("swms", "Verified");
+                await updateCategory("swms", "Verified").catch(() => {});
               }
               setSigned(true);
             } catch (err) {

@@ -18,7 +18,7 @@ const NAV = [
 
 export default function WorkerLayout() {
   const { logout, isBuilder, isWorker, user } = useAuth();
-  const { org } = useAppContext();
+  const { org, loading, loadError, refresh } = useAppContext();
   const navigate = useNavigate();
 
   // A worker session that hasn't identified a tradie yet belongs on the
@@ -67,8 +67,29 @@ export default function WorkerLayout() {
 
         {/* Content */}
         <main className="flex-1 overflow-y-auto pb-20 scrollbar-thin">
-          <OfflineSyncBanner />
-          <Outlet />
+          {/* Without this, a failed load renders WorkerHome with no worker —
+              which looks exactly like a correctly-provisioned empty account. */}
+          {loadError ? (
+            <div className="m-4 rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+              <p className="text-sm font-semibold text-red-700">Couldn't load your site data</p>
+              <p className="mt-1 text-xs text-red-600">{loadError}</p>
+              <button
+                onClick={refresh}
+                className="mt-4 rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
+              >
+                Try again
+              </button>
+            </div>
+          ) : loading ? (
+            <div className="flex h-64 items-center justify-center text-sm text-slate-400">
+              Loading…
+            </div>
+          ) : (
+            <>
+              <OfflineSyncBanner />
+              <Outlet />
+            </>
+          )}
         </main>
 
         {/* Bottom nav */}

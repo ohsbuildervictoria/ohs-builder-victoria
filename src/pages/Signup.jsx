@@ -16,8 +16,12 @@ export default function Signup() {
   const { register, handleSubmit, formState: { errors } } = useForm();
 
   useEffect(() => {
-    if (user) navigate("/builder/dashboard", { replace: true });
-  }, [user, navigate]);
+    // Only bounce sessions that arrive here already signed in. During submit,
+    // auth fires SIGNED_IN while the org-creation RPC is still in flight —
+    // navigating on that would unmount this form and swallow any error it was
+    // about to show. onSubmit owns navigation for its own attempt.
+    if (user && !submitting) navigate("/builder/dashboard", { replace: true });
+  }, [user, submitting, navigate]);
 
   const onSubmit = async (data) => {
     setError(null);
