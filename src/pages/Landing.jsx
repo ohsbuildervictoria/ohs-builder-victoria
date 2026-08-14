@@ -282,14 +282,17 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Footer — one balanced row (logo · links · credit), copyright alone
-          underneath. "Help" already lives in the header nav, so it's not here. */}
+      {/* Footer — logo on top; below the divider one bar whose order holds at
+          every width: copyright · FAQ/email · designer credit. The links sit
+          between the other two both across (desktop) and stacked (mobile).
+          "Help" already lives in the header nav, so it's not repeated here. */}
       <footer className="border-t border-slate-800 py-8">
         <div className="mx-auto max-w-6xl px-5">
-          <div className="grid items-center gap-4 text-center sm:grid-cols-3">
-            <div className="flex justify-center sm:justify-start">
-              <Logo light />
-            </div>
+          <div className="flex justify-center sm:justify-start">
+            <Logo light />
+          </div>
+          <div className="mt-6 grid items-center gap-3 border-t border-slate-800/60 pt-5 text-center sm:grid-cols-3">
+            <p className="text-[11px] text-slate-500 sm:text-left">{brand.copyright}</p>
             <p className="text-xs text-slate-400">
               <Link to="/help/faq" className="font-medium hover:text-white">
                 FAQ
@@ -310,9 +313,6 @@ export default function Landing() {
                 Nexxt Nest Group
               </a>
             </p>
-          </div>
-          <div className="mt-6 border-t border-slate-800/60 pt-4 text-center">
-            <p className="text-[11px] text-slate-500">{brand.copyright}</p>
           </div>
         </div>
       </footer>
