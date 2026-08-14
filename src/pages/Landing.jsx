@@ -304,6 +304,17 @@ export default function Landing() {
               </a>
             </p>
             <p className="mt-2">{brand.copyright}</p>
+            <p className="mt-1">
+              Designed &amp; architected by{" "}
+              <a
+                className="font-medium text-slate-400 hover:text-white"
+                href="https://nexxtnestgroup.com.au/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Nexxt Nest Group
+              </a>
+            </p>
           </div>
         </div>
       </footer>
