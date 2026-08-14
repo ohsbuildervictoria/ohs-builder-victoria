@@ -291,7 +291,7 @@ export default function Landing() {
           <div className="flex justify-center sm:justify-start">
             <Logo light />
           </div>
-          <div className="mt-6 grid items-center gap-3 border-t border-slate-800/60 pt-5 text-center sm:grid-cols-3">
+          <div className="mt-6 grid items-center gap-3 border-t border-slate-800/60 pt-5 text-center sm:grid-cols-[1.5fr_1fr_1.2fr]">
             <p className="text-[11px] text-slate-500 sm:text-left">{brand.copyright}</p>
             <p className="text-xs text-slate-400">
               <Link to="/help/faq" className="font-medium hover:text-white">
