@@ -288,11 +288,8 @@ export default function Landing() {
         <div className="mx-auto max-w-6xl px-5">
           <div className="flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
             <Logo light />
+            {/* "Help" already lives in the header nav — don't repeat it here. */}
             <p className="text-xs text-slate-400">
-              <Link to="/help" className="font-medium hover:text-white">
-                Help &amp; Documentation
-              </Link>{" "}
-              ·{" "}
               <Link to="/help/faq" className="font-medium hover:text-white">
                 FAQ
               </Link>{" "}
