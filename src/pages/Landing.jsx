@@ -282,13 +282,14 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Footer — links row up top, then a quiet legal/credit bar so no single
-          line carries three unrelated jobs at once. */}
+      {/* Footer — one balanced row (logo · links · credit), copyright alone
+          underneath. "Help" already lives in the header nav, so it's not here. */}
       <footer className="border-t border-slate-800 py-8">
         <div className="mx-auto max-w-6xl px-5">
-          <div className="flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
-            <Logo light />
-            {/* "Help" already lives in the header nav — don't repeat it here. */}
+          <div className="grid items-center gap-4 text-center sm:grid-cols-3">
+            <div className="flex justify-center sm:justify-start">
+              <Logo light />
+            </div>
             <p className="text-xs text-slate-400">
               <Link to="/help/faq" className="font-medium hover:text-white">
                 FAQ
@@ -298,10 +299,7 @@ export default function Landing() {
                 {brand.supportEmail}
               </a>
             </p>
-          </div>
-          <div className="mt-6 flex flex-col items-center justify-between gap-2 border-t border-slate-800/60 pt-4 text-center sm:flex-row sm:text-left">
-            <p className="text-[11px] text-slate-500">{brand.copyright}</p>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-xs text-slate-500 sm:text-right">
               Designed &amp; architected by{" "}
               <a
                 className="font-semibold text-slate-300 hover:text-white"
@@ -312,6 +310,9 @@ export default function Landing() {
                 Nexxt Nest Group
               </a>
             </p>
+          </div>
+          <div className="mt-6 border-t border-slate-800/60 pt-4 text-center">
+            <p className="text-[11px] text-slate-500">{brand.copyright}</p>
           </div>
         </div>
       </footer>
