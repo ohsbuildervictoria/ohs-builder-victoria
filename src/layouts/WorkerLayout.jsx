@@ -21,6 +21,11 @@ export default function WorkerLayout() {
   const { org, loading, loadError, refresh } = useAppContext();
   const navigate = useNavigate();
 
+  // Show the loading screen only before the FIRST load. Later refreshes (the
+  // quiz refreshes compliance after a pass, for example) must not unmount the
+  // page mid-flow — that threw a student back to question 1 with no result.
+  const initialLoading = loading && !org;
+
   // A worker session that hasn't identified a tradie yet belongs on the
   // stakeholder sign-in screen.
   if (isWorker && !user?.workerId) {
@@ -80,7 +85,7 @@ export default function WorkerLayout() {
                 Try again
               </button>
             </div>
-          ) : loading ? (
+          ) : initialLoading ? (
             <div className="flex h-64 items-center justify-center text-sm text-slate-400">
               Loading…
             </div>
