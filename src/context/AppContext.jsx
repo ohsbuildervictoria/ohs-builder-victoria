@@ -22,6 +22,7 @@ const emptyState = {
   companyDocs: [],
   photos: [],
   projectDocs: [],
+  projectRisks: [],
   org: null,
 };
 
@@ -46,6 +47,7 @@ export function AppProvider({ children }) {
   const [companyDocs, setCompanyDocs] = useState(emptyState.companyDocs);
   const [photos, setPhotos] = useState(emptyState.photos);
   const [projectDocs, setProjectDocs] = useState(emptyState.projectDocs);
+  const [projectRisks, setProjectRisks] = useState(emptyState.projectRisks);
   const [org, setOrg] = useState(emptyState.org);
   const [readNotifications, setReadNotifications] = useState(() => new Set());
   const [loading, setLoading] = useState(false);
@@ -72,6 +74,7 @@ export function AppProvider({ children }) {
       setCompanyDocs(data.companyDocs);
       setPhotos(data.photos);
       setProjectDocs(data.projectDocs);
+      setProjectRisks(data.projectRisks);
       setOrg(data.org);
     } catch (err) {
       setLoadError(err.message || "Failed to load data.");
@@ -102,6 +105,7 @@ export function AppProvider({ children }) {
       setCompanyDocs(emptyState.companyDocs);
       setPhotos(emptyState.photos);
       setProjectDocs(emptyState.projectDocs);
+      setProjectRisks(emptyState.projectRisks);
       setOrg(emptyState.org);
       setReadNotifications(new Set());
       setLoadError(null);
@@ -127,12 +131,13 @@ export function AppProvider({ children }) {
       companyDocs, setCompanyDocs,
       photos, setPhotos,
       projectDocs, setProjectDocs,
+      projectRisks, setProjectRisks,
       org, setOrg,
       readNotifications, setReadNotifications,
       loading, loadError, refresh,
     }),
     [projects, workers, documents, audits, checkins, incidents, templates, entries, meetings, policies,
-     profiles, invites, companies, companyDocs, photos, projectDocs, org, readNotifications, loading, loadError, refresh]
+     profiles, invites, companies, companyDocs, photos, projectDocs, projectRisks, org, readNotifications, loading, loadError, refresh]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

@@ -72,6 +72,10 @@ export const FAQ_CATEGORIES = [
         q: "How do I set up the site induction for a project?",
         a: "Open the project → Induction tab. Write your site rules, paste an optional YouTube/Vimeo induction video link, and set the muster point and site contact — every stakeholder on that project inducts against that content.",
       },
+      {
+        q: "Where's the project's risk register?",
+        a: "Open the project → Risk Register tab (between Compliance and Incidents). Seed it in one click from the SWMS trades already on site, rate each hazard on the 5×5 matrix (the colour is the rating — Low, Medium, High, Extreme), record controls and the residual risk, and export the lot as a branded PDF.",
+      },
     ],
   },
   {

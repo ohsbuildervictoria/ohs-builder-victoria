@@ -14,11 +14,12 @@ import { useWorkers } from "../../hooks/useWorkers";
 import { useIncidents } from "../../hooks/useIncidents";
 import { useDiary } from "../../hooks/useDiary";
 import { useProjectDocs } from "../../hooks/useProjectDocs";
+import RiskRegister from "./RiskRegister";
 import { useAppContext } from "../../context/AppContext";
 import { useToast } from "../../components/ui/Notification";
 import { formatAUD, complianceCategories } from "../../data/constants";
 
-const TABS = ["Overview", "Induction", "Stakeholders", "Compliance", "Incidents", "Documents", "Diary"];
+const TABS = ["Overview", "Induction", "Stakeholders", "Compliance", "Risk Register", "Incidents", "Documents", "Diary"];
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -216,6 +217,10 @@ export default function ProjectDetail() {
             )}
           </CardBody>
         </Card>
+      )}
+
+      {tab === "Risk Register" && (
+        <RiskRegister project={project} workers={workers} />
       )}
 
       {tab === "Documents" && (

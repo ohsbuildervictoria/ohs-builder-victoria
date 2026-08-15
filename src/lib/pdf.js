@@ -741,3 +741,99 @@ export async function exportSwmsSignoff({ org, templates = [], workers = [], sig
   footers(doc, { org });
   return output(doc, `SWMS-Signoff-${slug(org?.name || brand.fullName)}.pdf`, mode);
 }
+
+// ---------------------------------------------------------------------------
+// 9. Project Risk Register — the project-level 5x5 register (migration 020).
+// Landscape: thirteen columns of hazard/assessment/controls do not fit
+// honestly on a portrait page.
+// ---------------------------------------------------------------------------
+export async function exportRiskRegister({ org, project, risks = [], workers = [], mode = "save" }) {
+  await loadPdfLibs();
+  const { riskRating } = await import("./risk");
+  const logo = await loadOrgLogo(org);
+  const doc = new jsPDF({ unit: "pt", format: "a4", orientation: "landscape" });
+
+  const RATING_FILL = {
+    Low: [22, 163, 74],
+    Medium: [202, 138, 4],
+    High: [234, 88, 12],
+    Extreme: [220, 38, 38],
+  };
+  const ownerName = (id) => workers.find((w) => w.id === id)?.name || "";
+  const openCount = risks.filter((r) => r.status !== "Closed").length;
+  const highCount = risks.filter((r) => {
+    if (r.status === "Closed") return false;
+    const rating = r.residualLikelihood && r.residualConsequence
+      ? riskRating(r.residualLikelihood, r.residualConsequence)
+      : riskRating(r.likelihood, r.consequence);
+    return rating === "High" || rating === "Extreme";
+  }).length;
+
+  let y = header(doc, {
+    org,
+    title: "Project Risk Register",
+    logo,
+    meta: [
+      `Project: ${project?.name || "—"}${project?.address ? ` — ${project.address}` : ""}`,
+      `Entries: ${risks.length} · Open: ${openCount} · Open High/Extreme: ${highCount}`,
+      `Assessment: AS/NZS-style 5×5 likelihood × consequence · L×C ≥20 Extreme · 10–19 High · 5–9 Medium · ≤4 Low`,
+    ],
+  });
+
+  y = sectionTitle(doc, "Register", y + 4);
+  table(doc, {
+    startY: y,
+    head: [[
+      "#", "Hazard / risk", "Category",
+      "L", "C", "Rating",
+      "Current controls",
+      "RL", "RC", "Residual",
+      "Control owner", "Status", "Review",
+    ]],
+    columnStyles: {
+      0: { cellWidth: 18 },
+      1: { cellWidth: 150 },
+      2: { cellWidth: 62 },
+      3: { cellWidth: 16, halign: "center" },
+      4: { cellWidth: 16, halign: "center" },
+      5: { cellWidth: 46, halign: "center" },
+      6: { cellWidth: 190 },
+      7: { cellWidth: 18, halign: "center" },
+      8: { cellWidth: 18, halign: "center" },
+      9: { cellWidth: 46, halign: "center" },
+      11: { cellWidth: 48 },
+      12: { cellWidth: 48 },
+    },
+    body: risks.length
+      ? risks.map((r, i) => {
+          const rating = riskRating(r.likelihood, r.consequence) || "—";
+          const residual = r.residualLikelihood && r.residualConsequence
+            ? riskRating(r.residualLikelihood, r.residualConsequence)
+            : "—";
+          return [
+            String(i + 1), r.hazard, r.category,
+            String(r.likelihood), String(r.consequence), rating,
+            r.controls || "—",
+            r.residualLikelihood ? String(r.residualLikelihood) : "—",
+            r.residualConsequence ? String(r.residualConsequence) : "—",
+            residual,
+            ownerName(r.ownerWorkerId) || "—", r.status, r.reviewDate ? fmtDate(r.reviewDate) : "—",
+          ];
+        })
+      : [["", "No risks recorded yet", "", "", "", "", "", "", "", "", "", "", ""]],
+    didParseCell: (data) => {
+      if (data.section !== "body") return;
+      if (data.column.index === 5 || data.column.index === 9) {
+        const fill = RATING_FILL[data.cell.text?.[0]];
+        if (fill) {
+          data.cell.styles.fillColor = fill;
+          data.cell.styles.textColor = [255, 255, 255];
+          data.cell.styles.fontStyle = "bold";
+        }
+      }
+    },
+  });
+
+  footers(doc, { org });
+  return output(doc, `Risk-Register-${slug(project?.name || "project")}.pdf`, mode);
+}

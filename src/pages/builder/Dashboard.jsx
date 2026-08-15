@@ -11,6 +11,7 @@ import { useAppContext } from "../../context/AppContext";
 import { useProjects } from "../../hooks/useProjects";
 import { useDocuments } from "../../hooks/useDocuments";
 import { orgCompliancePercent, formatPercent } from "../../lib/compliance";
+import { isOpenHighRisk } from "../../lib/risk";
 
 // Evaluated once per page load — stable across re-renders.
 const THIRTY_DAYS_AGO = Date.now() - 30 * 24 * 60 * 60 * 1000;
@@ -22,7 +23,7 @@ const dateLabel = (d) => {
 
 export default function Dashboard() {
   const { projects } = useProjects();
-  const { workers, incidents, templates, entries, meetings } = useAppContext();
+  const { workers, incidents, templates, entries, meetings, projectRisks } = useAppContext();
   const { byWorker: docsByWorker } = useDocuments();
 
   // All KPIs are computed live from the database state.
@@ -38,6 +39,8 @@ export default function Dashboard() {
     const compliance = orgCompliancePercent(workers, docsByWorker);
     const pendingInductions = workers.filter((w) => w.induction !== "Verified").length;
     const openIncidents = incidents.filter((i) => i.status !== "Closed").length;
+    // Open High/Extreme register risks — same visibility rule as incidents.
+    const openHighRisks = projectRisks.filter(isOpenHighRisk).length;
     const pendingSwms = templates.reduce(
       (s, t) => s + Math.max(0, t.total - t.signed),
       0
@@ -70,11 +73,12 @@ export default function Dashboard() {
       workSafeNotifications,
       nearMisses30d,
       openActions,
+      openHighRisks,
       ltifr,
       totalHours,
       lostTimeInjuries,
     };
-  }, [projects, workers, incidents, templates, entries, docsByWorker]);
+  }, [projects, workers, incidents, templates, entries, docsByWorker, projectRisks]);
 
   const incidentsByType = useMemo(() => {
     const counts = {};
@@ -150,6 +154,7 @@ export default function Dashboard() {
           sub={kpis.workSafeNotifications > 0 ? "Urgent" : undefined}
         />
         <StatCard label="Near Misses (30d)" value={kpis.nearMisses30d} />
+        <StatCard label="Open High/Extreme Risks" value={kpis.openHighRisks} tone="red" />
         <StatCard label="Open Corrective Actions" value={kpis.openActions} tone="amber" />
         <StatCard
           label="LTIFR"
