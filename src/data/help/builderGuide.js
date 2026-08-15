@@ -105,7 +105,7 @@ export const builderGuide = {
         "Click + New Project and fill in the essentials: project name (required), site address, contract type, contract value, project manager, start date, status and build progress.",
         "Use the status pills — All · Active · Planning · On Hold · Completed · Archived — to filter the register. 'All' hides archived sites.",
         "Click Sign-in QR on a project card to open the site sign-in poster: Download QR as a PNG or Print poster for the site gate.",
-        "Click View Details to open the full project page — Overview, Induction, Stakeholders, Compliance, Incidents, Documents and Diary tabs.",
+        "Click View Details to open the full project page — Overview, Induction, Stakeholders, Compliance, Risk Register, Incidents, Documents and Diary tabs.",
         "On the project's Induction tab, write your site rules, paste an optional induction video link (YouTube/Vimeo), and set the emergency muster point and site contact — this becomes the induction every stakeholder on that site completes.",
         "On the Documents tab, upload working drawings, permits, certificates and contracts against the right category. Files are stored privately and viewed through signed links.",
         "When a job finishes, Archive it. Archived projects keep every record and can be Restored at any time.",
@@ -149,13 +149,80 @@ export const builderGuide = {
         "+ New Project — top right.",
         "Status pills filter the register; 'All' hides Archived.",
         "Sign-in QR on each card — download or print the gate poster.",
-        "View Details opens the project's seven tabs.",
+        "View Details opens the project's eight tabs.",
       ]),
       video: video("builder-projects", "Projects in 75 seconds", "≈75s", [
         "Every site in one register, with compliance and incidents beside it.",
         "Create a project, print its QR poster, open its detail tabs.",
         "Creates the project record everything else hangs off.",
         "Morning QR scans become attendance — and your LTIFR hours.",
+      ]),
+    },
+
+    {
+      slug: "risk-register",
+      title: "Project Risk Register",
+      icon: "🛡️",
+      routes: ["/builder/projects"],
+      summary:
+        "A project-level register of every identified hazard — assessed on a 5×5 matrix, with controls, owners and an audit-ready PDF.",
+      purpose:
+        "WorkSafe-standard OHS practice expects a risk register at project level, not just task-level risk inside each SWMS. The Risk Register tab gives every project one: each row is a hazard with a likelihood × consequence assessment, the controls you've put in place, who owns those controls, and where the risk sits after them.",
+      who: "Builder Admins and HSE Managers can build and edit any project's register; Site Supervisors can manage the register on their assigned sites. Tradies on the project can read it, not change it.",
+      how: [
+        "Open the project (Projects → View Details) and click the Risk Register tab — it sits between Compliance and Incidents.",
+        "Start with 📚 Add from SWMS library: it finds the SWMS trades already assigned to this site and imports their hazards — description, controls and a starting assessment — in one click. Hazards you've already imported are skipped, so it's safe to run again after new trades join.",
+        "Click + Add Risk for anything site-specific the library can't know: describe the hazard, pick a category (Falls, Electrical, Manual Handling, Plant & Equipment, Hazardous Substances, Environment, Public Safety, General).",
+        "Rate it by clicking the 5×5 matrix — likelihood (Rare → Almost certain) across, consequence (Insignificant → Severe) up. The colour you land on IS the rating: Low (green), Medium (yellow), High (orange), Extreme (red). You never type a rating; it's always calculated.",
+        "Write the current controls, then click the second matrix to record the residual risk — where the risk sits once those controls are working. An Extreme fall risk with edge protection in place might honestly be Low residual.",
+        "Assign a control owner from the project's stakeholders, set the status (Open → Controlled → Closed) and a review date so the entry doesn't quietly go stale.",
+        "Export Risk Register (PDF) produces the full register on your letterhead — colour-coded ratings included — ready for an auditor, a client or a WorkSafe visit.",
+      ],
+      records: [
+        "One register row per hazard — description, category, initial 5×5 assessment, controls, residual assessment, owner, status, review date.",
+        "SWMS-seeded rows keep their source reference (e.g. SWMS-FRAMER-01), so you can show where an entry came from.",
+      ],
+      value:
+        "This is the document an auditor asks for by name. Because ratings are computed from the matrix — never typed — the register can't quietly claim a 'Low' that the numbers don't support, and because open High/Extreme risks surface on the Dashboard and the project card, a risk you haven't controlled stays visible until you deal with it.",
+      bestPractice: [
+        "Seed from the SWMS library the day the project is created, then walk the site and add what's specific to it — access, neighbours, overhead services.",
+        "Record residual risk honestly. If the residual is still High or Extreme, the controls aren't finished — that's the point of the column.",
+        "Set review dates and honour them; a register reviewed monthly is evidence, a register from six months ago is a liability.",
+        "Close risks when the work phase ends (Closed keeps the record; nothing is deleted).",
+      ],
+      mistakes: [
+        "Marking a risk Controlled without recording a residual assessment — 'controlled to what level?' is the first question an auditor asks.",
+        "Treating the register as a one-off document instead of a living one — add new hazards as the build moves through phases.",
+        "Leaving every seeded entry at its starting assessment. The library's numbers are a starting point; your site conditions decide the real rating.",
+      ],
+      faqs: [
+        {
+          q: "How is the rating worked out?",
+          a: "Likelihood (1–5) × consequence (1–5). A score of 20 or more is Extreme, 10–19 is High, 5–9 is Medium, 4 or less is Low — the standard 5×5 banding. The matrix shows the colour before you click, so there are no surprises.",
+        },
+        {
+          q: "What's the difference between initial and residual risk?",
+          a: "Initial is the risk as found, before controls. Residual is where it sits with your current controls working. Dashboards and the project card count a risk as High/Extreme based on its residual rating once you've recorded one — so recording honest residuals is how the register reflects the work you've done.",
+        },
+        {
+          q: "Can tradies see the register?",
+          a: "Tradies on the project can read it (the database enforces read-only for them); only builder-side roles can add or change entries. There's no separate register screen in the tradie portal yet — they read it through the builder workspace if shown, and their task-level risk still lives in the SWMS they sign.",
+        },
+        {
+          q: "Does seeding twice duplicate everything?",
+          a: "No. The importer checks what's already on the register from each SWMS and only offers hazards that aren't there yet.",
+        },
+      ],
+      screenshot: shot("builder-risk-register", "The Risk Register tab with rating badges, residual column and the seed button", [
+        "📚 Add from SWMS library — one click builds a real register from the site's trades.",
+        "Rating and Residual badges are calculated from the 5×5 matrix, never typed.",
+        "Open High/Extreme count also appears on the project card and Dashboard.",
+      ]),
+      video: video("builder-risk-register", "Risk Register in 90 seconds", "≈90s", [
+        "Seed the register from the SWMS trades already on site.",
+        "Click the 5×5 matrix — the colour is the rating.",
+        "Record controls, then the honest residual risk.",
+        "Export the branded PDF for the auditor.",
       ]),
     },
 

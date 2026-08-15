@@ -51,6 +51,13 @@ const SECTIONS = [
     ],
   },
   {
+    icon: "🛡️",
+    title: "Project Risk Register",
+    body: [
+      "Every project carries its own risk register — each identified hazard assessed on a standard 5×5 likelihood × consequence matrix, with current controls, a residual rating, a control owner and a review date. Seed it in one click from the SWMS trades already on site, and export the colour-coded register as an audit-ready PDF.",
+    ],
+  },
+  {
     icon: "☁️",
     title: "Cloud Document Management",
     body: [
