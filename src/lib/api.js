@@ -9,6 +9,7 @@ import {
   projectCompliancePercent,
   indexDocuments,
 } from "./compliance";
+import { isOpenHighRisk } from "./risk";
 
 const COMPLIANCE_COLS = {
   induction: "induction",
@@ -340,7 +341,7 @@ function fail(error, action) {
 // Fetch everything the app needs after login
 // ---------------------------------------------------------------------------
 export async function fetchAppData() {
-  const [projects, workers, templates, incidents, entries, meetings, policies, org, profiles, invites, documents, audits, checkins, companies, companyDocs, recordPhotos, projectDocs] =
+  const [projects, workers, templates, incidents, entries, meetings, policies, org, profiles, invites, documents, audits, checkins, companies, companyDocs, recordPhotos, projectDocs, projectRisks] =
     await Promise.all([
       supabase.from("projects").select("*").order("id"),
       supabase.from("workers").select("*").order("id"),
@@ -360,6 +361,7 @@ export async function fetchAppData() {
       supabase.from("company_documents").select("*").order("id"),
       supabase.from("record_photos").select("*").order("id"),
       supabase.from("project_documents").select("*").order("created_at", { ascending: false }),
+      supabase.from("project_risks").select("*").order("id"),
     ]);
 
   for (const res of [projects, workers, templates, incidents, entries, meetings, policies, org, profiles]) {
@@ -412,11 +414,17 @@ export async function fetchAppData() {
   // Annotate live counts + evidence-based compliance % onto projects. Compliance
   // is derived from the crew's effective per-category status (uploaded documents
   // and their expiry for White Card/Insurance/Medical; completion for the rest).
+  // Tolerant like project_documents: empty until migration 020 has run.
+  const riskList = projectRisks.error ? [] : (projectRisks.data || []).map(mapProjectRisk);
+
   projectList.forEach((p) => {
     const crew = workerList.filter((w) => w.project === p.id);
     p.workers = crew.length;
     p.incidents = incidentList.filter((i) => i.projectId === p.id).length;
     p.compliance = projectCompliancePercent(crew, docsByWorker);
+    // Open High/Extreme risks surface on the project card and dashboard the
+    // same way incidents do.
+    p.openHighRisks = riskList.filter((r) => r.projectId === p.id && isOpenHighRisk(r)).length;
   });
 
   return {
@@ -440,7 +448,78 @@ export async function fetchAppData() {
     // returns nothing for a tradie, and nothing at all until the migration
     // that creates it has run.
     projectDocs: projectDocs.error ? [] : (projectDocs.data || []).map(mapProjectDoc),
+    projectRisks: riskList,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Project Risk Register (migration 020) — one row per identified hazard, 5x5
+// before/after-controls assessment. Ratings are derived (src/lib/risk.js),
+// never stored.
+// ---------------------------------------------------------------------------
+
+function mapProjectRisk(r) {
+  return {
+    id: r.id,
+    projectId: r.project_id,
+    hazard: r.hazard,
+    category: r.category,
+    likelihood: r.likelihood,
+    consequence: r.consequence,
+    controls: r.controls || "",
+    residualLikelihood: r.residual_likelihood ?? null,
+    residualConsequence: r.residual_consequence ?? null,
+    ownerWorkerId: r.owner_worker_id ?? null,
+    status: r.status,
+    reviewDate: r.review_date || null,
+    source: r.source,
+    sourceRef: r.source_ref || "",
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+function riskRow(risk) {
+  const row = {};
+  if (risk.hazard !== undefined) row.hazard = (risk.hazard || "").trim();
+  if (risk.category !== undefined) row.category = risk.category || "General";
+  if (risk.likelihood !== undefined) row.likelihood = Number(risk.likelihood);
+  if (risk.consequence !== undefined) row.consequence = Number(risk.consequence);
+  if (risk.controls !== undefined) row.controls = risk.controls || "";
+  if (risk.residualLikelihood !== undefined)
+    row.residual_likelihood = risk.residualLikelihood ? Number(risk.residualLikelihood) : null;
+  if (risk.residualConsequence !== undefined)
+    row.residual_consequence = risk.residualConsequence ? Number(risk.residualConsequence) : null;
+  if (risk.ownerWorkerId !== undefined) row.owner_worker_id = risk.ownerWorkerId || null;
+  if (risk.status !== undefined) row.status = risk.status;
+  if (risk.reviewDate !== undefined) row.review_date = risk.reviewDate || null;
+  if (risk.source !== undefined) row.source = risk.source;
+  if (risk.sourceRef !== undefined) row.source_ref = risk.sourceRef || "";
+  return row;
+}
+
+// Bulk insert so "Add from SWMS library" lands as one request.
+export async function insertProjectRisks(projectId, risks) {
+  const rows = risks.map((r) => ({ ...riskRow(r), project_id: Number(projectId) }));
+  const { data, error } = await supabase.from("project_risks").insert(rows).select();
+  if (error) fail(error, "Adding to the risk register");
+  return (data || []).map(mapProjectRisk);
+}
+
+export async function updateProjectRisk(id, patch) {
+  const { data, error } = await supabase
+    .from("project_risks")
+    .update(riskRow(patch))
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) fail(error, "Updating the risk register");
+  return mapProjectRisk(data);
+}
+
+export async function deleteProjectRisk(id) {
+  const { error } = await supabase.from("project_risks").delete().eq("id", id);
+  if (error) fail(error, "Removing the register entry");
 }
 
 // ---------------------------------------------------------------------------

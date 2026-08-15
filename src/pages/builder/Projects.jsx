@@ -13,6 +13,7 @@ import { useProjects } from "../../hooks/useProjects";
 import { useAuth } from "../../hooks/useAuth";
 import { useToast } from "../../components/ui/Notification";
 import { formatAUD } from "../../data/constants";
+import { isOpenHighRisk } from "../../lib/risk";
 
 const TABS = ["All", "Active", "Planning", "On Hold", "Completed", "Archived"];
 const CONTRACT_TYPES = ["Lump Sum", "Cost Plus", "Design & Construct", "Construction Management"];
@@ -26,7 +27,11 @@ function complianceTone(value) {
 
 export default function Projects() {
   const { projects, addProject, updateProject } = useProjects();
-  const { org } = useAppContext();
+  const { org, projectRisks } = useAppContext();
+  // Live count, not the fetch-time annotation — a risk added or closed this
+  // session must move the card immediately, the way the register itself does.
+  const highRisksFor = (pid) =>
+    projectRisks.filter((r) => r.projectId === pid && isOpenHighRisk(r)).length;
   const { hasRole } = useAuth();
   const toast = useToast();
   const [tab, setTab] = useState("All");
@@ -147,7 +152,7 @@ export default function Projects() {
                 <ProgressBar value={p.buildPercent} color="bg-blue-900" />
               </div>
 
-              <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+              <div className="mt-4 grid grid-cols-4 gap-2 text-center">
                 <div className="rounded-lg bg-slate-50 py-2">
                   <p className="text-xs text-slate-500">Stakeholders</p>
                   <p className="text-lg font-bold text-slate-800">{p.workers}</p>
@@ -166,6 +171,16 @@ export default function Projects() {
                     }`}
                   >
                     {p.incidents}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-slate-50 py-2">
+                  <p className="text-xs text-slate-500">High Risks</p>
+                  <p
+                    className={`text-lg font-bold ${
+                      highRisksFor(p.id) > 0 ? "text-orange-600" : "text-slate-800"
+                    }`}
+                  >
+                    {highRisksFor(p.id)}
                   </p>
                 </div>
               </div>
