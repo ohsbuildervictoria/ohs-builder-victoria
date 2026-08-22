@@ -27,6 +27,10 @@ David's accounts (`admin@ohsbuildervictoria.com.au` builder_admin org 1, `dcarua
 
 Pages Functions hardening: `verifyUser()` now also requires `profiles.status = 'Active'` (a still-valid JWT of a deactivated account gets 401).
 
+### 1a. Correction (same day, owner instruction: "nobody is banned — everyone can come back and start again")
+
+The reset must not stop anyone re-registering with their usual email. So every retired account was **archived and its email released** instead of staying banned: `auth.users.email`, the `auth.identities` email identity and `profiles.email` were renamed to `retired+<uid8>@retired.ohsbuildervictoria.invalid` (original kept in `raw_user_meta_data.retired_from_email`), profiles stay `Deactivated`, and **all auth bans were lifted (0 banned)**. 53 accounts archived this way (the 51 from the reset + the 2 temporary QA accounts). Historical records keep their attribution because they reference ids, not emails. Proof: a fresh `/signup` with `nexxtsitesolutions+spare7@gmail.com` (a retired email) created a brand-new builder workspace; that throwaway was then archived the same way. David (`dcaruana@arlingtonhomes.com.au`, `admin@ohsbuildervictoria.com.au`) can now sign up as a new Builder. Live emails: master + the three Owner Test Institute accounts only.
+
 ## 2. Stakeholder workflow (audit → fixes, migrations 024 + 025)
 
 **Audit findings (production code before today):** one `workers.trade` (free text) and one `workers.project_id` per row; a person's account pointed at exactly one row (`profiles.worker_id`), so a second trade overwrote the first and a second site meant a second identity (e.g. 5 worker rows for one Arlington email); SWMS matched by exact trade string in RLS, `revise_swms`, staff sign-off and the signing page; `workers.swms` flipped to Verified on the first signature; induction had no versioning; compliance % computed in JS, `workers.status` in SQL (expiry-blind); `insertWorker` bumped `swms_templates.total` client-side (drift). `accept_worker_invite` already email-guards and refuses cross-company moves.
