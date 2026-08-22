@@ -153,3 +153,72 @@ export function resolveFeatureRoute(route, { projectId } = {}) {
   }
   return route;
 }
+
+// ---------------------------------------------------------------------------
+// Colour contrast. An institution may pick any colour; we must never put white
+// text on a colour that cannot carry it. usablePrimary() darkens a too-light
+// colour (same hue) until it reaches WCAG 4.5:1 against white.
+// ---------------------------------------------------------------------------
+const hexToRgb = (hex) => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+const rgbToHex = (r, g, b) => "#" + [r, g, b].map((v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, "0")).join("");
+const lum = ([r, g, b]) => {
+  const f = (c) => { const x = c / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; };
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+};
+export function contrastRatio(hexA, hexB) {
+  const a = hexToRgb(hexA), b = hexToRgb(hexB);
+  if (!a || !b) return 1;
+  const la = lum(a), lb = lum(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+const rgbToHsl = ([r, g, b]) => {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0; const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h /= 6;
+  }
+  return [h, s, l];
+};
+const hslToRgb = ([h, s, l]) => {
+  if (s === 0) return [l * 255, l * 255, l * 255];
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const t2c = (t) => { if (t < 0) t += 1; if (t > 1) t -= 1; if (t < 1 / 6) return p + (q - p) * 6 * t; if (t < 1 / 2) return q; if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6; return p; };
+  return [t2c(h + 1 / 3) * 255, t2c(h) * 255, t2c(h - 1 / 3) * 255];
+};
+export const DEFAULT_PRIMARY = "#1e3a8a";
+// A primary colour that white text is readable on (>= 4.5:1). Invalid input
+// falls back to the platform navy. Same hue, darker where needed.
+export function usablePrimary(hex) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return DEFAULT_PRIMARY;
+  let h = rgbToHsl(rgb);
+  let out = rgbToHex(...rgb);
+  let guard = 0;
+  while (contrastRatio(out, "#ffffff") < 4.5 && guard < 60) {
+    h = [h[0], h[1], Math.max(0, h[2] - 0.02)];
+    out = rgbToHex(...hslToRgb(h));
+    guard += 1;
+  }
+  return out.toLowerCase();
+}
+// Secondary/accent only needs to not vanish against white.
+export function usableSecondary(hex) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return "#fbbf24";
+  if (contrastRatio(rgbToHex(...rgb), "#ffffff") >= 1.6) return rgbToHex(...rgb).toLowerCase();
+  let h = rgbToHsl(rgb); let out = rgbToHex(...rgb); let guard = 0;
+  while (contrastRatio(out, "#ffffff") < 1.6 && guard < 60) { h = [h[0], h[1], Math.max(0, h[2] - 0.02)]; out = rgbToHex(...hslToRgb(h)); guard += 1; }
+  return out.toLowerCase();
+}

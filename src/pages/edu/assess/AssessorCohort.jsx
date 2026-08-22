@@ -55,7 +55,12 @@ export default function AssessorCohort({ backTo, backLabel = "My cohorts", stude
       <PageHeader
         crumbs={[{ label: backLabel, to: back }, { label: cohort.name }]}
         title={cohort.name}
-        subtitle={`${program.name}${program.intake ? ` · ${program.intake}` : ""} · ${unit?.code || ""} ${unit?.title || ""} · ${fmtDate(cohort.startDate)} → ${fmtDate(cohort.endDate)}`}
+        subtitle={[
+          program.name,
+          program.intake,
+          unit?.code && !String(program.name || "").includes(unit.code) ? `${unit.code} ${unit.title || ""}`.trim() : null,
+          `${fmtDate(cohort.startDate)} → ${fmtDate(cohort.endDate)}`,
+        ].filter(Boolean).join(" · ")}
         action={<Button variant="secondary" size="sm" onClick={() => setReload((k) => k + 1)}>Refresh</Button>}
       />
 

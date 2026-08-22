@@ -14,6 +14,7 @@ import {
 } from "../../lib/api";
 import { roleLabels } from "../../data/constants";
 import { fetchPlatformInstitutions, createInstitution, eduJoinLink } from "../../lib/eduApi";
+import { eduRoleLabels } from "../../data/education";
 import Modal from "../../components/ui/Modal";
 import { useToast } from "../../components/ui/Notification";
 
@@ -304,7 +305,9 @@ export default function PlatformAdmin() {
                     <TD>#{o.id}</TD>
                     <TD className="font-medium text-slate-800">{o.name}</TD>
                     <TD>
-                      {o.is_internal ? (
+                      {o.plan === "Education" ? (
+                        <Badge status="Planning">Education sandbox</Badge>
+                      ) : o.is_internal ? (
                         <Badge status="Pending">Internal QA</Badge>
                       ) : (
                         <Badge status="Active">Customer</Badge>
@@ -343,7 +346,7 @@ export default function PlatformAdmin() {
                       )}
                     </TD>
                     <TD>{u.email}</TD>
-                    <TD>{roleLabels[u.role] || u.role}</TD>
+                    <TD>{roleLabels[u.role] || eduRoleLabels[u.role] || u.role}</TD>
                     <TD>
                       {u.organization_name
                         ? `#${u.organization_id} ${u.organization_name}${u.org_is_internal ? " (QA)" : ""}`

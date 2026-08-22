@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import Card, { CardBody, CardHeader } from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 import StatCard from "../../../components/ui/StatCard";
@@ -8,7 +8,7 @@ import { Table, THead, TBody, TR, TD } from "../../../components/ui/Table";
 import { ErrorCard, Loading, EmptyState, PageHeader } from "../../../components/education/EduBits";
 import { fetchInstitutionOverview } from "../../../lib/eduApi";
 import { useEducation } from "../../../hooks/useEducation";
-import { fmtDate } from "../../../data/education";
+import { fmtDate, usablePrimary } from "../../../data/education";
 
 // ============================================================================
 // Institution dashboard — the operational view: is setup finished, how many
@@ -44,9 +44,18 @@ export default function InstitutionDashboard() {
   if (error) return <ErrorCard message={error} onRetry={() => setReload((k) => k + 1)} />;
   if (!data) return <Loading label="Loading your institution…" />;
 
-  const { institution, counts, setup, cohorts = [] } = data;
+  const { institution, counts, cohorts = [] } = data;
+  const onboarding = institution.onboarding || {};
+  // Branding counts as done with a logo OR saved colours (the server flag only
+  // knows about the logo).
+  const setup = { ...(data.setup || {}), branding: !!(data.setup?.branding || onboarding.brandingSaved) };
   const missing = SETUP_STEPS.filter(([k]) => !setup?.[k]);
-  const primary = institution.primaryColour || "#1e3a8a";
+  const nothingDone = SETUP_STEPS.every(([k]) => !setup?.[k]);
+  const primary = usablePrimary(institution.primaryColour);
+  // First visit: go straight to the wizard's Welcome screen rather than a
+  // dashboard full of zeros.
+  if (nothingDone && !onboarding.welcomeSeen) return <Navigate to="/education/admin/setup" replace />;
+  const setupStep = nothingDone ? 1 : missing[0]?.[2];
 
   return (
     <div className="space-y-6">
@@ -72,12 +81,12 @@ export default function InstitutionDashboard() {
               <ul className="mt-2 grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
                 {SETUP_STEPS.map(([k, label]) => (
                   <li key={k} className={setup?.[k] ? "text-green-700" : "text-slate-600"}>
-                    {setup?.[k] ? "✓" : "○"} {label}
+                    {setup?.[k] ? "✓" : "○"} {label}{k === "branding" && setup.branding && !data.setup?.branding ? " (colours set — add a logo any time)" : ""}
                   </li>
                 ))}
               </ul>
             </div>
-            <Link to={`/education/admin/setup?step=${missing[0][2]}`}><Button size="lg">{missing.length === SETUP_STEPS.length ? "Start setup" : "Continue setup"} →</Button></Link>
+            <Link to={setupStep === 1 ? "/education/admin/setup" : `/education/admin/setup?step=${setupStep}`}><Button size="lg">{missing.length === SETUP_STEPS.length ? "Start setup" : "Continue setup"} →</Button></Link>
           </CardBody>
         </Card>
       )}

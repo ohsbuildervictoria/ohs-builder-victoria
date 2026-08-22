@@ -8,7 +8,7 @@ import { fetchPermissions, fetchProfile } from "../../lib/api";
 import { homeRouteFor } from "../../lib/eduRoutes";
 import Logo from "../../components/shared/Logo";
 import Button from "../../components/ui/Button";
-import { eduBrand, eduRoleLabels } from "../../data/education";
+import { eduBrand, eduRoleLabels, usablePrimary } from "../../data/education";
 
 // ============================================================================
 // /edu/join/:token — one page for every Education invitation (institution
@@ -36,7 +36,7 @@ export default function EduJoin() {
   }, [token]);
 
   const roleLabel = eduRoleLabels[info?.role] || "member";
-  const primary = info?.primaryColour || "#1e3a8a";
+  const primary = usablePrimary(info?.primaryColour);
 
   const finish = async () => {
     const { data: { user: authUser } } = await supabase.auth.getUser();

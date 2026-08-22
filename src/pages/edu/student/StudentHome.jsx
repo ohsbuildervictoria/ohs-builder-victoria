@@ -8,7 +8,7 @@ import {
 } from "../../../components/education/EduBits";
 import { useStudentHome } from "../../../hooks/useStudentHome";
 import { setEduUiState, acknowledgeEvent } from "../../../lib/eduApi";
-import { fmtDateTime, eduBrand } from "../../../data/education";
+import { fmtDateTime, eduBrand, usablePrimary } from "../../../data/education";
 import { EDU_ROUTES } from "../../../lib/eduRoutes";
 
 // ============================================================================
@@ -28,7 +28,7 @@ export default function StudentHome() {
 
   const { enrolment, student, institution, cohort, unit, scenario, progress, events, submissions, assessors } = home;
   const ui = enrolment.uiState || {};
-  const primary = institution.primaryColour || "#1e3a8a";
+  const primary = usablePrimary(institution.primaryColour);
   const stages = scenario?.stages || [];
   const progressByStage = Object.fromEntries((progress?.stages || []).map((s) => [s.stageId, s]));
   const latest = submissions?.[0] || null;
@@ -95,7 +95,11 @@ export default function StudentHome() {
 
   // ------------------------------------------------------------- Dashboard
   const firstIncomplete = stages.find((s) => !progressByStage[s.id]?.complete);
-  const newEvents = (events || []).filter((e) => e.state === "new");
+  const newEvents = (events || []).filter((e) => e.state === "new").slice().sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a.id - b.id);
+  // One prominent event at a time — the earliest unread; the rest are listed compactly.
+  const headlineEvent = newEvents[0] || null;
+  const otherNewEvents = newEvents.slice(1);
+  const nysCount = latest?.results?.filter((r) => r.result === "not_yet_satisfactory").length || 0;
   const allButSubmitDone = stages.filter((s) => !s.evidenceRule?.submission).every((s) => progressByStage[s.id]?.complete);
   const awaiting = latest && (latest.status === "submitted" || latest.status === "under_review");
 
@@ -113,7 +117,7 @@ export default function StudentHome() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <StatusPill status={enrolment.status} />
+          <StatusPill status={progress?.status || enrolment.status} />
           <Button variant="secondary" size="sm" onClick={() => setTourOpen(true)}>Reopen tour</Button>
           <Link to="/builder/dashboard"><Button size="sm">Open my site →</Button></Link>
         </div>
@@ -124,7 +128,7 @@ export default function StudentHome() {
         <div className="rounded-xl border border-red-200 bg-red-50 p-4">
           <p className="text-sm font-bold text-red-800">Action Required — your assessor has returned some work</p>
           <p className="mt-1 text-sm text-red-700">
-            {latest.results?.filter((r) => r.result === "not_yet_satisfactory").length || 0} criteria were marked Not Yet Satisfactory.
+            {nysCount === 1 ? "1 criterion was" : `${nysCount} criteria were`} marked Not Yet Satisfactory.
             Read the feedback, correct the records on your site, then resubmit.
           </p>
           <Link to={EDU_ROUTES.studentResults} className="mt-2 inline-block text-sm font-semibold text-red-800 underline">See what to fix →</Link>
@@ -164,7 +168,7 @@ export default function StudentHome() {
           </Card>
 
           {/* New site events */}
-          {newEvents.map((ev) => (
+          {[headlineEvent].filter(Boolean).map((ev) => (
             <div key={ev.id} className="rounded-xl border-2 border-amber-300 bg-amber-50 p-5 shadow-sm">
               <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700">Site event · needs your response</p>
               <h2 className="mt-1 text-lg font-bold text-slate-800">{ev.title}</h2>
@@ -195,6 +199,17 @@ export default function StudentHome() {
                   Mark as read
                 </Button>
               </div>
+              {otherNewEvents.length > 0 && (
+                <div className="mt-3 border-t border-amber-200 pt-2 text-xs text-amber-900">
+                  <span className="font-semibold">Also new:</span>{" "}
+                  {otherNewEvents.map((o, i) => (
+                    <span key={o.id}>
+                      {i > 0 && " · "}
+                      {o.stageCode ? <Link to={EDU_ROUTES.studentTask(o.stageCode)} className="underline">{o.title}</Link> : o.title}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
 

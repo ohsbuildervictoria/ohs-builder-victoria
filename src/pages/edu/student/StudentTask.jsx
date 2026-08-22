@@ -6,7 +6,7 @@ import { useToast } from "../../../components/ui/Notification";
 import { RichText, ErrorCard, Loading, PageHeader } from "../../../components/education/EduBits";
 import { useStudentHome } from "../../../hooks/useStudentHome";
 import { acknowledgeEvent } from "../../../lib/eduApi";
-import { resolveFeatureRoute } from "../../../data/education";
+import { resolveFeatureRoute, usablePrimary } from "../../../data/education";
 import { EDU_ROUTES } from "../../../lib/eduRoutes";
 
 // ============================================================================
@@ -49,7 +49,7 @@ export default function StudentTask() {
   if (!home) return <Loading label="Loading task…" />;
 
   const { enrolment, institution, scenario, progress, events } = home;
-  const primary = institution.primaryColour || "#1e3a8a";
+  const primary = usablePrimary(institution.primaryColour);
   const stages = scenario?.stages || [];
   const idx = stages.findIndex((s) => s.code === code);
   const stage = stages[idx];

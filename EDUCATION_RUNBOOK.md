@@ -157,3 +157,21 @@ script ends with a commented, deliberate delete. Run only after an explicit deci
    `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `APP_ORIGIN` — `send-edu-invite` needs nothing new.
 7. Create the first real institution from `/platform` → Education institutions → New.
 8. Decide separately whether the demo institution exists on production.
+
+---
+
+## Staging verification record — 22 Aug 2026
+
+**Staging project:** `ohs-builder-victoria-staging` (ref `adoatvmvmttdvrdfpfve`, Tokyo, free tier, same Supabase org as production). Credentials live only on the verification machine (`staging.local.json`, git-ignored); the app is pointed at it with `.env.staging.local` + `vite --mode staging`.
+
+**Migration sequence used (and the one to use for any fresh database):**
+1. `supabase link --project-ref <ref>` from a scratch workspace (never re-link the repo's production link).
+2. `supabase db push` with migrations 001–023. On a *clean* database, one statement in `001_schema.sql` cannot run as written (`alter column hours type numeric` while the column still has the text default `''`). Production never hit this because the statement was applied incrementally in July. For staging the copy of 001 was patched to `drop default` → `type numeric` → `set default 0`; production's 001 is **not** edited (history is left alone). If a fresh database is ever rebuilt, apply the same three-line patch.
+3. Migration 020 is recorded in staging by the push. On **production** it is applied but unrecorded: run `supabase migration repair --status applied 020` **before** pushing 021–023 there, otherwise `db push` will re-run 020 (idempotent, but noisy).
+4. `supabase config push` for staging auth (site URL + no email confirmation, matching production's auto-confirm).
+5. Seed: `scripts/education/seed-demo.mjs`, `scripts/education/seed-industry-staging.mjs`.
+6. Tests: `npm run test:education` (Education isolation 16, Industry regression 11, Industry-unchanged 1+1 optional).
+
+**Post-walkthrough RPC patches (all in 022, re-applied to staging with `create or replace`):** `edu_events_for` auto-acknowledges an event whose task is already evidenced; `edu_student_home` evaluates progress before reading the enrolment status; `edu_submit_for_assessment` freezes the post-insert evaluation into the submission (task 10 shows Evidenced in the snapshot); `edu_institution_overview` counts branding as set when colours were saved.
+
+**Known pre-existing drift (Industry, not Education):** production's `signup_create_org` carries the 14-Aug quiz-seed hot-fix that is not in any recorded migration; a clean database built from the repo does not seed the quiz for a new trial org. Fold that hot-fix into a migration at some point.

@@ -598,6 +598,16 @@ begin
       on conflict do nothing;
       select * into se from public.edu_student_events where enrolment_id = p_enrolment and event_id = ev.id;
     end if;
+    -- An event whose own task is already evidenced has been dealt with by
+    -- doing the work: record it as acknowledged so a student who completed
+    -- several tasks before returning is not met by a wall of stale alerts.
+    if avail and se.id is not null and se.acknowledged_at is null and ev.stage_id is not null
+       and exists (select 1 from public.edu_stage_progress p where p.enrolment_id = p_enrolment and p.stage_id = ev.stage_id and p.complete)
+       and p_enrolment = public.edu_my_enrolment_id() then
+      update public.edu_student_events set acknowledged_at = now(), response = response || '{"auto":"task_complete"}'::jsonb
+       where id = se.id;
+      select * into se from public.edu_student_events where id = se.id;
+    end if;
     out := out || jsonb_build_object(
       'id', ev.id, 'code', ev.code, 'title', ev.title, 'body', ev.body, 'responseHint', ev.response_hint,
       'stageId', ev.stage_id, 'stageCode', ev.stage_code, 'stageTitle', ev.stage_title, 'trigger', ev.trigger,
@@ -679,7 +689,9 @@ begin
   returning id into sub_id;
 
   update public.edu_enrolments set status = 'ready_for_assessment', submitted_at = now() where id = v;
-  perform public.edu_evaluate_progress(v);   -- the "Submit evidence" stage now completes
+  -- The "Submit evidence" stage completes now that the submission exists;
+  -- freeze THAT evaluation into the submission so the snapshot shows 10/10.
+  update public.edu_submissions set progress = public.edu_evaluate_progress(v)::jsonb where id = sub_id;
 
   insert into public.security_audit (organization_id, actor_id, actor_role, actor_name, action, table_name, row_id, details)
   values (e.sandbox_org_id, auth.uid(), 'student', my_name, 'EDU_SUBMITTED', 'edu_submissions', sub_id::text,
@@ -875,12 +887,14 @@ declare v bigint; e record; c record; p record; prog json; first_project bigint;
 begin
   v := public.edu_my_enrolment_id();
   if v is null then raise exception 'No training enrolment is linked to this account.'; end if;
+  -- Evaluate first: the enrolment status may move to in_progress here, and
+  -- the dashboard must show the status as it now is.
+  prog := public.edu_evaluate_progress(v);
   select * into e from public.edu_enrolments where id = v;
   select * into c from public.edu_cohorts where id = e.cohort_id;
   select * into p from public.edu_programs where id = c.program_id;
   select * into m from public.edu_memberships where id = e.membership_id;
   update public.edu_memberships set last_login = now() where id = e.membership_id;
-  prog := public.edu_evaluate_progress(v);
   select id into first_project from public.projects where organization_id = e.sandbox_org_id order by id limit 1;
 
   return json_build_object(
@@ -1040,7 +1054,7 @@ begin
       'completed', (select count(*) from public.edu_enrolments x where x.institution_id = p_institution and x.status = 'completed')),
     'setup', jsonb_build_object(
       'profile', (coalesce(i.contact_email, '') <> '' and coalesce(i.address, '') <> ''),
-      'branding', coalesce(i.logo_url, '') <> '',
+      'branding', coalesce(i.logo_url, '') <> '' or coalesce(i.onboarding->>'brandingSaved', '') = 'true',
       'program', exists (select 1 from public.edu_programs x where x.institution_id = p_institution),
       'cohort', exists (select 1 from public.edu_cohorts x where x.institution_id = p_institution),
       'assessor', exists (select 1 from public.edu_memberships x where x.institution_id = p_institution and x.edu_role = 'assessor'),

@@ -11,7 +11,7 @@ import {
   inviteMember, insertQualification, insertUnit, eduJoinLink, fetchMemberships,
 } from "../../../lib/eduApi";
 import { useEducation } from "../../../hooks/useEducation";
-import { eduBrand } from "../../../data/education";
+import { eduBrand, usablePrimary } from "../../../data/education";
 
 // ============================================================================
 // First-time Institution Admin experience — an 8-screen wizard. Every screen
@@ -70,7 +70,7 @@ export default function InstitutionSetup() {
   useEffect(() => { if (instId) load(); }, [instId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const institution = overview?.institution;
-  const primary = institution?.primaryColour || education?.primaryColour || "#1e3a8a";
+  const primary = usablePrimary(institution?.primaryColour || education?.primaryColour);
 
   const go = (n) => {
     setStep(n);
@@ -89,7 +89,8 @@ export default function InstitutionSetup() {
   if (error) return <ErrorCard message={error} onRetry={load} />;
   if (!overview || !library) return <Loading label="Preparing setup…" />;
 
-  const setup = overview.setup || {};
+  const setup = { ...(overview.setup || {}), branding: !!(overview.setup?.branding || institution?.onboarding?.brandingSaved) };
+  const brandingColoursOnly = setup.branding && !overview.setup?.branding;
   const selectedProgram = programs.find((p) => p.id === ctx.programId) || programs[programs.length - 1] || null;
   const selectedCohort = cohorts.find((c) => c.id === ctx.cohortId) || cohorts[cohorts.length - 1] || null;
 
@@ -122,7 +123,7 @@ export default function InstitutionSetup() {
                 {STEPS.slice(1, 7).map((s) => <li key={s.n}>{s.n - 1}. {s.title}</li>)}
               </ul>
               <p className="mt-4 text-xs text-slate-400">You can skip any step and come back later from the dashboard.</p>
-              <Button size="lg" className="mt-5" onClick={() => go(2)}>Start Setup →</Button>
+              <Button size="lg" className="mt-5" onClick={async () => { await markDone("welcomeSeen"); go(2); }}>Start Setup →</Button>
             </div>
           )}
 
@@ -145,7 +146,7 @@ export default function InstitutionSetup() {
               <InstitutionBrandingForm
                 institution={institution}
                 submitLabel="Save and continue →"
-                onSaved={async (saved) => { setOverview((o) => ({ ...o, institution: { ...o.institution, ...saved } })); await markDone("branding"); }}
+                onSaved={async (saved, { advance } = {}) => { setOverview((o) => ({ ...o, institution: { ...o.institution, ...saved } })); await markDone("branding", { brandingSaved: true }); if (advance) go(4); }}
               >
                 <div className="flex gap-2">
                   <Button type="button" variant="ghost" onClick={() => go(2)}>← Back</Button>
@@ -235,7 +236,7 @@ export default function InstitutionSetup() {
           )}
 
           {step === 8 && (
-            <ReadyStep setup={{ ...setup, students: setup.students || ctx.studentsAdded > 0 }} primary={primary} onOpen={() => navigate("/education/admin")} onGo={go} />
+            <ReadyStep setup={{ ...setup, students: setup.students || ctx.studentsAdded > 0 }} brandingColoursOnly={brandingColoursOnly} primary={primary} onOpen={() => navigate("/education/admin")} onGo={go} />
           )}
         </CardBody>
       </Card>
@@ -468,7 +469,7 @@ function AssessorStep({ institutionId, cohort, cohorts, existing, link, onBack, 
   );
 }
 
-function ReadyStep({ setup, primary, onOpen, onGo }) {
+function ReadyStep({ setup, brandingColoursOnly, primary, onOpen, onGo }) {
   const items = [
     ["profile", "Institution", 2], ["branding", "Branding", 3], ["program", "Program", 4],
     ["cohort", "Cohort", 5], ["assessor", "Assessor", 6], ["students", "Students", 7],
@@ -481,7 +482,7 @@ function ReadyStep({ setup, primary, onOpen, onGo }) {
       <ul className="mx-auto mt-4 max-w-xs space-y-2 text-left">
         {items.map(([k, label, n]) => (
           <li key={k} className="flex items-center justify-between text-sm">
-            <span className={setup[k] ? "text-slate-800" : "text-slate-500"}>{setup[k] ? "✓" : "○"} {label}</span>
+            <span className={setup[k] ? "text-slate-800" : "text-slate-500"}>{setup[k] ? "✓" : "○"} {label}{k === "branding" && brandingColoursOnly ? <span className="text-xs text-slate-500"> (colours set — add a logo any time)</span> : null}</span>
             {!setup[k] && <button onClick={() => onGo(n)} className="text-xs font-medium text-blue-700 hover:underline">Do this</button>}
           </li>
         ))}

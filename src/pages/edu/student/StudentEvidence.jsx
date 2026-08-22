@@ -3,7 +3,7 @@ import Card, { CardBody, CardHeader } from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 import { ErrorCard, Loading, PageHeader, BrandedProgress } from "../../../components/education/EduBits";
 import { useStudentHome } from "../../../hooks/useStudentHome";
-import { resolveFeatureRoute } from "../../../data/education";
+import { resolveFeatureRoute, usablePrimary } from "../../../data/education";
 import { EDU_ROUTES } from "../../../lib/eduRoutes";
 
 // ============================================================================
@@ -38,7 +38,7 @@ export default function StudentEvidence() {
   if (!home) return <Loading label="Loading your evidence…" />;
 
   const { enrolment, institution, scenario, progress, evidenceCounts = {}, submissions } = home;
-  const primary = institution.primaryColour || "#1e3a8a";
+  const primary = usablePrimary(institution.primaryColour);
   const stages = scenario?.stages || [];
   const byStage = Object.fromEntries((progress?.stages || []).map((s) => [s.stageId, s]));
   const latest = submissions?.[0];

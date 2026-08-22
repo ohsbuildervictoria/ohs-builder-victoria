@@ -28,7 +28,17 @@ const hexToRgb = (hex) => {
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "—");
 const fmtDateTime = (d) =>
   d ? new Date(d).toLocaleString("en-AU", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" }) : "—";
-const s = (v) => (v == null ? "" : String(v));
+// jsPDF's built-in Helvetica covers WinAnsi only: replace the few symbols the
+// app uses in free text so they never print as garbage.
+const s = (v) =>
+  (v == null ? "" : String(v))
+    .replace(/→/g, "->").replace(/←/g, "<-").replace(/✓|✔/g, "(tick)")
+    .replace(/•/g, "-").replace(/…/g, "...").replace(/[‘’]/g, "'").replace(/[“”]/g, '"')
+    .replace(/×/g, "x").replace(/≤/g, "<=").replace(/≥/g, ">=");
+const STATUS_LABEL = {
+  submitted: "Submitted", under_review: "Under review", returned_nys: "Returned - Not Yet Satisfactory", completed: "Completed",
+};
+const statusLabel = (v) => STATUS_LABEL[v] || s(v).replace(/_/g, " ");
 
 function header(doc, { institution, title, subtitle, logo, primary }) {
   const w = doc.internal.pageSize.getWidth();
@@ -74,20 +84,23 @@ function footers(doc, { institution, version }) {
     doc.setPage(p);
     doc.setDrawColor(226, 232, 240);
     doc.setLineWidth(0.5);
-    doc.line(MARGIN, h - 40, w - MARGIN, h - 40);
+    doc.line(MARGIN, h - 46, w - MARGIN, h - 46);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(...SLATE);
-    doc.text(`Evidence portfolio · submission version ${version} · generated ${fmtDateTime(new Date().toISOString())} · ${institution?.name || ""}`, MARGIN, h - 28);
-    doc.text(`${brand.fullName} · ${brand.domain} · Page ${p} of ${total}`, w - MARGIN, h - 28, { align: "right" });
+    // Three short lines: no string is long enough to collide with another.
+    doc.text(`Evidence portfolio · submission V${version} · generated ${fmtDateTime(new Date().toISOString())}`, MARGIN, h - 36);
+    doc.text(`Page ${p} of ${total}`, w - MARGIN, h - 36, { align: "right" });
+    doc.text(`${s(institution?.name).slice(0, 60)} · ${brand.fullName} · ${brand.domain}`, MARGIN, h - 27);
+    doc.setFontSize(6.5);
     const lines = doc.splitTextToSize(eduBrand.disclaimer, w - MARGIN * 2);
-    doc.text(lines, MARGIN, h - 17);
+    doc.text(lines.slice(0, 2), MARGIN, h - 18);
   }
 }
 
 function section(doc, y, title, primary) {
   const h = doc.internal.pageSize.getHeight();
-  if (y > h - 120) { doc.addPage(); y = 60; }
+  if (y > h - 130) { doc.addPage(); y = 60; }
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11.5);
   doc.setTextColor(...primary);
@@ -106,8 +119,8 @@ function table(doc, y, head, body, primary, opts = {}) {
   autoTable(doc, {
     startY: y + 4,
     head: [head],
-    body,
-    margin: { left: MARGIN, right: MARGIN },
+    body: body.map((row) => row.map((cell) => (typeof cell === "string" ? s(cell) : cell))),
+    margin: { left: MARGIN, right: MARGIN, bottom: 60 },
     styles: { fontSize: 8, cellPadding: 3, textColor: INK, overflow: "linebreak" },
     headStyles: { fillColor: primary, textColor: 255, fontStyle: "bold" },
     alternateRowStyles: { fillColor: [248, 250, 252] },
@@ -147,14 +160,14 @@ export async function exportEvidencePortfolio({ bundle, submission, snapshot = {
     ["Program / cohort", `${s(program.name)}${program.intake ? ` · ${program.intake}` : ""} · ${s(cohort.name)}`],
     ["Scenario", `${s(scenario.title)} — ${s(scenario.studentRole)}`],
     ["Submission", `Version ${version} · submitted ${fmtDateTime(submission?.submittedAt)}`],
-    ["Assessment status", submission ? `${s(submission.status).replace("_", " ")}${submission.decidedAt ? ` · decided ${fmtDateTime(submission.decidedAt)} by ${s(submission.decidedByName)}` : ""}` : "—"],
+    ["Assessment status", submission ? `${statusLabel(submission.status)}${submission.decidedAt ? ` · decided ${fmtDateTime(submission.decidedAt)} by ${s(submission.decidedByName)}` : ""}` : "—"],
     ["Assessment mapping", mappings?.source === "institution" ? `Institution-controlled mapping (${institution.name})` : "Indicative default mapping (institution-controlled; review against the current unit text)"],
     ["Generated", fmtDateTime(new Date().toISOString())],
   ];
   y = table(doc, y, ["Item", "Detail"], rows, primary, { columnStyles: { 0: { cellWidth: 120, fontStyle: "bold" } } });
   if (submission?.studentNote) {
     doc.setFont("helvetica", "italic"); doc.setFontSize(9); doc.setTextColor(...INK);
-    const lines = doc.splitTextToSize(`Student note: ${submission.studentNote}`, doc.internal.pageSize.getWidth() - MARGIN * 2);
+    const lines = doc.splitTextToSize(`Student note: ${s(submission.studentNote)}`, doc.internal.pageSize.getWidth() - MARGIN * 2);
     doc.text(lines, MARGIN, y); y += lines.length * 11 + 10;
   }
 
@@ -163,13 +176,13 @@ export async function exportEvidencePortfolio({ bundle, submission, snapshot = {
   const mapped = (cid) => (mappings?.rows || []).filter((m) => m.criterionId === cid).map((m) => stageById[m.stageId]?.code).filter(Boolean).join(", ");
   const resultRows = criteria.map((c) => {
     const r = results.find((x) => x.criterionId === c.id);
-    return [c.code, c.text, mapped(c.id) || "—", r ? resultLabels[r.result] : "Not assessed", s(r?.comment), r ? `${s(r.assessedByName)} ${fmtDate(r.assessedAt)}` : ""];
+    return [c.code, s(c.text), mapped(c.id) || "—", r ? resultLabels[r.result] : "Not assessed", s(r?.comment), r ? `${s(r.assessedByName)} ${fmtDate(r.assessedAt)}` : ""];
   });
   y = table(doc, y, ["Code", "Criterion", "Evidence (tasks)", "Result", "Assessor comment", "By / date"], resultRows, primary,
     { columnStyles: { 0: { cellWidth: 34 }, 1: { cellWidth: 150 }, 2: { cellWidth: 60 }, 3: { cellWidth: 70 }, 5: { cellWidth: 80 } } });
   if (submission?.outcomeComment) {
     doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(...INK);
-    const lines = doc.splitTextToSize(`Overall feedback: ${submission.outcomeComment}`, doc.internal.pageSize.getWidth() - MARGIN * 2);
+    const lines = doc.splitTextToSize(`Overall feedback: ${s(submission.outcomeComment)}`, doc.internal.pageSize.getWidth() - MARGIN * 2);
     doc.text(lines, MARGIN, y); y += lines.length * 11 + 10;
   }
 
@@ -253,7 +266,7 @@ export async function exportEvidencePortfolio({ bundle, submission, snapshot = {
   // ---- Submission history --------------------------------------------------
   y = section(doc, y, "Submission and assessment history", primary);
   table(doc, y, ["Version", "Submitted", "Status", "Decided", "By", "S / NYS"],
-    (bundle?.submissions || []).map((x) => [x.version, fmtDateTime(x.submittedAt), s(x.status).replace("_", " "), x.decidedAt ? fmtDateTime(x.decidedAt) : "—", s(x.decidedByName),
+    (bundle?.submissions || []).map((x) => [x.version, fmtDateTime(x.submittedAt), statusLabel(x.status), x.decidedAt ? fmtDateTime(x.decidedAt) : "—", s(x.decidedByName),
       `${(x.results || []).filter((r) => r.result === "satisfactory").length} / ${(x.results || []).filter((r) => r.result === "not_yet_satisfactory").length}`]), primary);
 
   footers(doc, { institution, version });

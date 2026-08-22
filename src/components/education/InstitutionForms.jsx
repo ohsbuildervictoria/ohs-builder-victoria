@@ -3,7 +3,7 @@ import Button from "../ui/Button";
 import { useToast } from "../ui/Notification";
 import { Field, inputClass } from "./EduBits";
 import { updateInstitution, uploadInstitutionLogo } from "../../lib/eduApi";
-import { eduBrand } from "../../data/education";
+import { eduBrand, usablePrimary } from "../../data/education";
 
 // ============================================================================
 // Institution profile + branding forms — shared by the setup wizard and the
@@ -132,9 +132,15 @@ export function InstitutionBrandingForm({ institution, onSaved, submitLabel = "S
     e?.preventDefault?.();
     setBusy(true);
     try {
-      const saved = await updateInstitution(institution.id, { primaryColour: primary, secondaryColour: secondary });
+      const saved = await updateInstitution(institution.id, {
+        primaryColour: primary,
+        secondaryColour: secondary,
+        onboarding: { ...(institution?.onboarding || {}), brandingSaved: true },
+      });
+      setPrimary(saved.primaryColour);
+      setSecondary(saved.secondaryColour);
       toast("Branding saved");
-      onSaved?.(saved);
+      onSaved?.(saved, { advance: true });
     } catch (err) {
       toast(err.message || "Could not save", "error");
     } finally {
@@ -164,6 +170,11 @@ export function InstitutionBrandingForm({ institution, onSaved, submitLabel = "S
           </div>
         </Field>
         {colourField("Primary colour", primary, setPrimary, "Navigation, buttons and progress bars.")}
+        {usablePrimary(primary) !== String(primary || "").toLowerCase() && (
+          <p className="-mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Adjusted for readability: shown as <span className="font-mono">{usablePrimary(primary)}</span> so white text stays legible on it.
+          </p>
+        )}
         {colourField("Secondary colour (accent)", secondary, setSecondary, "Used sparingly for highlights.")}
         <div className="flex flex-wrap items-center justify-between gap-2">
           {children || <span />}
@@ -172,7 +183,7 @@ export function InstitutionBrandingForm({ institution, onSaved, submitLabel = "S
       </div>
       <div>
         <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Live preview</p>
-        <BrandingPreview name={institution?.name} logoUrl={logoUrl} primary={primary} secondary={secondary} />
+        <BrandingPreview name={institution?.name} logoUrl={logoUrl} primary={usablePrimary(primary)} secondary={secondary} />
         <p className="mt-2 text-xs text-slate-500">
           Your branding flows into the Education navigation, the student training environment, the assessor environment, evidence pack headers and training/assessment records. OHS Builder Victoria attribution is retained.
         </p>

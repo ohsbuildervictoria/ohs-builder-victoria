@@ -57,6 +57,8 @@ export default function StudentResults() {
   }
 
   const nys = (latest.results || []).filter((r) => r.result === "not_yet_satisfactory");
+  // The first task linked to any NYS criterion — where the student should start.
+  const firstFixStage = nys.flatMap((r) => stagesForCriterion(r.criterionId)).sort((a, b) => a.position - b.position)[0] || null;
   const sat = (latest.results || []).filter((r) => r.result === "satisfactory");
 
   return (
@@ -101,7 +103,7 @@ export default function StudentResults() {
               <span className="block text-xs text-slate-500">— {latest.decidedByName}, {fmtDateTime(latest.decidedAt)}</span>
             </blockquote>
           )}
-          <p className="mt-4 text-sm font-semibold text-slate-800">{nys.length} criteria to fix:</p>
+          <p className="mt-4 text-sm font-semibold text-slate-800">{nys.length === 1 ? "1 criterion to fix:" : `${nys.length} criteria to fix:`}</p>
           <ul className="mt-2 space-y-3">
             {nys.map((r) => {
               const linked = stagesForCriterion(r.criterionId);
@@ -128,7 +130,14 @@ export default function StudentResults() {
             })}
           </ul>
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <Link to="/builder/dashboard"><Button>Open my site to correct the work →</Button></Link>
+            {firstFixStage ? (
+              <>
+                <Link to={EDU_ROUTES.studentTask(firstFixStage.code)}><Button>Go to task: {firstFixStage.title} →</Button></Link>
+                <Link to="/builder/dashboard"><Button variant="secondary">Open my site</Button></Link>
+              </>
+            ) : (
+              <Link to="/builder/dashboard"><Button>Open my site to correct the work →</Button></Link>
+            )}
             <Link to={EDU_ROUTES.studentSubmit}><Button variant="secondary">Resubmit when ready</Button></Link>
           </div>
         </div>

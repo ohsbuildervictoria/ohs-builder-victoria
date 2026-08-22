@@ -6,7 +6,7 @@ import StatCard from "../../../components/ui/StatCard";
 import { ErrorCard, Loading, EmptyState } from "../../../components/education/EduBits";
 import { fetchAssessorHome } from "../../../lib/eduApi";
 import { EDU_ROUTES } from "../../../lib/eduRoutes";
-import { eduBrand, fmtDate } from "../../../data/education";
+import { eduBrand, fmtDate, usablePrimary } from "../../../data/education";
 
 // ============================================================================
 // Assessor — first-time welcome + "my cohorts". Shows what you're teaching,
@@ -43,7 +43,7 @@ export default function AssessorHome() {
   if (!data) return <Loading label="Loading your cohorts…" />;
 
   const { assessor, institution, cohorts = [] } = data;
-  const primary = institution.primaryColour || "#1e3a8a";
+  const primary = usablePrimary(institution.primaryColour);
   const totals = cohorts.reduce(
     (a, c) => ({ students: a.students + Number(c.students || 0), ready: a.ready + Number(c.readyForAssessment || 0), action: a.action + Number(c.actionRequired || 0), done: a.done + Number(c.completed || 0) }),
     { students: 0, ready: 0, action: 0, done: 0 }
@@ -111,7 +111,7 @@ export default function AssessorHome() {
                     <p className="text-xs text-slate-500"><span className="font-semibold text-slate-700">{c.unitCode}</span> {c.unitTitle}</p>
                     <p className="mt-1 text-xs text-slate-500">Scenario: <span className="font-medium text-slate-700">{c.scenarioTitle || "—"}</span> · {fmtDate(c.startDate)} → {fmtDate(c.endDate)}</p>
                   </div>
-                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">{c.students} students</span>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">{c.students} student{Number(c.students) === 1 ? "" : "s"}</span>
                 </div>
                 <div className="mt-4 grid grid-cols-5 gap-1 text-center text-xs">
                   <Mini label="Not started" n={c.notStarted} />

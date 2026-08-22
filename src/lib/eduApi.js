@@ -7,6 +7,7 @@
 // ============================================================================
 import { supabase } from "./supabase";
 import { rowMappers, dbFail as fail, safeName } from "./api";
+import { usablePrimary, usableSecondary } from "../data/education";
 
 export const EDU_BRANDING_BUCKET = "edu-branding";
 
@@ -129,6 +130,9 @@ export async function updateInstitution(id, patch) {
   for (const [k, col] of Object.entries(map)) {
     if (patch[k] !== undefined) row[col] = typeof patch[k] === "string" ? patch[k].trim() : patch[k];
   }
+  // Never store a primary colour that white text cannot be read on.
+  if (row.primary_colour !== undefined) row.primary_colour = usablePrimary(row.primary_colour);
+  if (row.secondary_colour !== undefined) row.secondary_colour = usableSecondary(row.secondary_colour);
   const { data, error } = await supabase.from("edu_institutions").update(row).eq("id", id).select().single();
   if (error) fail(error, "Saving institution");
   return mapInstitution(data);

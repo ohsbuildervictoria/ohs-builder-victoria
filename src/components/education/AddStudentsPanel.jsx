@@ -52,11 +52,12 @@ export default function AddStudentsPanel({ cohortId, cohortName, onAdded, compac
       const res = await addStudents(Number(cohortId), pending.map((r) => ({ name: r.name.trim(), email: r.email.trim() })));
       setResult(res);
       toast(`${res.added} student${res.added === 1 ? "" : "s"} enrolled${res.skipped ? ` · ${res.skipped} skipped` : ""}`, res.added ? "success" : "warning");
-      if (res.added) {
-        setRows([blankRow(), blankRow(), blankRow()]);
-        setCsvText("");
-        onAdded?.(res);
-      }
+      // Keep the rows that failed (pre-filled) so they can be corrected; clear the rest.
+      const failedEmails = new Set((res.rows || []).filter((r) => r.status === "error").map((r) => String(r.email || "").toLowerCase()));
+      const kept = rows.filter((r) => failedEmails.has(r.email.trim().toLowerCase()));
+      setRows(kept.length ? kept : [blankRow(), blankRow(), blankRow()]);
+      if (mode === "csv") setCsvText(kept.length ? kept.map((r) => `${r.name},${r.email}`).join("\n") : "");
+      if (res.added) onAdded?.(res);
     } catch (err) {
       toast(err.message || "Could not enrol students", "error");
     } finally {
@@ -128,7 +129,10 @@ export default function AddStudentsPanel({ cohortId, cohortName, onAdded, compac
                   {r.message && <span className="ml-2 text-xs text-slate-500">{r.message}</span>}
                 </div>
                 {r.inviteToken && !r.claimed && (
-                  <Button size="sm" variant="secondary" onClick={() => { navigator.clipboard?.writeText(eduJoinLink(r.inviteToken)); toast("Invite link copied"); }}>Copy invite link</Button>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="max-w-[260px] truncate font-mono text-[11px] text-slate-500" title={eduJoinLink(r.inviteToken)}>{eduJoinLink(r.inviteToken)}</span>
+                    <Button size="sm" variant="secondary" onClick={() => { navigator.clipboard?.writeText(eduJoinLink(r.inviteToken)); toast("Invite link copied"); }}>Copy invite link</Button>
+                  </div>
                 )}
               </li>
             ))}
