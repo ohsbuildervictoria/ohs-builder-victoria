@@ -39,15 +39,24 @@ export default function Pricing() {
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
-        <Link to="/">
-          <Logo light />
+        <Link to="/" aria-label="OHS Builder Victoria home">
+          <span className="sm:hidden"><Logo compact light /></span>
+          <span className="hidden sm:block"><Logo light /></span>
         </Link>
-        <nav className="flex items-center gap-3">
+        <nav className="flex items-center gap-1 sm:gap-3">
           <Link
             to="/help"
             className="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:text-white"
           >
             Help
+          </Link>
+          <Link
+            to="/education"
+            aria-label="OHS Builder Education"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:text-white"
+          >
+            <span className="hidden sm:inline">OHS Builder Education</span>
+            <span className="sm:hidden">Education</span>
           </Link>
           {/* No trial CTA in the header — the plan cards below carry it. */}
           <Link
