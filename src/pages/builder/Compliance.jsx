@@ -173,7 +173,7 @@ export default function Compliance() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Compliance Records</h1>
+          <h1 className="text-2xl font-bold text-slate-800">Stakeholder Compliance</h1>
           <p className="text-sm text-slate-500">
             Stakeholder × 6-category compliance matrix — click a cell to upload evidence
           </p>

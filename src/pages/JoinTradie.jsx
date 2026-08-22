@@ -105,7 +105,7 @@ export default function JoinTradie() {
               </p>
             </div>
 
-            {user ? (
+            {user && user.role === "worker" ? (
               <>
                 <h1 className="mb-1 text-center text-lg font-bold text-slate-800">Add this site to your account</h1>
                 <p className="mb-4 text-center text-sm text-slate-500">
@@ -117,6 +117,22 @@ export default function JoinTradie() {
                 </Button>
                 <button type="button" className="mt-3 w-full text-center text-xs font-medium text-blue-700 hover:underline" onClick={async () => { await logout(); window.location.reload(); }}>
                   Not you? Sign out and set up a different account
+                </button>
+              </>
+            ) : user ? (
+              // A builder / HSE / supervisor / Education account is signed in.
+              // Stakeholder links are for the tradie's own login — never convert
+              // a staff account (the server refuses too).
+              <>
+                <h1 className="mb-1 text-center text-lg font-bold text-slate-800">This link is for {info.workerName || "the stakeholder"}</h1>
+                <p className="mb-4 text-center text-sm text-slate-600">
+                  You&apos;re signed in as <span className="font-medium text-slate-700">{user.email}</span> — a {user.role === "builder_admin" ? "builder" : (user.role || "staff").replace(/_/g, " ")} account. Stakeholder invites set up the tradie&apos;s <em>own</em> login, so they can&apos;t be accepted from this account. Send {info.workerName ? info.workerName.split(" ")[0] : "them"} the link (text, email or WhatsApp), or sign out and open it as them.
+                </p>
+                <Button className="w-full" size="lg" variant="secondary" onClick={async () => { await logout(); window.location.reload(); }}>
+                  Sign out and open this link as the stakeholder
+                </Button>
+                <button type="button" className="mt-3 w-full text-center text-xs font-medium text-blue-700 hover:underline" onClick={() => navigate("/builder/compliance")}>
+                  ← Back to my workspace
                 </button>
               </>
             ) : (
