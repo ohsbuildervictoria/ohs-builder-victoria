@@ -14,7 +14,7 @@ import { useEducation } from "../hooks/useEducation";
 const NAV = [
   { to: "/builder/dashboard", label: "Dashboard", icon: "📊", perm: "dashboard" },
   { to: "/builder/projects", label: "Projects", icon: "🏗️", perm: "projects" },
-  { to: "/builder/compliance", label: "Compliance", icon: "✅", perm: "compliance" },
+  { to: "/builder/compliance", label: "Stakeholder Compliance", icon: "✅", perm: "compliance" },
   { to: "/builder/swms", label: "SWMS", icon: "📋", perm: "swms" },
   { to: "/builder/diary", label: "Site Diary", icon: "📓", perm: "diary" },
   { to: "/builder/incidents", label: "Incidents", icon: "⚠️", perm: "incidents" },
