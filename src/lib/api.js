@@ -59,6 +59,10 @@ const mapWorker = (r) => ({
   id: r.id,
   name: r.name,
   trade: r.trade,
+  // Every work type on this site membership (024). `trade` stays the primary
+  // for legacy readers; always prefer `trades` for display and SWMS matching.
+  trades: Array.isArray(r.trades) && r.trades.length ? r.trades : (r.trade ? [r.trade] : []),
+  userId: r.user_id || null,
   employer: r.employer,
   companyId: r.company_id ?? null,
   loginHandle: r.login_handle || "",
@@ -801,7 +805,7 @@ export async function insertWorker(w) {
     .from("workers")
     .insert({
       name: w.name,
-      trade: w.trade || "",
+      trade: (w.trades && w.trades[0]) || w.trade || "",
       employer: w.employer || "",
       company_id: w.companyId ?? null,
       project_id: w.project ?? null,
@@ -819,32 +823,49 @@ export async function insertWorker(w) {
     fail(error, "Adding stakeholder");
   }
 
-  // Ensure a SWMS template row exists for this trade; bump the required count.
-  if (w.trade) {
-    const { data: tmpl } = await supabase
-      .from("swms_templates")
-      .select("id, total")
-      .eq("trade", w.trade)
-      .maybeSingle();
-    if (tmpl) {
-      await supabase
-        .from("swms_templates")
-        .update({ total: (tmpl.total || 0) + 1 })
-        .eq("id", tmpl.id);
-    } else {
-      const ref = `SWMS-${w.trade.replace(/[^A-Za-z]+/g, "").slice(0, 8).toUpperCase() || "TRADE"}-01`;
-      await supabase.from("swms_templates").insert({
-        trade: w.trade,
-        ref: `${ref}-${data.id}`,
-        version: "v1.0",
-        signed: 0,
-        total: 1,
-        status: "Pending",
-        legislation: "OHS Act 2004 (Vic), OHS Regulations 2017 (Vic)",
-      });
-    }
+  // Work types (one or many). The server provisions one SWMS template per
+  // work type, recomputes template totals from the crew and sets the SWMS
+  // tick — the client no longer bumps counts by hand (024).
+  const trades = (w.trades && w.trades.length ? w.trades : [w.trade]).filter(Boolean);
+  if (trades.length) {
+    const { data: res, error: tErr } = await supabase.rpc("set_worker_trades", { p_worker: data.id, p_trades: trades });
+    if (tErr) fail(tErr, "Assigning work types");
+    return mapWorker({ ...data, trades: res?.trades || trades, trade: (res?.trades || trades)[0] });
   }
   return mapWorker(data);
+}
+
+// Change a stakeholder's work types on a site (builder/HSE). Server-side:
+// provisions SWMS templates, recomputes totals and the SWMS tick, audits.
+export async function setWorkerTrades(workerId, trades) {
+  const { data, error } = await supabase.rpc("set_worker_trades", { p_worker: Number(workerId), p_trades: trades });
+  if (error) fail(error, "Updating work types");
+  return data; // { workerId, trades, swmsStatus }
+}
+
+// Every site the signed-in stakeholder holds a membership on (024).
+export async function fetchMySites() {
+  const { data, error } = await supabase.rpc("my_sites");
+  if (error) fail(error, "Loading your sites");
+  return Array.isArray(data) ? data : [];
+}
+
+// Point the stakeholder account at another of its sites (024).
+export async function switchMySite(workerId) {
+  const { data, error } = await supabase.rpc("switch_my_site", { p_worker: Number(workerId) });
+  if (error) fail(error, "Switching site");
+  return data;
+}
+
+// The SWMS signatures on the register for one worker (RLS: own record, or
+// staff of the org). Used to show which applicable SWMS are still unsigned.
+export async function fetchWorkerSignatures(workerId) {
+  const { data, error } = await supabase
+    .from("swms_signatures")
+    .select("template_id, template_version, signed_at")
+    .eq("worker_id", Number(workerId));
+  if (error) fail(error, "Loading your signatures");
+  return (data || []).map((r) => ({ templateId: r.template_id, version: r.template_version || "", signedAt: r.signed_at }));
 }
 
 // ---------------------------------------------------------------------------

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import SubbiePanel, { CertControls } from "./Subcontractors";
 import { useCompanies } from "../../hooks/useCompanies";
-import { emailInvite, updateWorkerEmail } from "../../lib/api";
+import { emailInvite, updateWorkerEmail, setWorkerTrades } from "../../lib/api";
+import TradePicker from "../../components/shared/TradePicker";
 import Card, { CardBody, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Tabs from "../../components/ui/Tabs";
@@ -24,7 +25,6 @@ import {
   DOC_CATEGORIES,
 } from "../../lib/compliance";
 import { downloadCsv } from "../../utils/export";
-import { swmsLibrary } from "../../data/swmsLibrary";
 
 // Stakeholder types. Stakeholders (the people matrix) and Subcontractors (the
 // company register) are real; the rest stay hidden until something populates
@@ -37,7 +37,7 @@ export default function Compliance() {
   const { projects } = useProjects();
   const { docsFor } = useDocuments();
   const { companies, addCompany } = useCompanies();
-  const { refresh } = useAppContext();
+  const { refresh, setWorkers } = useAppContext();
   const toast = useToast();
   const [tab, setTab] = useState("Stakeholders");
   const [cell, setCell] = useState(null); // { worker, category }
@@ -45,6 +45,9 @@ export default function Compliance() {
   const [newLogin, setNewLogin] = useState(null); // credentials to show after create
   const [emailEdit, setEmailEdit] = useState(null); // worker whose email is being set
   const [emailSaving, setEmailSaving] = useState(false);
+  const [addTrades, setAddTrades] = useState([]); // work types for the stakeholder being added
+  const [tradesEdit, setTradesEdit] = useState(null); // { worker, trades } being edited
+  const [tradesSaving, setTradesSaving] = useState(false);
   const addForm = useForm();
   const emailForm = useForm();
   const companyChoice = addForm.watch("companyId");
@@ -90,6 +93,10 @@ export default function Compliance() {
   }, {});
 
   const onAddStakeholder = async (data) => {
+    if (!addTrades.length) {
+      toast("Add at least one work type — it decides which SWMS they must sign.", "error");
+      return;
+    }
     try {
       // Resolve who they work for: an existing subbie company, a brand-new
       // one (created here), or nobody (direct hire / sole trader).
@@ -105,7 +112,8 @@ export default function Compliance() {
       }
       const created = await addWorker({
         name: data.name,
-        trade: data.trade,
+        trade: addTrades[0],
+        trades: addTrades,
         employer,
         companyId,
         email: data.email,
@@ -113,6 +121,7 @@ export default function Compliance() {
       });
       setAddOpen(false);
       addForm.reset();
+      setAddTrades([]);
       const invite = {
         name: created.name,
         workerId: created.id,
@@ -128,7 +137,10 @@ export default function Compliance() {
           .then(() => setNewLogin((n) => (n?.workerId === created.id ? { ...n, emailState: "sent" } : n)))
           .catch(() => setNewLogin((n) => (n?.workerId === created.id ? { ...n, emailState: "failed" } : n)));
       }
-      refresh(); // pick up the SWMS template created/bumped for their trade
+      // No full refresh here: it flips the shell into "Loading…", which
+      // unmounts this page and loses the invite-link modal before the builder
+      // can copy it. The new row (with its work types) is already in state;
+      // SWMS templates reload on the next navigation.
     } catch (err) {
       toast(err.message || "Could not add stakeholder", "error");
     }
@@ -218,6 +230,7 @@ export default function Compliance() {
               workers={workers}
               docsFor={docsFor}
               onCellClick={(worker, category) => setCell({ worker, category })}
+              onEditTrades={(worker) => setTradesEdit({ worker, trades: worker.trades?.length ? worker.trades : [worker.trade].filter(Boolean) })}
               onEmailInvite={async (w) => {
                 try {
                   const r = await emailInvite(w.id);
@@ -302,33 +315,24 @@ export default function Compliance() {
         }
       >
         <form className="space-y-4" onSubmit={addForm.handleSubmit(onAddStakeholder)}>
+          <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-900">
+            <span className="font-semibold">How it works:</span> add the person → choose their site → choose their work type(s) → we line up their induction, quiz and the SWMS for each work type → send them the invite link. They set a password and see only their own site.
+          </p>
           <label className="block">
             <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
               Full name *
             </span>
             <input className="cmp-input" {...addForm.register("name", { required: true })} />
           </label>
-          <label className="block">
-            <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Trade *
-            </span>
-            <input
-              className="cmp-input"
-              list="trade-options"
-              placeholder="e.g. Carpenter – Framer"
-              {...addForm.register("trade", { required: true })}
-            />
-            <datalist id="trade-options">
-              {swmsLibrary.map((s) => (
-                <option key={s.id} value={s.trade} />
-              ))}
-            </datalist>
+          <div className="block">
+            <label htmlFor="add-trades" className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Work type(s) *
+            </label>
+            <TradePicker value={addTrades} onChange={setAddTrades} inputId="add-trades" />
             <span className="mt-1 block text-xs text-slate-400">
-              Type of work or trade performed on site, such as carpentry,
-              electrical, plumbing or concreting. Used to help identify relevant
-              site requirements and SWMS.
+              Everything this person will do on site — carpentry, cladding, electrical, plumbing… One person can have several. Each work type decides which SWMS they must read and sign; a SWMS shared by two work types is signed once.
             </span>
-          </label>
+          </div>
           <label className="block">
             <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">
               Works for
@@ -389,6 +393,50 @@ export default function Compliance() {
             </span>
           </label>
         </form>
+      </Modal>
+
+      {/* Edit a stakeholder's work types on this site. Server-side (024):
+          provisions SWMS templates per work type, recomputes totals and the
+          SWMS tick, keeps every existing signature. */}
+      <Modal
+        open={!!tradesEdit}
+        onClose={() => !tradesSaving && setTradesEdit(null)}
+        title={tradesEdit ? `Work types — ${tradesEdit.worker.name}` : "Work types"}
+        footer={
+          <>
+            <Button variant="secondary" disabled={tradesSaving} onClick={() => setTradesEdit(null)}>Cancel</Button>
+            <Button
+              disabled={tradesSaving || !tradesEdit?.trades?.length}
+              onClick={async () => {
+                setTradesSaving(true);
+                try {
+                  const res = await setWorkerTrades(tradesEdit.worker.id, tradesEdit.trades);
+                  // Patch the row in place (a full refresh would unmount this page).
+                  setWorkers((prev) => prev.map((w) => w.id === tradesEdit.worker.id
+                    ? { ...w, trades: res?.trades || tradesEdit.trades, trade: (res?.trades || tradesEdit.trades)[0], swms: res?.swmsStatus || w.swms }
+                    : w));
+                  setTradesEdit(null);
+                  toast(`Work types saved · SWMS ${res?.swmsStatus === "Verified" ? "all signed" : res?.swmsStatus === "Pending" ? "partly signed — more to sign" : "awaiting signature"}`);
+                } catch (err) {
+                  toast(err.message || "Could not save work types", "error");
+                } finally {
+                  setTradesSaving(false);
+                }
+              }}
+            >
+              {tradesSaving ? "Saving…" : "Save work types"}
+            </Button>
+          </>
+        }
+      >
+        {tradesEdit && (
+          <div className="space-y-3">
+            <p className="text-sm text-slate-600">
+              Same person, same account. Adding a work type adds its SWMS to what {tradesEdit.worker.name.split(" ")[0]} must sign; their induction, quiz and existing signatures are kept. Removing one stops that SWMS counting — signatures already given stay on the register.
+            </p>
+            <TradePicker value={tradesEdit.trades} onChange={(trades) => setTradesEdit((e) => ({ ...e, trades }))} inputId="edit-trades" autoFocus />
+          </div>
+        )}
       </Modal>
 
       {/* Invite link to send the new subbie */}

@@ -10,7 +10,8 @@ import HelpDrawer from "../components/shared/HelpDrawer";
 // screens deep would be asking for something the app makes hard.
 const NAV = [
   { to: "/worker/home", label: "My Site", icon: "🏠" },
-  { to: "/worker/induction", label: "Induction", icon: "🎓" },
+  // Not the graduation cap — that is the Education product's mark.
+  { to: "/worker/induction", label: "Induction", icon: "📘" },
   { to: "/worker/report", label: "Report", icon: "⚠️" },
   { to: "/worker/swms", label: "SWMS", icon: "📋" },
   { to: "/worker/registration", label: "Profile", icon: "👷" },
