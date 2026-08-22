@@ -1,12 +1,25 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../hooks/useAuth";
 import Logo from "../components/shared/Logo";
 import Button from "../components/ui/Button";
 import { brand } from "../data/constants";
 
+// The public /education page sends each role here with ?portal=… so the sign-in
+// screen can say which Education portal the person is entering. It is the SAME
+// sign-in: credentials, reset and the /go role redirect are unchanged — only
+// the framing differs, and the Builder/Stakeholder toggle (irrelevant to an
+// Education account) is hidden.
+const EDU_PORTALS = {
+  institution: { label: "Institution Portal", hint: "Institution administrators" },
+  assessor: { label: "Assessor Portal", hint: "Assessors / trainers" },
+  student: { label: "Student Training", hint: "Students" },
+};
+
 export default function Login() {
+  const [params] = useSearchParams();
+  const portal = EDU_PORTALS[params.get("portal")] || null;
   const [mode, setMode] = useState("builder");
   const [authError, setAuthError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -69,14 +82,24 @@ export default function Login() {
         <div className="rounded-2xl bg-white p-8 shadow-xl">
           <div className="mb-6 flex flex-col items-center text-center">
             <Logo />
-            <h1 className="mt-4 text-2xl font-bold text-slate-800">
-              {brand.fullName}
-            </h1>
-            <p className="mt-1 text-sm text-slate-500">{brand.tagline}</p>
-            <p className="mt-0.5 text-xs text-slate-400">{brand.domain}</p>
+            {portal ? (
+              <>
+                <p className="mt-4 text-xs font-bold uppercase tracking-wider text-blue-900">OHS Builder Education</p>
+                <h1 className="mt-1 text-2xl font-bold text-slate-800">{portal.label}</h1>
+                <p className="mt-1 text-sm text-slate-500">Sign in with the email your institution set you up with.</p>
+              </>
+            ) : (
+              <>
+                <h1 className="mt-4 text-2xl font-bold text-slate-800">
+                  {brand.fullName}
+                </h1>
+                <p className="mt-1 text-sm text-slate-500">{brand.tagline}</p>
+                <p className="mt-0.5 text-xs text-slate-400">{brand.domain}</p>
+              </>
+            )}
           </div>
 
-          <div className="mb-6 grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
+          <div className={`mb-6 grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 ${portal ? "hidden" : ""}`}>
             {[
               { value: "builder", label: "Builder" },
               { value: "worker", label: "Stakeholder" },
@@ -145,9 +168,11 @@ export default function Login() {
             <Button type="submit" className="w-full" size="lg" disabled={submitting}>
               {submitting
                 ? "Signing in…"
-                : mode === "worker"
-                  ? "Enter Stakeholder Portal"
-                  : "Enter Builder Workspace"}
+                : portal
+                  ? `Sign in to ${portal.label}`
+                  : mode === "worker"
+                    ? "Enter Stakeholder Portal"
+                    : "Enter Builder Workspace"}
             </Button>
           </form>
 
@@ -159,6 +184,15 @@ export default function Login() {
             Forgot password?
           </button>
 
+          {portal ? (
+            <p className="mt-6 text-center text-xs text-slate-400">
+              Invited but not set up yet? Open the secure invitation link your institution sent you.
+              <br />
+              <Link className="font-medium text-blue-700 hover:underline" to="/education">
+                ← Back to OHS Builder Education
+              </Link>
+            </p>
+          ) : (
           <p className="mt-6 text-center text-xs text-slate-400">
             New builder?{" "}
             <a className="font-medium text-blue-700 hover:underline" href="/signup">
@@ -170,6 +204,7 @@ export default function Login() {
               here
             </a>
           </p>
+          )}
         </div>
       </div>
     </div>

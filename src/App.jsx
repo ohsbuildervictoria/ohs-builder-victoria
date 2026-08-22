@@ -45,6 +45,7 @@ import ReportIncident from "./pages/worker/ReportIncident";
 import EducationLayout from "./layouts/EducationLayout";
 import EduJoin from "./pages/edu/EduJoin";
 import EduGo from "./pages/edu/EduGo";
+import EducationLanding from "./pages/EducationLanding";
 import InstitutionDashboard from "./pages/edu/admin/InstitutionDashboard";
 import InstitutionSetup from "./pages/edu/admin/InstitutionSetup";
 import AdminCohorts from "./pages/edu/admin/AdminCohorts";
@@ -144,7 +145,9 @@ function AppRoutes() {
       <Route path="/go" element={<EduGo />} />
 
       {/* Education — institution administration */}
-      <Route path="/education" element={<EduGo />} />
+      {/* Public Education gateway. Signed-in accounts still route by role
+          through /go; the portal buttons on this page go via /login. */}
+      <Route path="/education" element={<EducationLanding />} />
       <Route path="/education/admin" element={<EducationLayout role="institution_admin" />}>
         <Route index element={<InstitutionDashboard />} />
         <Route path="setup" element={<InstitutionSetup />} />

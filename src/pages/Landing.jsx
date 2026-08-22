@@ -64,8 +64,11 @@ export default function Landing() {
     <div className="min-h-screen bg-slate-900 text-slate-100">
       {/* Header */}
       <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
-        <Logo light />
-        <nav className="flex items-center gap-3">
+        {/* Four nav items + the full wordmark don't fit at 390px, so the phone
+            header shows the mark alone; the wordmark returns from sm up. */}
+        <span className="sm:hidden"><Logo compact light /></span>
+        <span className="hidden sm:block"><Logo light /></span>
+        <nav className="flex items-center gap-1 sm:gap-3">
           <Link
             to="/pricing"
             className="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:text-white"
@@ -77,6 +80,17 @@ export default function Landing() {
             className="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:text-white"
           >
             Help
+          </Link>
+          {/* OHS Builder Education — the one Education entry point on the
+              Builder site. Full name from sm up; "Education" on phones so the
+              four items still fit beside the logo at 390px. */}
+          <Link
+            to="/education"
+            aria-label="OHS Builder Education"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:text-white"
+          >
+            <span className="hidden sm:inline">OHS Builder Education</span>
+            <span className="sm:hidden">Education</span>
           </Link>
           {/* No trial CTA up here — the hero owns that ask. The header is for
               orientation; selling to someone who hasn't scrolled yet is how

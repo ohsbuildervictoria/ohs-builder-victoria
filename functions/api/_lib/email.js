@@ -67,8 +67,11 @@ export async function adminSelect(env, path) {
 
 // `attachments` is Resend's shape: [{ filename, content }] where content is
 // base64. Only /api/send-report uses it (report + incident PDFs).
-export async function sendEmail(env, { to, subject, html, text, attachments }) {
-  const payload = { from: FROM, reply_to: REPLY_TO, to, subject, html, text };
+// `replyTo` is only used by the public education-enquiry endpoint, so the
+// support inbox can reply straight to the enquirer; everything else keeps the
+// fixed REPLY_TO.
+export async function sendEmail(env, { to, subject, html, text, attachments, replyTo }) {
+  const payload = { from: FROM, reply_to: replyTo || REPLY_TO, to, subject, html, text };
   if (attachments?.length) payload.attachments = attachments;
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
