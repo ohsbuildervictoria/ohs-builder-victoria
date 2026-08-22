@@ -37,3 +37,6 @@ TIME_TRACKER.json
 # passwords and stay on this machine.
 *.local.mjs
 graphify-out/
+
+# Education demo seed output (accounts + invite links) — local only
+*.local.json

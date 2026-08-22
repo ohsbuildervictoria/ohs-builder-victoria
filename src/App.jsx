@@ -41,6 +41,28 @@ import SwmsSigning from "./pages/worker/SwmsSigning";
 import Registration from "./pages/worker/Registration";
 import ReportIncident from "./pages/worker/ReportIncident";
 
+// Education — institutions, assessors, students (src/lib/eduApi.js)
+import EducationLayout from "./layouts/EducationLayout";
+import EduJoin from "./pages/edu/EduJoin";
+import EduGo from "./pages/edu/EduGo";
+import InstitutionDashboard from "./pages/edu/admin/InstitutionDashboard";
+import InstitutionSetup from "./pages/edu/admin/InstitutionSetup";
+import AdminCohorts from "./pages/edu/admin/AdminCohorts";
+import AdminCohortDetail from "./pages/edu/admin/AdminCohortDetail";
+import AdminPrograms from "./pages/edu/admin/AdminPrograms";
+import AdminStudents from "./pages/edu/admin/AdminStudents";
+import AdminAssessors from "./pages/edu/admin/AdminAssessors";
+import AdminScenarios from "./pages/edu/admin/AdminScenarios";
+import AdminSettings from "./pages/edu/admin/AdminSettings";
+import AssessorHome from "./pages/edu/assess/AssessorHome";
+import AssessorCohort from "./pages/edu/assess/AssessorCohort";
+import AssessorReview from "./pages/edu/assess/AssessorReview";
+import StudentHome from "./pages/edu/student/StudentHome";
+import StudentTask from "./pages/edu/student/StudentTask";
+import StudentEvidence from "./pages/edu/student/StudentEvidence";
+import StudentSubmit from "./pages/edu/student/StudentSubmit";
+import StudentResults from "./pages/edu/student/StudentResults";
+
 // Blocks rendering until the Supabase session has been restored.
 function AuthGate({ children }) {
   const { initialising } = useAuth();
@@ -115,6 +137,45 @@ function AppRoutes() {
       <Route path="/join-staff/:token" element={<JoinStaff />} />
       {/* QR site sign-in — scanned from the poster at the gate */}
       <Route path="/checkin/:token" element={<SiteCheckin />} />
+
+      {/* Education invitations (institution admin / assessor / student) and
+          the post-sign-in resolver that routes each role home */}
+      <Route path="/edu/join/:token" element={<EduJoin />} />
+      <Route path="/go" element={<EduGo />} />
+
+      {/* Education — institution administration */}
+      <Route path="/education" element={<EduGo />} />
+      <Route path="/education/admin" element={<EducationLayout role="institution_admin" />}>
+        <Route index element={<InstitutionDashboard />} />
+        <Route path="setup" element={<InstitutionSetup />} />
+        <Route path="cohorts" element={<AdminCohorts />} />
+        <Route path="cohorts/:id" element={<AdminCohortDetail />} />
+        <Route path="programs" element={<AdminPrograms />} />
+        <Route path="students" element={<AdminStudents />} />
+        <Route path="assessors" element={<AdminAssessors />} />
+        <Route path="scenarios" element={<AdminScenarios />} />
+        <Route path="settings" element={<AdminSettings />} />
+        {/* Read-only student review for administrators (same screen as the
+            assessor's; the database refuses assessment writes from admins) */}
+        <Route path="students/:enrolmentId" element={<AssessorReview />} />
+      </Route>
+
+      {/* Education — assessor */}
+      <Route path="/education/assess" element={<EducationLayout role="assessor" />}>
+        <Route index element={<AssessorHome />} />
+        <Route path="cohorts/:id" element={<AssessorCohort />} />
+        <Route path="students/:enrolmentId" element={<AssessorReview />} />
+      </Route>
+
+      {/* Education — student training dashboard (the simulation itself runs
+          in the student's own Builder workspace under /builder) */}
+      <Route path="/education/student" element={<EducationLayout role="student" />}>
+        <Route index element={<StudentHome />} />
+        <Route path="tasks/:code" element={<StudentTask />} />
+        <Route path="evidence" element={<StudentEvidence />} />
+        <Route path="submit" element={<StudentSubmit />} />
+        <Route path="results" element={<StudentResults />} />
+      </Route>
 
       {/* Platform administration — operator only, outside any tenant workspace */}
       <Route

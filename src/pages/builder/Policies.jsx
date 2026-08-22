@@ -60,6 +60,15 @@ const PLATFORM_LINKS = [
 export default function Policies() {
   const toast = useToast();
   const { policies, setPolicies, org, setOrg } = useAppContext();
+  const { permissions } = useAuth();
+  // Inside an Education training sandbox the student is the builder, but
+  // organisation settings and subscription belong to the institution — the
+  // database returns orgSettings/billing = false and those tabs disappear.
+  const visibleTabs = TABS.filter(
+    (t) =>
+      (t !== "Organisation" || permissions?.orgSettings !== false) &&
+      (t !== "Subscription" || permissions?.billing !== false)
+  );
   const [tab, setTab] = useState("Policy Register");
   const [modal, setModal] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -209,7 +218,7 @@ export default function Policies() {
         </p>
       </div>
 
-      <Tabs tabs={TABS} active={tab} onChange={setTab} />
+      <Tabs tabs={visibleTabs} active={tab} onChange={setTab} />
 
       {tab === "Policy Register" && (
         <div className="space-y-4">
