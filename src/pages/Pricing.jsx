@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import Logo from "../components/shared/Logo";
+import Logo, { GradCapIcon } from "../components/shared/Logo";
 import { brand } from "../data/constants";
 import { PLANS, TRIAL, BILLING_LIVE, formatPrice } from "../data/pricing";
 
@@ -55,6 +55,7 @@ export default function Pricing() {
             aria-label="OHS Builder Education"
             className="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:text-white"
           >
+            <GradCapIcon className="mr-1.5 h-4 w-4 text-yellow-400" />
             <span className="hidden sm:inline">OHS Builder Education</span>
             <span className="sm:hidden">Education</span>
           </Link>

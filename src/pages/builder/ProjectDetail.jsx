@@ -136,12 +136,12 @@ export default function ProjectDetail() {
           <CardBody className="pt-2">
             {workers.length ? (
               <Table>
-                <THead columns={["Stakeholder", "Trade", "Employer", "Status"]} />
+                <THead columns={["Stakeholder", "Work types", "Employer", "Status"]} />
                 <TBody>
                   {workers.map((w) => (
                     <TR key={w.id}>
                       <TD className="font-medium text-slate-800">{w.name}</TD>
-                      <TD>{w.trade}</TD>
+                      <TD>{(w.trades?.length ? w.trades : [w.trade].filter(Boolean)).join(" · ")}</TD>
                       <TD>{w.employer}</TD>
                       <TD>
                         <Badge status={w.status} />

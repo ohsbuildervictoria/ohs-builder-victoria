@@ -11,10 +11,10 @@ import { Table, THead, TBody, TR, TD } from "../ui/Table";
 // categoryStatus() in src/lib/compliance.js — the same function the tradie
 // Documents tab uses — so the two views can never disagree.
 // CRITICAL RULE: any "Missing" or "Expired" item blocks site access (red).
-export default function ComplianceMatrix({ workers, docsFor, onCellClick, onEmailInvite, onSetEmail }) {
+export default function ComplianceMatrix({ workers, docsFor, onCellClick, onEmailInvite, onSetEmail, onEditTrades }) {
   const columns = [
     "Stakeholder",
-    "Trade",
+    "Work types",
     ...complianceCategories.map((c) => c.label),
     "Overall Status",
   ];
@@ -76,7 +76,23 @@ export default function ComplianceMatrix({ workers, docsFor, onCellClick, onEmai
                   )}
                 </div>
               </TD>
-              <TD>{w.trade}</TD>
+              <TD>
+                <div className="flex flex-wrap items-center gap-1">
+                  {(w.trades?.length ? w.trades : [w.trade].filter(Boolean)).map((t) => (
+                    <span key={t} className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">{t}</span>
+                  ))}
+                  {onEditTrades && (
+                    <button
+                      type="button"
+                      title="Add or change work types"
+                      onClick={() => onEditTrades(w)}
+                      className="text-xs font-medium text-blue-700 hover:underline"
+                    >
+                      ✎ edit
+                    </button>
+                  )}
+                </div>
+              </TD>
               {statuses.map(({ key, status }) => (
                 <TD key={key}>
                   <button

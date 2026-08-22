@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useEducation } from "../hooks/useEducation";
-import Logo from "../components/shared/Logo";
+import Logo, { GradCapMark, GradCapIcon } from "../components/shared/Logo";
 import { eduBrand, eduRoleLabels } from "../data/education";
 
 // ============================================================================
@@ -72,17 +72,14 @@ export default function EducationLayout({ role }) {
                 className="max-h-10 max-w-[160px] object-contain"
               />
             ) : (
-              <div
-                className="flex h-10 w-10 items-center justify-center rounded-lg text-lg font-bold text-white"
-                style={{ backgroundColor: primary }}
-                aria-hidden
-              >
-                {(education.institutionName || "I").charAt(0)}
-              </div>
+              // No institution logo yet: the Education product mark (graduation
+              // cap) so nobody mistakes this shell for the live Builder product.
+              <GradCapMark className="h-10 w-10" title={eduBrand.productName} />
             )}
             <div className="min-w-0 leading-tight">
               <p className="truncate text-sm font-bold text-slate-800">{education.institutionName}</p>
-              <p className="text-[11px] font-medium text-slate-500">
+              <p className="flex items-center gap-1 text-[11px] font-medium text-slate-500">
+                <GradCapIcon className="h-3.5 w-3.5 text-blue-900" />
                 {eduBrand.productName} · {eduRoleLabels[education.role]}
               </p>
             </div>

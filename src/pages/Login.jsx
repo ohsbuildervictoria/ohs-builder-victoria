@@ -81,7 +81,7 @@ export default function Login() {
       <div className="w-full max-w-md">
         <div className="rounded-2xl bg-white p-8 shadow-xl">
           <div className="mb-6 flex flex-col items-center text-center">
-            <Logo />
+            <Logo product={portal ? "education" : "industry"} />
             {portal ? (
               <>
                 <p className="mt-4 text-xs font-bold uppercase tracking-wider text-blue-900">OHS Builder Education</p>

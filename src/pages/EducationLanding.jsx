@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import Logo from "../components/shared/Logo";
+import Logo, { HardHatIcon } from "../components/shared/Logo";
 import { brand } from "../data/constants";
 import { eduBrand } from "../data/education";
 
@@ -82,17 +82,14 @@ function EduHeader() {
   return (
     <header className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-y-3 px-5 py-5">
       <Link to="/education" className={`flex items-center gap-2.5 rounded-lg ${focusRing} focus-visible:ring-offset-slate-900`} aria-label="OHS Builder Education home">
-        <Logo compact light />
-        <span className="leading-tight">
-          <span className="block text-sm font-bold text-white">{brand.productName}</span>
-          <span className="block text-[11px] font-semibold uppercase tracking-wider text-yellow-400">Education</span>
-        </span>
+        <Logo product="education" light />
       </Link>
       <nav aria-label="Education" className="flex items-center gap-1 sm:gap-3">
         <a href="#access" className={`rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:text-white ${focusRing} focus-visible:ring-offset-slate-900`}>
           Access
         </a>
         <Link to="/" className={`rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:text-white ${focusRing} focus-visible:ring-offset-slate-900`}>
+          <HardHatIcon className="mr-1.5 h-4 w-4 text-yellow-400" />
           <span className="hidden sm:inline">OHS Builder Victoria →</span>
           <span className="sm:hidden">Victoria →</span>
         </Link>

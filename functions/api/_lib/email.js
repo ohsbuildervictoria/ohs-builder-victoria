@@ -50,7 +50,18 @@ export async function verifyUser(env, request) {
     headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: auth },
   });
   if (!r.ok) return null;
-  return r.json();
+  const user = await r.json();
+  // A deactivated account keeps a valid JWT until it expires; the database
+  // already treats it as nobody (is_active_account), so these endpoints must
+  // too — otherwise a stale token could still email invites/reports.
+  try {
+    const rows = await adminSelect(env, `profiles?select=status&id=eq.${encodeURIComponent(user.id)}`);
+    const status = rows?.[0]?.status ?? "Active";
+    if (status !== "Active") return null;
+  } catch {
+    return null;
+  }
+  return user;
 }
 
 // Service-role REST read (bypasses RLS — use only after verifying the caller).

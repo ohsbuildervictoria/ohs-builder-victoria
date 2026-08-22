@@ -2,26 +2,36 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../hooks/useAuth";
-import { fetchInviteInfo } from "../lib/api";
+import { fetchInviteInfo, acceptWorkerInvite } from "../lib/api";
 import Logo from "../components/shared/Logo";
 import Button from "../components/ui/Button";
 
 // A subbie opens the invite link their builder sent them, sees who invited them,
-// and sets their own email + password. Mobile-first — this is opened on a phone.
+// which site and what work, and sets their own email + password. Mobile-first.
+// A person who ALREADY has a stakeholder account (second site, or a second
+// builder who invited them by email) accepts with one tap — same account, one
+// more site; never a second identity.
 export default function JoinTradie() {
   const { token } = useParams();
-  const { joinAsTradie, user } = useAuth();
+  const { joinAsTradie, user, logout } = useAuth();
   const navigate = useNavigate();
   const [info, setInfo] = useState(undefined); // undefined=loading, null=invalid
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm();
 
-  useEffect(() => {
-    if (user?.role === "worker" && user?.workerId) {
-      navigate("/worker/home", { replace: true });
+  const onAcceptSignedIn = async () => {
+    setError(null);
+    setSubmitting(true);
+    try {
+      await acceptWorkerInvite(token);
+      // Profile/org/site all change — reload so every screen reads the new site.
+      window.location.assign("/worker/home");
+    } catch (err) {
+      setError(err.message || "Could not add this site to your account.");
+      setSubmitting(false);
     }
-  }, [user, navigate]);
+  };
 
   useEffect(() => {
     let live = true;
@@ -80,22 +90,42 @@ export default function JoinTradie() {
 
         {info && !info.claimed && (
           <>
-            <div className="mb-5 rounded-xl bg-blue-50 p-4 text-center">
-              <p className="text-xs uppercase tracking-wider text-blue-700">
-                You&apos;ve been invited by
-              </p>
-              <p className="mt-0.5 text-lg font-bold text-blue-900">{info.orgName}</p>
-              <p className="mt-1 text-sm text-slate-600">
-                as <span className="font-medium">{info.trade}</span>
-                {info.projectName ? <> on <span className="font-medium">{info.projectName}</span></> : null}
+            <div className="mb-5 rounded-xl bg-blue-50 p-4">
+              <p className="text-center text-xs uppercase tracking-wider text-blue-700">Welcome to OHS Builder Victoria</p>
+              <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+                <dt className="text-slate-500">Invited by</dt>
+                <dd className="font-semibold text-blue-900">{info.orgName}</dd>
+                <dt className="text-slate-500">Site</dt>
+                <dd className="font-medium text-slate-800">{info.projectName || "To be assigned by your builder"}{info.projectAddress ? <span className="block text-xs font-normal text-slate-500">{info.projectAddress}</span> : null}</dd>
+                <dt className="text-slate-500">Your work</dt>
+                <dd className="font-medium text-slate-800">{(info.trades?.length ? info.trades : [info.trade].filter(Boolean)).join(" · ") || "—"}</dd>
+              </dl>
+              <p className="mt-3 border-t border-blue-100 pt-2 text-xs text-slate-600">
+                Before starting on site you&apos;ll complete: site induction · safety quiz · your SWMS · required documents. Each step shows <span className="font-medium">Completed ✓</span> as you go.
               </p>
             </div>
 
+            {user ? (
+              <>
+                <h1 className="mb-1 text-center text-lg font-bold text-slate-800">Add this site to your account</h1>
+                <p className="mb-4 text-center text-sm text-slate-500">
+                  You&apos;re signed in as <span className="font-medium text-slate-700">{user.email}</span>. Accepting adds {info.projectName || "this site"} to the account you already have — no second login.
+                </p>
+                {error && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
+                <Button className="w-full" size="lg" disabled={submitting} onClick={onAcceptSignedIn}>
+                  {submitting ? "Adding your site…" : "Accept invite & open site"}
+                </Button>
+                <button type="button" className="mt-3 w-full text-center text-xs font-medium text-blue-700 hover:underline" onClick={async () => { await logout(); window.location.reload(); }}>
+                  Not you? Sign out and set up a different account
+                </button>
+              </>
+            ) : (
+            <>
             <h1 className="mb-1 text-center text-lg font-bold text-slate-800">
               Set up your account
             </h1>
             <p className="mb-4 text-center text-sm text-slate-500">
-              You&apos;ll use this to sign in and complete your induction.
+              You&apos;ll use this to sign in and complete your induction.{info.email ? <> Use <span className="font-medium text-slate-700">{info.email}</span> — the invite was issued to that address.</> : null}
             </p>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -138,6 +168,8 @@ export default function JoinTradie() {
                 {submitting ? "Setting up…" : "Set up & continue"}
               </Button>
             </form>
+            </>
+            )}
           </>
         )}
       </div>
