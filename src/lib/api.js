@@ -1726,3 +1726,13 @@ export async function saveReadNotifications(userId, ids) {
     .eq("id", userId);
   if (error) fail(error, "Saving notifications");
 }
+
+// Row mappers, shared with the Education layer (src/lib/eduApi.js) so an
+// assessor's read-only view of a student's sandbox and the student's own
+// workspace shape the same records identically. Nothing else changes here.
+export const rowMappers = {
+  mapProject, mapWorker, mapTemplate, mapAction, mapIncident, mapEntry, mapMeeting,
+  mapDocument, mapCompany, mapCompanyDoc, mapProjectDoc, mapCheckin, mapPhoto,
+  mapAudit, mapPolicy, mapProfile, mapOrg, mapProjectRisk,
+};
+export { fail as dbFail, safeName };

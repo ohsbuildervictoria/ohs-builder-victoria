@@ -17,9 +17,9 @@ export default function Login() {
   // Already signed in: go straight to the workspace.
   useEffect(() => {
     if (user) {
-      navigate(user.role === "worker" ? "/worker/home" : "/builder/dashboard", {
-        replace: true,
-      });
+      // /go asks the database which home this account has (builder, tradie,
+      // or one of the Education roles) before redirecting.
+      navigate("/go", { replace: true });
     }
   }, [user, navigate]);
   const {
@@ -31,15 +31,12 @@ export default function Login() {
     defaultValues: { email: "", password: "" },
   });
 
-  const routeFor = (user) =>
-    user?.role === "worker" ? "/worker/home" : "/builder/dashboard";
-
   const onSubmit = async (data) => {
     setAuthError(null);
     setSubmitting(true);
     try {
-      const user = await login(data.email, data.password);
-      navigate(routeFor(user));
+      await login(data.email, data.password);
+      navigate("/go");
     } catch (err) {
       setAuthError(
         /invalid login credentials/i.test(err.message)

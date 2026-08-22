@@ -9,9 +9,10 @@
 import { builderGuide } from "./builderGuide.js";
 import { stakeholderGuide } from "./stakeholderGuide.js";
 import { adminGuide } from "./adminGuide.js";
+import { educationGuide } from "./educationGuide.js";
 import { FAQ_CATEGORIES } from "./faq.js";
 
-export const GUIDES = [builderGuide, stakeholderGuide, adminGuide];
+export const GUIDES = [builderGuide, stakeholderGuide, adminGuide, educationGuide];
 
 export const guideByRole = (role) =>
   GUIDES.find((g) => g.role === String(role || "").toLowerCase()) || null;

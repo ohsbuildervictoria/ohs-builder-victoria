@@ -13,6 +13,133 @@ import {
   fetchPlatformUsers,
 } from "../../lib/api";
 import { roleLabels } from "../../data/constants";
+import { fetchPlatformInstitutions, createInstitution, eduJoinLink } from "../../lib/eduApi";
+import { eduRoleLabels } from "../../data/education";
+import Modal from "../../components/ui/Modal";
+import { useToast } from "../../components/ui/Notification";
+
+// Education institutions — created here by the platform operator; the first
+// Institution Admin receives an invite link (copy it or email it yourself).
+function InstitutionsPanel() {
+  const toast = useToast();
+  const [rows, setRows] = useState([]);
+  const [error, setError] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ name: "", adminName: "", adminEmail: "", isDemo: false });
+  const [busy, setBusy] = useState(false);
+  const [created, setCreated] = useState(null);
+  const [reload, setReload] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    fetchPlatformInstitutions()
+      .then((r) => alive && setRows(r || []))
+      .catch((e) => alive && setError(e.message));
+    return () => { alive = false; };
+  }, [reload]);
+
+  const submit = async () => {
+    setBusy(true);
+    try {
+      const res = await createInstitution(form);
+      setCreated({ ...form, link: eduJoinLink(res.inviteToken) });
+      setOpen(false);
+      setForm({ name: "", adminName: "", adminEmail: "", isDemo: false });
+      setReload((k) => k + 1);
+    } catch (e) {
+      toast(e.message || "Could not create institution", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader
+        title="Education institutions"
+        subtitle="Training organisations using OHS Builder Education. Each has its own admins, assessors, cohorts and student sandboxes."
+        action={<Button size="sm" onClick={() => setOpen(true)}>+ New institution</Button>}
+      />
+      <CardBody className="overflow-x-auto pt-2">
+        {error && <p className="mb-2 text-xs text-red-600">{error}</p>}
+        {rows.length === 0 ? (
+          <p className="py-4 text-center text-sm text-slate-400">No institutions yet.</p>
+        ) : (
+          <Table>
+            <THead columns={["ID", "Institution", "RTO", "Type", "Admins", "Assessors", "Cohorts", "Students", "First admin", "Created"]} />
+            <TBody>
+              {rows.map((i) => (
+                <TR key={i.id}>
+                  <TD>#{i.id}</TD>
+                  <TD className="font-medium text-slate-800">{i.name}</TD>
+                  <TD>{i.rto_number || "—"}</TD>
+                  <TD>{i.is_demo ? <Badge status="Pending">Demo</Badge> : <Badge status="Active">Customer</Badge>}</TD>
+                  <TD>{i.admins}</TD>
+                  <TD>{i.assessors}</TD>
+                  <TD>{i.cohorts}</TD>
+                  <TD>{i.students}</TD>
+                  <TD>
+                    {i.first_admin_email}
+                    {i.pending_admin_token && (
+                      <button
+                        className="ml-2 text-xs font-medium text-blue-700 hover:underline"
+                        onClick={() => { navigator.clipboard?.writeText(eduJoinLink(i.pending_admin_token)); toast("Invite link copied"); }}
+                      >
+                        Copy invite link
+                      </button>
+                    )}
+                  </TD>
+                  <TD>{fmtDate(i.created_at)}</TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
+        )}
+      </CardBody>
+
+      <Modal
+        open={open}
+        onClose={() => !busy && setOpen(false)}
+        title="New education institution"
+        footer={
+          <>
+            <Button variant="secondary" disabled={busy} onClick={() => setOpen(false)}>Cancel</Button>
+            <Button disabled={busy || !form.name || !form.adminEmail} onClick={submit}>{busy ? "Creating…" : "Create and get invite link"}</Button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-sm">
+          {[["name", "Institution name", "e.g. Demo Training Institute"], ["adminName", "First administrator's name", ""], ["adminEmail", "First administrator's email", "admin@institution.edu.au"]].map(([k, label, ph]) => (
+            <label key={k} className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</span>
+              <input
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                placeholder={ph}
+                value={form[k]}
+                onChange={(e) => setForm((f) => ({ ...f, [k]: e.target.value }))}
+              />
+            </label>
+          ))}
+          <label className="flex items-center gap-2 text-xs text-slate-600">
+            <input type="checkbox" checked={form.isDemo} onChange={(e) => setForm((f) => ({ ...f, isDemo: e.target.checked }))} />
+            Demo / internal institution (excluded from customer counts)
+          </label>
+        </div>
+      </Modal>
+
+      <Modal open={!!created} onClose={() => setCreated(null)} title="Institution created" footer={<Button onClick={() => setCreated(null)}>Done</Button>}>
+        {created && (
+          <div className="space-y-3 text-sm text-slate-600">
+            <p>Send <span className="font-semibold">{created.adminName || created.adminEmail}</span> this private link. They open it once to set a password, then they run <span className="font-semibold">{created.name}</span> through the Education dashboard.</p>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="break-all font-mono text-xs text-slate-700">{created.link}</p></div>
+            <Button variant="secondary" onClick={() => { navigator.clipboard?.writeText(created.link); toast("Invite link copied"); }}>Copy link</Button>
+            <p className="text-xs text-slate-500">The link works once and only for {created.adminEmail}.</p>
+          </div>
+        )}
+      </Modal>
+    </Card>
+  );
+}
 
 // ============================================================================
 // Platform Administration — the operator's view across every organisation.
@@ -162,10 +289,12 @@ export default function PlatformAdmin() {
           </>
         )}
 
+        <InstitutionsPanel />
+
         <Card>
           <CardHeader
             title="Organisations"
-            subtitle="Tenant workspaces — internal QA orgs are isolated from customer data and excluded from customer counts"
+            subtitle="Tenant workspaces — internal QA orgs and Education sandboxes are isolated from customer data and excluded from customer counts"
           />
           <CardBody className="overflow-x-auto pt-2">
             <Table>
@@ -176,7 +305,9 @@ export default function PlatformAdmin() {
                     <TD>#{o.id}</TD>
                     <TD className="font-medium text-slate-800">{o.name}</TD>
                     <TD>
-                      {o.is_internal ? (
+                      {o.plan === "Education" ? (
+                        <Badge status="Planning">Education sandbox</Badge>
+                      ) : o.is_internal ? (
                         <Badge status="Pending">Internal QA</Badge>
                       ) : (
                         <Badge status="Active">Customer</Badge>
@@ -215,7 +346,7 @@ export default function PlatformAdmin() {
                       )}
                     </TD>
                     <TD>{u.email}</TD>
-                    <TD>{roleLabels[u.role] || u.role}</TD>
+                    <TD>{roleLabels[u.role] || eduRoleLabels[u.role] || u.role}</TD>
                     <TD>
                       {u.organization_name
                         ? `#${u.organization_id} ${u.organization_name}${u.org_is_internal ? " (QA)" : ""}`

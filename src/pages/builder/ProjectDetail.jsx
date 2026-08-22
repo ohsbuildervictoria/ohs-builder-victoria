@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useSearchParams } from "react-router-dom";
 import Card, { CardBody, CardHeader } from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
@@ -28,7 +28,11 @@ export default function ProjectDetail() {
   const { incidents } = useIncidents(id);
   const { entries } = useDiary(id);
   const { policies, org } = useAppContext();
-  const [tab, setTab] = useState("Overview");
+  // Deep links (e.g. from an Education task: ?tab=Risk%20Register) open the
+  // requested tab; anything unknown falls back to Overview.
+  const [searchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const [tab, setTab] = useState(TABS.includes(requestedTab) ? requestedTab : "Overview");
   const [qrOpen, setQrOpen] = useState(false);
 
   const project = getProject(id);

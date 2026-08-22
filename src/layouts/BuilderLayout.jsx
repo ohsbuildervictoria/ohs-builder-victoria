@@ -9,6 +9,7 @@ import RoleBadge from "../components/shared/RoleBadge";
 import HelpDrawer from "../components/shared/HelpDrawer";
 import { NotificationItem } from "../components/ui/Notification";
 import { brand } from "../data/constants";
+import { useEducation } from "../hooks/useEducation";
 
 const NAV = [
   { to: "/builder/dashboard", label: "Dashboard", icon: "📊", perm: "dashboard" },
@@ -45,12 +46,18 @@ export default function BuilderLayout() {
   // database is the only thing that actually enforces access; the menu has to
   // agree with it rather than assert its own version.
   const perms = permissions || {};
+  const { education, isStudent } = useEducation();
   const visibleNav = NAV.filter((n) => perms[n.perm]);
 
   // Workers (stakeholders) have no builder workspace access at all.
   if (role === "worker") {
     return <Navigate to="/worker/home" replace />;
   }
+
+  // Education staff hold no builder workspace — their home is the Education
+  // shell. (Students DO have one: it is their simulated site.)
+  if (education?.role === "institution_admin") return <Navigate to="/education/admin" replace />;
+  if (education?.role === "assessor") return <Navigate to="/education/assess" replace />;
 
   // Wait for the answer before acting on it — bouncing someone off a deep link
   // because the reply hasn't landed yet would look like a permission error.
@@ -75,6 +82,21 @@ export default function BuilderLayout() {
           <Logo light />
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4 scrollbar-thin">
+          {isStudent && (
+            <>
+              <NavLink
+                to="/education/student"
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-white"
+                style={{ backgroundColor: education?.primaryColour || "#15803d" }}
+              >
+                <span aria-hidden>🎓</span>
+                My Training
+              </NavLink>
+              <p className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Your simulated site
+              </p>
+            </>
+          )}
           {visibleNav.map((item) => (
             <NavLink
               key={item.to}
@@ -132,9 +154,18 @@ export default function BuilderLayout() {
                 className="max-h-9 max-w-[140px] object-contain"
               />
             )}
-            <p className="text-sm text-slate-500">
-              {org ? `${org.name} · ${org.state} · ${org.plan} Plan` : brand.fullName}
-            </p>
+            {isStudent ? (
+              <p className="text-sm text-slate-500">
+                <span className="mr-2 rounded-md px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-white" style={{ backgroundColor: education?.primaryColour || "#15803d" }}>
+                  Training simulation
+                </span>
+                {education?.institutionName} · your practice site — nothing here is real
+              </p>
+            ) : (
+              <p className="text-sm text-slate-500">
+                {org ? `${org.name} · ${org.state} · ${org.plan} Plan` : brand.fullName}
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
