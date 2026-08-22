@@ -175,3 +175,10 @@ script ends with a commented, deliberate delete. Run only after an explicit deci
 **Post-walkthrough RPC patches (all in 022, re-applied to staging with `create or replace`):** `edu_events_for` auto-acknowledges an event whose task is already evidenced; `edu_student_home` evaluates progress before reading the enrolment status; `edu_submit_for_assessment` freezes the post-insert evaluation into the submission (task 10 shows Evidenced in the snapshot); `edu_institution_overview` counts branding as set when colours were saved.
 
 **Known pre-existing drift (Industry, not Education):** production's `signup_create_org` carries the 14-Aug quiz-seed hot-fix that is not in any recorded migration; a clean database built from the repo does not seed the quiz for a new trial org. Fold that hot-fix into a migration at some point.
+
+---
+
+## Production release record — 22 Aug 2026 (owner-approved)
+
+**Pre-release state:** `main` = `bb76c34` (local and origin, unchanged since staging verification); `feature/education` = `10a732e` (contains `ed9bc47`, `10a732e`); no commits on `main` missing from the feature branch; working tree clean. Production bundle `assets/index-Dnbdjfz6.js`. Production migration history: 001–019 recorded, 020 applied but unrecorded, 021–023 not applied. Recovery path: migrations 021–023 are additive (no existing row is modified — only `organizations.kind/edu_enrolment_id` columns with defaults, a widened `profiles.role` CHECK, and a replaced `my_permissions()` body); rollback = `supabase/migrations/education/ROLLBACK_021_023.sql`. Supabase Free plan has no point-in-time recovery, so the additive design + rollback script is the recovery path.
+
