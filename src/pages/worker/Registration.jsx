@@ -282,6 +282,16 @@ function DocumentRow({ worker, categoryKey, doc, upload, open, toast }) {
             <p className="text-xs text-slate-500">
               {doc.fileName}
               {doc.expiry ? ` · expires ${doc.expiry}` : ""}
+              {status === "Pending" && (
+                <span className="mt-0.5 block font-medium text-amber-700">
+                  Submitted — awaiting your builder&apos;s verification
+                </span>
+              )}
+              {doc.verifiedAt && status !== "Pending" && (
+                <span className="mt-0.5 block text-green-700">
+                  Verified by {doc.verifiedByName || "your builder"}
+                </span>
+              )}
             </p>
           ) : (
             <p className="text-xs text-slate-400">No file uploaded yet</p>

@@ -201,6 +201,16 @@ export default function WorkerHome() {
         </ol>
       </div>
 
+      {/* Site policies / OHS Management Plan published by the builder (read-only). */}
+      <Link to="/worker/policies" className="mt-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
+        <span className="text-xl" aria-hidden>📜</span>
+        <span className="flex-1">
+          <span className="block text-sm font-semibold text-slate-800">Site policies &amp; OHS Management Plan</span>
+          <span className="block text-xs text-slate-500">Read {org?.name ? `${org.name}'s` : "the builder's"} published documents for this site.</span>
+        </span>
+        <span className="text-slate-300">→</span>
+      </Link>
+
       {/* Reporting stays one tap away — the thing we want them doing daily. */}
       <Link to="/worker/report" className="mt-4 flex items-center gap-3 rounded-xl border-2 border-red-200 bg-red-50 p-4">
         <span className="text-2xl" aria-hidden>⚠️</span>

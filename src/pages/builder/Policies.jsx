@@ -22,6 +22,7 @@ import {
   updatePolicyRow,
   updateOrgDetails,
   policyDocUrl,
+  uploadPolicyDoc,
 } from "../../lib/api";
 
 const TABS = ["Policy Register", "Templates", "Notifications", "Organisation", "Subscription", "Platform"];
@@ -138,6 +139,29 @@ export default function Policies() {
       setOrg((prev) => (prev ? { ...prev, notifications: next } : prev));
     } catch (err) {
       toast(err.message || "Could not save preference", "error");
+    }
+  };
+
+  // 027 — attach / replace the actual PDF (OHS Management Plan etc.). Private
+  // org bucket; the builder/HSE writes, every org member (incl. stakeholders
+  // via My Site → Site policies) reads.
+  const pdfInputRef = useRef(null);
+  const [pdfFor, setPdfFor] = useState(null);
+  const pickPdf = (p) => { setPdfFor(p); pdfInputRef.current?.click(); };
+  const onPdfChosen = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !pdfFor) return;
+    setSaving(true);
+    try {
+      const updated = await uploadPolicyDoc(pdfFor, file, org?.id);
+      setPolicies((prev) => prev.map((x) => (x.id === pdfFor.id ? updated : x)));
+      toast(`${file.name} attached to ${pdfFor.name} — stakeholders can open it from My Site → Site policies`);
+    } catch (err) {
+      toast(err.message || "Could not upload the PDF", "error");
+    } finally {
+      setSaving(false);
+      setPdfFor(null);
     }
   };
 
@@ -296,6 +320,9 @@ export default function Policies() {
                               {p.status === "Draft" ? "Edit Draft" : "View / Edit"}
                             </Button>
                           )}
+                          <Button size="sm" variant="secondary" disabled={saving} onClick={() => pickPdf(p)}>
+                            {p.fileName ? "Replace PDF" : "Upload PDF"}
+                          </Button>
                           {p.status !== "Draft" && (
                             <Button size="sm" onClick={() => onUploadVersion(p)}>
                               New Version
@@ -312,6 +339,8 @@ export default function Policies() {
               </Table>
             </CardBody>
           </Card>
+
+          <input ref={pdfInputRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={onPdfChosen} aria-label="Choose a PDF to attach" />
 
           <Card>
             <CardHeader

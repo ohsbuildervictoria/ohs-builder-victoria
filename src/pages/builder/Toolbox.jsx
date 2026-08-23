@@ -6,7 +6,7 @@ import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
 import StatCard from "../../components/ui/StatCard";
 import { Table, THead, TBody, TR, TD } from "../../components/ui/Table";
-import { useToolbox } from "../../hooks/useToolbox";
+import { useToolbox, meetingHeld } from "../../hooks/useToolbox";
 import { useProjects } from "../../hooks/useProjects";
 import { useWorkers } from "../../hooks/useWorkers";
 import { useToast } from "../../components/ui/Notification";
@@ -16,7 +16,7 @@ import { useAuth } from "../../hooks/useAuth";
 const THIRTY_DAYS_AGO = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
 export default function Toolbox() {
-  const { meetings, addMeeting, signFor, loadAttendance, getStats } = useToolbox();
+  const { meetings, addMeeting, signFor, loadAttendance, getStats, completeMeeting, meetingState } = useToolbox();
   const { projects, getProject } = useProjects();
   const { workers } = useWorkers();
   const { user } = useAuth();
@@ -27,6 +27,7 @@ export default function Toolbox() {
   const [rollFor, setRollFor] = useState(null);
   const [roll, setRoll] = useState([]);
   const [rollBusy, setRollBusy] = useState(false);
+  const [completeNote, setCompleteNote] = useState("");
 
   const openRoll = async (meeting) => {
     setRollFor(meeting);
@@ -37,16 +38,31 @@ export default function Toolbox() {
   const signAttendee = async (worker) => {
     setRollBusy(true);
     try {
-      const { roll: fresh } = await signFor(rollFor.id, worker.id, worker.name);
+      const { roll: fresh, result } = await signFor(rollFor.id, worker.id, worker.name);
       setRoll(fresh);
-      toast(`${worker.name} recorded as attending`);
+      toast(result?.completed ? `${worker.name} recorded — everyone on the roster has signed, meeting completed` : `${worker.name} recorded as attending`);
     } catch (err) {
       toast(err.message || "Could not record attendance", "error");
     } finally {
       setRollBusy(false);
     }
   };
-  const { register, handleSubmit, reset } = useForm();
+
+  const onComplete = async () => {
+    setRollBusy(true);
+    try {
+      await completeMeeting(rollFor.id, completeNote);
+      toast("Meeting completed");
+      setCompleteNote("");
+      setRollFor(null);
+    } catch (err) {
+      toast(err.message || "Could not complete the meeting", "error");
+    } finally {
+      setRollBusy(false);
+    }
+  };
+  const { register, handleSubmit, reset, watch } = useForm();
+  const createProject = Number(watch("project")) || projects[0]?.id || null;
 
   const stats = getStats();
   const meetings30d = meetings.filter(
@@ -126,7 +142,10 @@ export default function Toolbox() {
                   </TD>
                 </TR>
               )}
-              {meetings.map((m) => (
+              {meetings.map((m) => {
+                const roster = crewFor(m).length;
+                const st = meetingState(m, roster);
+                return (
                 <TR key={m.id}>
                   <TD className="font-medium text-slate-800">{m.topic}</TD>
                   <TD>{getProject(m.project)?.name || "—"}</TD>
@@ -134,22 +153,30 @@ export default function Toolbox() {
                   <TD className="max-w-xs text-slate-600">
                     {m.points?.join("; ") || m.topic}
                   </TD>
-                  <TD>{m.attendees}</TD>
                   <TD>
-                    {m.signatures} / {m.attendees}
+                    {/* Expected = the live site roster (the people the register lists);
+                        the number ticked when scheduling is shown as "invited". */}
+                    <span className="font-medium text-slate-800">{st.expected}</span>
+                    <span className="block text-[11px] text-slate-400">on site roster{m.attendees ? ` · ${m.attendees} invited` : ""}</span>
                   </TD>
                   <TD>
-                    <Badge
-                      status={m.signatures >= m.attendees && m.attendees > 0 ? "Completed" : "Scheduled"}
-                    />
+                    {m.signatures} / {st.expected}
+                    {st.expected > 0 && m.signatures > st.expected && (
+                      <span className="block text-[11px] text-slate-400">includes people since moved off this site</span>
+                    )}
+                  </TD>
+                  <TD>
+                    <Badge status={st.label} />
+                    {st.detail && <span className="block text-[11px] text-slate-400">{st.detail}</span>}
                   </TD>
                   <TD>
                     <Button size="sm" variant="secondary" onClick={() => openRoll(m)}>
-                      Attendance
+                      {st.label === "Completed" ? "Register" : "Attendance"}
                     </Button>
                   </TD>
                 </TR>
-              ))}
+                );
+              })}
             </TBody>
           </Table>
         </CardBody>
@@ -208,6 +235,40 @@ export default function Toolbox() {
         <p className="mt-3 text-xs text-slate-400">
           {roll.length} of {crewFor(rollFor).length} on this site have signed.
         </p>
+        {/* Lifecycle: completes itself when the whole roster has signed after the
+            meeting time; otherwise the person running it closes it out here,
+            saying why anyone on the roster is missing (absences are real). */}
+        {rollFor && rollFor.status !== "Completed" && (
+          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            {!meetingHeld(rollFor.date) ? (
+              <p className="text-xs text-slate-500">Scheduled for {rollFor.date} — it can be completed once it has been held.</p>
+            ) : (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Complete this meeting</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {roll.length >= crewFor(rollFor).length && roll.length > 0
+                    ? "Everyone on the roster has signed — it will complete automatically; or complete it now."
+                    : `${roll.length} of ${crewFor(rollFor).length} signed. Note why the others were not at the talk (sick, other site, not yet started) before completing.`}
+                </p>
+                <textarea
+                  rows={2}
+                  value={completeNote}
+                  onChange={(e) => setCompleteNote(e.target.value)}
+                  placeholder="e.g. Bradley and Ryan on leave; Marco starts next week"
+                  className="tb-input mt-2"
+                />
+                <Button size="sm" className="mt-2" disabled={rollBusy || roll.length === 0} onClick={onComplete}>
+                  {rollBusy ? "Saving…" : "Mark meeting complete"}
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+        {rollFor?.status === "Completed" && (
+          <p className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-800">
+            Completed {rollFor.completedAt ? new Date(rollFor.completedAt).toLocaleString("en-AU") : ""}{rollFor.completedByName ? ` · ${rollFor.completedByName}` : ""}{rollFor.completionNote && rollFor.completionNote !== "auto" && rollFor.completionNote !== "backfill" ? ` — ${rollFor.completionNote}` : ""}
+          </p>
+        )}
       </Modal>
 
       {/* Create meeting modal */}
@@ -248,10 +309,16 @@ export default function Toolbox() {
           </Field>
           <div>
             <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Attendees ({attendees.length})
+              Invited ({attendees.length}) — people on this site
+            </p>
+            <p className="mb-1.5 text-[11px] text-slate-400">
+              Expected attendance is the site roster on the day; this list is just who you want there.
             </p>
             <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-slate-200 p-2 scrollbar-thin">
-              {workers.map((w) => (
+              {workers.filter((w) => !createProject || w.project === createProject).length === 0 && (
+                <p className="px-2 py-1 text-xs text-slate-400">No stakeholders on this site yet — add them under Stakeholder Compliance.</p>
+              )}
+              {workers.filter((w) => !createProject || w.project === createProject).map((w) => (
                 <label
                   key={w.id}
                   className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-slate-50"

@@ -120,6 +120,10 @@ const mapIncident = (r, projectsById = {}) => ({
   witnesses: r.witnesses,
   immediateAction: r.immediate_action,
   notifiable: r.notifiable,
+  // 027: site-team email notification record (written by /api/notify-incident)
+  staffNotifiedAt: r.staff_notified_at ?? null,
+  staffNotifyTo: r.staff_notify_to || [],
+  staffNotifyError: r.staff_notify_error ?? null,
   // Evidence that WorkSafe was actually called, not just that the incident
   // was classified as one that requires it. Absent until migration 011.
   notifiedAt: r.notified_at ?? null,
@@ -149,6 +153,9 @@ const mapEntry = (r) => ({
   photos: r.photos,
   tags: r.tags || [],
   hasAudio: r.has_audio,
+  // 027: the voice note file (site-photos bucket, diary_entry/<id>/…)
+  audioPath: r.audio_path ?? null,
+  audioName: r.audio_name ?? null,
 });
 
 const mapMeeting = (r) => ({
@@ -164,6 +171,12 @@ const mapMeeting = (r) => ({
   duration: r.duration,
   points: r.points || [],
   signatures: r.signatures,
+  // 027 lifecycle: 'Scheduled' until completed (auto when the whole roster
+  // signs after the meeting time, or explicit complete_toolbox_meeting).
+  status: r.status || "Scheduled",
+  completedAt: r.completed_at ?? null,
+  completedByName: r.completed_by_name ?? null,
+  completionNote: r.completion_note ?? null,
 });
 
 const mapDocument = (r) => ({
@@ -179,6 +192,11 @@ const mapDocument = (r) => ({
   // document that was in force then, not the one in force now.
   supersededAt: r.superseded_at ?? null,
   supersededBy: r.superseded_by ?? null,
+  // 027: a stakeholder's upload is SUBMITTED until the builder/HSE verifies it.
+  verifiedAt: r.verified_at ?? null,
+  verifiedBy: r.verified_by ?? null,
+  verifiedByName: r.verified_by_name ?? null,
+  verificationNote: r.verification_note ?? null,
 });
 
 // Subcontractor company (org-scoped): business-level details + insurance.
@@ -204,6 +222,8 @@ const mapCompanyDoc = (r) => ({
   fileName: r.file_name || "",
   expiry: r.expiry_date || null,
   uploadedAt: r.uploaded_at,
+  // Company certificates are uploaded and held by the builder — verified by that act.
+  isCompanyDoc: true,
 });
 
 // A file attached to a project (working drawing, permit, certificate…).
@@ -769,7 +789,9 @@ export async function insertProject(p) {
       address: p.address || "",
       status: p.status || "Planning",
       build_percent: p.buildPercent ?? 0,
-      compliance: p.compliance ?? 100,
+      // No crew yet → no compliance figure. The column is legacy; every view
+      // derives the % from the crew's evidence (projectCompliancePercent).
+      compliance: null,
       contract_type: p.contractType || "Lump Sum",
       contract_value: p.contractValue ?? 0,
       project_manager: p.projectManager || "",
@@ -1538,6 +1560,9 @@ export async function updatePolicyRow(id, patch) {
   if (patch.category !== undefined) row.category = patch.category;
   if (patch.status !== undefined) row.status = patch.status;
   if (patch.content !== undefined) row.content = patch.content;
+  if (patch.fileName !== undefined) row.file_name = patch.fileName;
+  if (patch.filePath !== undefined) row.file_path = patch.filePath;
+  if (patch.source !== undefined) row.source = patch.source;
   row.updated = localDate();
   let { data, error } = await supabase
     .from("policies")
@@ -1644,6 +1669,81 @@ export async function updateMeetingSignatures(id, signatures) {
     .update({ signatures })
     .eq("id", id);
   if (error) fail(error, "Recording signature");
+}
+
+// 027 — explicit close-out of a held toolbox meeting (audited server-side).
+export async function completeToolboxMeetingRpc(meetingId, note) {
+  const { data, error } = await supabase.rpc("complete_toolbox_meeting", { p_meeting: Number(meetingId), p_note: note || null });
+  if (error) fail(error, "Completing meeting");
+  return data;
+}
+
+// 027 — builder/HSE decision on a stakeholder's submitted document.
+export async function verifyComplianceDocRpc(docId, verified, note) {
+  const { error } = await supabase.rpc("verify_compliance_document", { p_doc: Number(docId), p_verified: !!verified, p_note: note || null });
+  if (error) fail(error, verified ? "Verifying document" : "Rejecting document");
+  const row = await supabase.from("compliance_documents").select("*").eq("id", Number(docId)).single();
+  if (row.error) fail(row.error, "Reloading document");
+  return mapDocument(row.data);
+}
+
+// 027 — Site Diary voice note: the audio file lives beside the entry's photos
+// (site-photos bucket, diary_entry/<id>/…, same path-scoped RLS); the entry
+// row records the path so it survives reloads and can be played back later.
+export async function uploadDiaryAudio(entryId, blob) {
+  const ext = /ogg/.test(blob.type) ? "ogg" : /mp4|aac|m4a/.test(blob.type) ? "m4a" : "webm";
+  const name = `voice-note-${Date.now()}.${ext}`;
+  const path = `diary_entry/${entryId}/${name}`;
+  const up = await supabase.storage
+    .from(PHOTO_BUCKET)
+    .upload(path, blob, { upsert: false, contentType: blob.type || "audio/webm" });
+  if (up.error) fail(up.error, "Uploading voice note");
+  const { data, error } = await supabase
+    .from("diary_entries")
+    .update({ audio_path: path, audio_name: name, has_audio: true })
+    .eq("id", Number(entryId))
+    .select()
+    .single();
+  if (error) {
+    // Don't leave an orphan file if the row could not be pointed at it.
+    await supabase.storage.from(PHOTO_BUCKET).remove([path]).catch(() => {});
+    fail(error, "Saving voice note");
+  }
+  return mapEntry(data);
+}
+
+export async function getDiaryAudioUrl(audioPath) {
+  const { data, error } = await supabase.storage.from(PHOTO_BUCKET).createSignedUrl(audioPath, 300);
+  if (error) fail(error, "Opening voice note");
+  return data.signedUrl;
+}
+
+// 027 — Policy / OHS Management Plan PDF (private policy-docs bucket, RLS:
+// org members read, builder/HSE write; path folder = org id).
+export async function uploadPolicyDoc(policy, file, orgId) {
+  if (!/pdf$/i.test(file.type) && !/\.pdf$/i.test(file.name || "")) {
+    fail(new Error("Upload the document as a PDF."), "Uploading policy document");
+  }
+  const path = `${orgId}/${policy.id}/${Date.now()}-${safeName(file.name)}`;
+  const up = await supabase.storage
+    .from("policy-docs")
+    .upload(path, file, { upsert: false, contentType: "application/pdf" });
+  if (up.error) fail(up.error, "Uploading policy document");
+  return updatePolicyRow(policy.id, { fileName: file.name, filePath: path, source: "Builder supplied" });
+}
+
+// 027 — ask the server to email the site team about a new incident. The
+// recipients, subject and body are composed server-side from the database.
+export async function notifyIncidentStaff(incidentId) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const r = await fetch("/api/notify-incident", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token || ""}` },
+    body: JSON.stringify({ incidentId: Number(incidentId) }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) fail(new Error(j.error || `HTTP ${r.status}`), "Notifying the site team");
+  return j; // { sent, to: [], notifiedAt }
 }
 
 export async function bumpPolicyVersion(policy) {

@@ -14,8 +14,11 @@ export function useProjects() {
   const addProject = useCallback(
     async (project) => {
       const created = await insertProject(project);
-      setProjects((prev) => [...prev, created]);
-      return created;
+      // A brand-new project has no crew, so it has no compliance figure yet —
+      // never the DB column's default. Same annotation fetchAll applies.
+      const annotated = { ...created, compliance: null, workers: 0, incidents: 0, openHighRisks: 0 };
+      setProjects((prev) => [...prev, annotated]);
+      return annotated;
     },
     [setProjects]
   );
