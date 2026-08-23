@@ -12,13 +12,20 @@ import {
 // meeting time, or by an explicit audited close-out) and, before that,
 // whether the meeting time has passed. The denominator is always the live
 // site roster — never the number ticked when the meeting was scheduled.
+// Local calendar date as YYYY-MM-DD (never UTC — a 7am Melbourne meeting is
+// "today" even though UTC midnight hasn't arrived).
+export function localToday() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+export const meetingHeld = (dateStr) => String(dateStr || "").slice(0, 10) <= localToday();
+
 export function meetingState(m, rosterCount) {
   const expected = Math.max(rosterCount || 0, 0);
   if (m.status === "Completed") {
     return { label: "Completed", expected, detail: m.signatures != null ? `${m.signatures} signed` : "" };
   }
-  const today = new Date(new Date().toDateString());
-  const held = new Date(m.date) <= today;
+  const held = meetingHeld(m.date);
   if (!held) return { label: "Scheduled", expected, detail: "" };
   if (expected === 0) return { label: "Awaiting Signatures", expected, detail: "no crew on this site yet" };
   return { label: "Awaiting Signatures", expected, detail: `${Math.min(m.signatures || 0, expected)} of ${expected} signed` };
@@ -98,8 +105,7 @@ export function useToolbox(projectId = null) {
     // Sign-off rate over meetings that have been held, against the expected
     // attendance the database now keeps in step with the roster (attendees is
     // raised to the roster/signature count by record_toolbox_attendance).
-    const today = new Date(new Date().toDateString());
-    const held = scoped.filter((m) => new Date(m.date) <= today && (m.attendees || 0) > 0);
+    const held = scoped.filter((m) => meetingHeld(m.date) && (m.attendees || 0) > 0);
     const avgAttendance = held.length
       ? Math.round(held.reduce((s, m) => s + (Math.min(m.signatures || 0, m.attendees) / m.attendees) * 100, 0) / held.length)
       : 0;

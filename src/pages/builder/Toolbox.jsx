@@ -6,7 +6,7 @@ import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
 import StatCard from "../../components/ui/StatCard";
 import { Table, THead, TBody, TR, TD } from "../../components/ui/Table";
-import { useToolbox } from "../../hooks/useToolbox";
+import { useToolbox, meetingHeld } from "../../hooks/useToolbox";
 import { useProjects } from "../../hooks/useProjects";
 import { useWorkers } from "../../hooks/useWorkers";
 import { useToast } from "../../components/ui/Notification";
@@ -240,7 +240,7 @@ export default function Toolbox() {
             saying why anyone on the roster is missing (absences are real). */}
         {rollFor && rollFor.status !== "Completed" && (
           <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
-            {new Date(rollFor.date) > new Date(new Date().toDateString()) ? (
+            {!meetingHeld(rollFor.date) ? (
               <p className="text-xs text-slate-500">Scheduled for {rollFor.date} — it can be completed once it has been held.</p>
             ) : (
               <>
