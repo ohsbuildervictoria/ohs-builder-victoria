@@ -39,14 +39,13 @@ export async function onRequestPost({ request, env }) {
       return json(403, { error: "Only members of this organisation can notify its team." });
     }
 
-    // Organisation toggle (Settings → Notifications → Incident alerts). Default on.
-    const [settings] = await adminSelect(env, `org_settings?select=notifications&organization_id=eq.${inc.organization_id}`);
-    const toggles = settings?.notifications || {};
+    // Organisation toggle (Policies → Notifications → Incident alerts) lives on
+    // organizations.notifications. Default on.
+    const [org] = await adminSelect(env, `organizations?select=name,notifications&id=eq.${inc.organization_id}`);
+    const toggles = (org && org.notifications) || {};
     if (toggles.incident === false) {
       return json(200, { sent: false, skipped: "Incident alerts are switched off in Notifications settings.", to: [] });
     }
-
-    const [org] = await adminSelect(env, `organizations?select=name&id=eq.${inc.organization_id}`);
     const [project] = inc.project_id ? await adminSelect(env, `projects?select=name,address&id=eq.${inc.project_id}`) : [null];
 
     // Recipients: every Active builder admin / HSE manager in the org, plus the
