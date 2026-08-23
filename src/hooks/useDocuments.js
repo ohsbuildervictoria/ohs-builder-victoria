@@ -7,6 +7,7 @@ import {
   updateDocExpiry,
   getDocUrl,
   fetchDocumentHistory,
+  verifyComplianceDocRpc,
 } from "../lib/api";
 
 // Compliance evidence documents. The builder matrix and the tradie Documents
@@ -66,5 +67,15 @@ export function useDocuments() {
 
   const open = useCallback((doc) => getDocUrl(doc.filePath), []);
 
-  return { documents, byWorker, docsFor, historyFor, upload, setExpiry, remove, open };
+  // 027 — builder/HSE verifies (or rejects) a stakeholder's submitted document.
+  const verify = useCallback(
+    async (doc, verified, note) => {
+      const saved = await verifyComplianceDocRpc(doc.id, verified, note);
+      setDocuments((prev) => prev.map((d) => (d.id === saved.id ? saved : d)));
+      return saved;
+    },
+    [setDocuments]
+  );
+
+  return { documents, byWorker, docsFor, historyFor, upload, setExpiry, remove, open, verify };
 }

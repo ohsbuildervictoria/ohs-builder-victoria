@@ -12,6 +12,7 @@ import { Table, THead, TBody, TR, TD } from "../../components/ui/Table";
 import { useProjects } from "../../hooks/useProjects";
 import { useWorkers } from "../../hooks/useWorkers";
 import { useIncidents } from "../../hooks/useIncidents";
+import { useDocuments } from "../../hooks/useDocuments";
 import { useDiary } from "../../hooks/useDiary";
 import { useProjectDocs } from "../../hooks/useProjectDocs";
 import RiskRegister from "./RiskRegister";
@@ -26,6 +27,7 @@ export default function ProjectDetail() {
   const { getProject } = useProjects();
   const { workers, getComplianceStats } = useWorkers(id);
   const { incidents } = useIncidents(id);
+  const { docsFor } = useDocuments();
   const { entries } = useDiary(id);
   const { policies, org } = useAppContext();
   // Deep links (e.g. from an Education task: ?tab=Risk%20Register) open the
@@ -180,7 +182,7 @@ export default function ProjectDetail() {
           <Card>
             <CardBody>
               {workers.length ? (
-                <ComplianceMatrix workers={workers} />
+                <ComplianceMatrix workers={workers} docsFor={docsFor} />
               ) : (
                 <p className="py-6 text-center text-sm text-slate-400">
                   No stakeholders to display.

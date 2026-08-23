@@ -6,6 +6,7 @@ import {
   updateIncidentRow,
   insertCorrectiveAction,
   updateCorrectiveActionRow,
+  notifyIncidentStaff,
 } from "../lib/api";
 import { enqueue, isNetworkError } from "../lib/offlineQueue";
 import { summariseMarks } from "../lib/bodyMap";
@@ -73,11 +74,30 @@ export function useIncidents(projectId = null) {
         notifiable: row.notifiable,
         bodyMap: Array.isArray(row.body_map) ? row.body_map : [],
         correctiveActions: [],
+        staffNotifiedAt: null,
+        staffNotifyTo: [],
+        staffNotifyError: null,
       };
       setIncidents((prev) => [created, ...prev]);
+      // 027: tell the site team (builder admins, HSE, the project's supervisors)
+      // by email. Server-composed; failure is recorded on the incident and the
+      // card offers a retry — it never blocks the report being saved.
+      notifyIncidentStaff(row.id)
+        .then((r) => setIncidents((prev) => prev.map((i) => (i.id === row.id ? { ...i, staffNotifiedAt: r?.notifiedAt || (r?.sent ? new Date().toISOString() : null), staffNotifyTo: r?.to || [], staffNotifyError: r?.sent ? null : (r?.skipped || null) } : i))))
+        .catch((err) => setIncidents((prev) => prev.map((i) => (i.id === row.id ? { ...i, staffNotifyError: err?.message || "Notification failed" } : i))));
       return created;
     },
     [setIncidents, projects]
+  );
+
+  // Manual (re)send of the site-team email for an incident.
+  const notifyStaff = useCallback(
+    async (id) => {
+      const r = await notifyIncidentStaff(Number(id));
+      setIncidents((prev) => prev.map((i) => (i.id === Number(id) ? { ...i, staffNotifiedAt: r?.notifiedAt || (r?.sent ? new Date().toISOString() : i.staffNotifiedAt), staffNotifyTo: r?.to || i.staffNotifyTo, staffNotifyError: r?.sent ? null : (r?.skipped || i.staffNotifyError) } : i)));
+      return r;
+    },
+    [setIncidents]
   );
 
   const updateStatus = useCallback(
@@ -159,5 +179,5 @@ export function useIncidents(projectId = null) {
     [scoped]
   );
 
-  return { incidents: scoped, addIncident, updateStatus, editIncident, addCorrectiveAction, updateCorrectiveAction, getByType };
+  return { incidents: scoped, addIncident, updateStatus, editIncident, addCorrectiveAction, updateCorrectiveAction, getByType, notifyStaff };
 }

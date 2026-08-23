@@ -76,6 +76,22 @@ export async function adminSelect(env, path) {
   return r.json();
 }
 
+// Service-role PATCH (bypasses RLS — only for server-owned bookkeeping columns
+// such as incidents.staff_notified_*; never for anything the client supplies).
+export async function adminPatch(env, path, body) {
+  const r = await fetch(`${env.SUPABASE_URL}/rest/v1/${path}`, {
+    method: "PATCH",
+    headers: {
+      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`db write failed: ${path} -> ${r.status}`);
+}
+
 // `attachments` is Resend's shape: [{ filename, content }] where content is
 // base64. Only /api/send-report uses it (report + incident PDFs).
 // `replyTo` is only used by the public education-enquiry endpoint, so the

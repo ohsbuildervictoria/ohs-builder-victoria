@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import Card, { CardBody } from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
@@ -39,7 +38,8 @@ const TODAY_LOCAL = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.g
 const MAX_INCIDENT_DATETIME = `${TODAY_LOCAL}T23:59`;
 
 export default function Incidents() {
-  const { incidents, addIncident, updateStatus, editIncident, addCorrectiveAction, updateCorrectiveAction } = useIncidents();
+  const { incidents, addIncident, updateStatus, editIncident, addCorrectiveAction, updateCorrectiveAction, notifyStaff } = useIncidents();
+  const [notifying, setNotifying] = useState(null); // incident id being emailed to the team
   const { projects } = useProjects();
   const { org, audits, refresh } = useAppContext();
   const { user } = useAuth();
@@ -164,9 +164,8 @@ export default function Incidents() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to="/builder/incidents/near-miss">
-            <Button variant="secondary">Near Miss Register</Button>
-          </Link>
+          {/* The "Near Miss Register" page was a read-only duplicate of the
+              Near Miss tab below; one authoritative place now. */}
           <Button variant="danger" onClick={() => setCreateOpen(true)}>
             + Create New Incident
           </Button>
@@ -222,6 +221,37 @@ export default function Incidents() {
                       {i.location ? ` · ${i.location}` : ""}
                     </p>
                     <PhotoStrip entity="incident" entityId={i.id} />
+                    {/* 027: was the site team emailed? Server-side record, retryable. */}
+                    <p className="mt-2 text-xs">
+                      {i.staffNotifiedAt ? (
+                        <span className="text-green-700">
+                          ✉️ Site team notified {new Date(i.staffNotifiedAt).toLocaleString("en-AU")}
+                          {i.staffNotifyTo?.length ? ` (${i.staffNotifyTo.length} ${i.staffNotifyTo.length === 1 ? "person" : "people"})` : ""}
+                        </span>
+                      ) : (
+                        <span className="text-amber-700">
+                          {i.staffNotifyError ? `Team email failed: ${i.staffNotifyError}` : "Site team not emailed yet."}{" "}
+                          <button
+                            type="button"
+                            disabled={notifying === i.id}
+                            onClick={async () => {
+                              setNotifying(i.id);
+                              try {
+                                const r = await notifyStaff(i.id);
+                                toast(r?.sent ? `Emailed ${r.to.length} site-team member${r.to.length === 1 ? "" : "s"}` : r?.skipped || "Nothing sent", r?.sent ? "success" : "warning");
+                              } catch (err) {
+                                toast(err.message || "Could not notify the team", "error");
+                              } finally {
+                                setNotifying(null);
+                              }
+                            }}
+                            className="font-semibold underline disabled:opacity-50"
+                          >
+                            {notifying === i.id ? "Sending…" : "Notify team"}
+                          </button>
+                        </span>
+                      )}
+                    </p>
                     {i.notifiable && (
                       <div
                         className={`mt-3 rounded-lg px-3 py-2 text-xs ${
@@ -261,7 +291,9 @@ export default function Incidents() {
                     )}
                   </div>
                   <div className="flex flex-col items-end gap-2">
+                    <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Status (all incident types)</label>
                     <select
+                      aria-label={`Status of ${i.type} incident`}
                       value={i.status}
                       onChange={(e) =>
                         updateStatus(i.id, e.target.value).catch((err) =>

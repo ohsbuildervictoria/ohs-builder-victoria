@@ -77,10 +77,20 @@ export function categoryStatus(worker, key, doc, nowMs = TODAY_MS) {
 // Insurance / Medical, and company Public Liability / WorkCover).
 export function docExpiryStatus(doc, nowMs = TODAY_MS) {
   if (!doc || !doc.filePath) return "Missing";
+  // Expiry is judged first: an expired certificate blocks site access whether
+  // or not anyone has looked at it.
+  if (doc.expiry) {
+    const days = daysUntil(doc.expiry, nowMs);
+    if (days != null && days < 0) return "Expired";
+  }
+  // 027: an uploaded file is SUBMITTED, not verified. A personal document
+  // counts only once the builder / HSE manager has verified it. Company
+  // certificates (public liability, WorkCover) are uploaded and held by the
+  // builder, so they are verified by that act.
+  if (!doc.viaCompany && !doc.isCompanyDoc && !doc.verifiedAt) return "Pending";
   if (!doc.expiry) return "Verified";
   const days = daysUntil(doc.expiry, nowMs);
   if (days == null) return "Verified";
-  if (days < 0) return "Expired";
   if (days <= EXPIRY_WARNING_DAYS) return "Expiring";
   return "Verified";
 }

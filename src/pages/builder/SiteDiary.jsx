@@ -14,6 +14,32 @@ import { exportDiaryRange } from "../../lib/pdf";
 import { fetchWeatherFor } from "../../lib/weather";
 import { PhotoPicker, PhotoStrip } from "../../components/shared/RecordPhotos";
 import { usePhotos } from "../../hooks/usePhotos";
+import { uploadDiaryAudio, getDiaryAudioUrl } from "../../lib/api";
+
+// Plays a stored voice note (short-lived signed URL from the private bucket).
+function DiaryAudio({ entry }) {
+  const [url, setUrl] = useState(null);
+  const [err, setErr] = useState(null);
+  if (!entry?.audioPath) return null;
+  return (
+    <div className="mt-2">
+      {url ? (
+        <audio controls src={url} className="h-8 w-full max-w-xs" />
+      ) : (
+        <button
+          type="button"
+          onClick={async () => {
+            try { setUrl(await getDiaryAudioUrl(entry.audioPath)); } catch (e) { setErr(e.message || "Could not open the voice note"); }
+          }}
+          className="text-xs font-medium text-blue-700 hover:underline"
+        >
+          🎙️ Play voice note
+        </button>
+      )}
+      {err && <p className="text-xs text-red-600">{err}</p>}
+    </div>
+  );
+}
 
 // Local date, not UTC — .toISOString() is yesterday in Australia each morning.
 const d = new Date();
@@ -26,7 +52,8 @@ export default function SiteDiary() {
   const [selectedProject, setSelectedProject] = useState(null);
   const projectId = selectedProject ?? projects[0]?.id ?? null;
   const { entries, addEntry, editEntry } = useDiary(projectId);
-  const { org, checkins } = useAppContext();
+  const { org, checkins, setEntries } = useAppContext();
+  const updateEntryLocal = (e) => setEntries((prev) => prev.map((x) => (x.id === e.id ? { ...x, ...e } : x)));
   const toast = useToast();
 
   // Real attendance from QR site sign-ins for this project today.
@@ -50,6 +77,7 @@ export default function SiteDiary() {
   const [editing, setEditing] = useState(null); // diary entry being corrected
   const mediaRef = useRef(null);
   const chunksRef = useRef([]);
+  const audioBlobRef = useRef(null); // the captured recording, until it is uploaded with the entry
   const editForm = useForm();
 
   const openEdit = (e) => {
@@ -141,28 +169,41 @@ export default function SiteDiary() {
         labour: Number(data.workersPresent) || 0,
         tags: selectedTags,
         author: user?.name || "Unknown",
-        audioNote: audioNote ? "Voice note attached" : null,
+        // has_audio is set by the server only once the file is actually stored.
+        audioNote: null,
       });
       if (saved?.queued) {
-        // Dead spot: the entry text syncs automatically; photos need signal.
+        // Dead spot: the entry text syncs automatically; photos/voice need signal.
         toast(
-          photoFiles.length
-            ? "No signal — entry saved on this device and will send automatically. Photos need signal: re-attach them once you're back online."
+          photoFiles.length || audioBlobRef.current
+            ? "No signal — entry saved on this device and will send automatically. Photos and voice notes need signal: re-attach them once you're back online."
             : "No signal — entry saved on this device and will send automatically when you're back online.",
           "warning"
         );
       } else {
+        const bits = [];
+        let problems = [];
         if (photoFiles.length) {
           const { saved: ok, failed } = await addPhotos("diary_entry", saved.id, photoFiles);
-          if (failed) toast(`Entry saved, but ${failed} photo${failed === 1 ? "" : "s"} failed to upload — try them again`, "error");
-          else toast(`Diary entry saved with ${ok} photo${ok === 1 ? "" : "s"}`);
-        } else {
-          toast("Diary entry saved");
+          if (ok) bits.push(`${ok} photo${ok === 1 ? "" : "s"}`);
+          if (failed) problems.push(`${failed} photo${failed === 1 ? "" : "s"} failed to upload — try them again`);
         }
+        if (audioBlobRef.current) {
+          try {
+            const withAudio = await uploadDiaryAudio(saved.id, audioBlobRef.current);
+            updateEntryLocal(withAudio);
+            bits.push("voice note");
+          } catch (err) {
+            problems.push(`the voice note failed to upload (${err.message || "storage error"}) — record it again on a correction`);
+          }
+        }
+        if (problems.length) toast(`Entry saved, but ${problems.join("; ")}`, "error");
+        else toast(bits.length ? `Diary entry saved with ${bits.join(" + ")}` : "Diary entry saved");
       }
       reset();
       setSelectedTags([]);
       setAudioNote(null);
+      audioBlobRef.current = null;
       setPhotoFiles([]);
       weatherTouched.current = false;
     } catch (err) {
@@ -170,32 +211,52 @@ export default function SiteDiary() {
     }
   };
 
+  // Voice note: captured in the browser, UPLOADED when the entry is saved
+  // (site-photos bucket, diary_entry/<id>/…) and referenced on the row. Until
+  // then it only exists on this device — the UI says so, never "saved".
   const startRecording = async () => {
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      toast("Voice notes need a secure (https) connection and a browser with recording support.", "warning");
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      const mime = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"].find((t) => MediaRecorder.isTypeSupported?.(t)) || "";
+      const recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
       chunksRef.current = [];
       recorder.ondataavailable = (e) => {
         if (e.data.size) chunksRef.current.push(e.data);
       };
       recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        audioBlobRef.current = blob;
         setAudioNote(URL.createObjectURL(blob));
         stream.getTracks().forEach((t) => t.stop());
+        toast("Recording captured — it uploads when you save the entry", "warning");
       };
       mediaRef.current = recorder;
       recorder.start();
       setRecording(true);
       toast("Recording site note…", "warning");
-    } catch {
-      toast("Microphone access denied or unavailable", "warning");
+    } catch (err) {
+      const name = err?.name || "";
+      toast(
+        name === "NotAllowedError" ? "Microphone permission was denied — allow it in the browser and try again."
+          : name === "NotFoundError" ? "No microphone was found on this device."
+          : `Could not start recording${err?.message ? ` (${err.message})` : ""}.`,
+        "warning"
+      );
     }
   };
 
   const stopRecording = () => {
     mediaRef.current?.stop();
     setRecording(false);
-    toast("Voice note saved to this entry", "success");
+  };
+
+  const discardRecording = () => {
+    audioBlobRef.current = null;
+    setAudioNote(null);
   };
 
   return (
@@ -270,6 +331,7 @@ export default function SiteDiary() {
                       ))}
                     </div>
                     <PhotoStrip entity="diary_entry" entityId={e.id} />
+                    <DiaryAudio entry={e} />
                     <AuditTrail entity="diary_entry" entityId={e.id} />
                   </div>
                 ))
@@ -410,7 +472,11 @@ export default function SiteDiary() {
                     </Button>
                   )}
                   {audioNote && (
-                    <audio controls src={audioNote} className="h-8 max-w-xs" />
+                    <>
+                      <audio controls src={audioNote} className="h-8 max-w-xs" />
+                      <span className="text-[11px] text-amber-700">Not saved yet — uploads with the entry</span>
+                      <button type="button" onClick={discardRecording} className="text-[11px] text-slate-500 underline">discard</button>
+                    </>
                   )}
                 </div>
               </div>

@@ -505,7 +505,7 @@ export default function Compliance() {
 // uploads a file + expiry and can view/replace/remove it; for the rest, the
 // completion status is set manually and a supporting file can still be attached.
 function CellModal({ cell, onClose, updateCompliance }) {
-  const { docsFor, historyFor, upload, remove, open } = useDocuments();
+  const { docsFor, historyFor, upload, remove, open, verify } = useDocuments();
   const { getCompany } = useCompanies();
   const toast = useToast();
   const [file, setFile] = useState(null);
@@ -645,8 +645,37 @@ function CellModal({ cell, onClose, updateCompliance }) {
             {doc.expiry && (
               <p className="text-xs text-slate-500">Expires {doc.expiry}</p>
             )}
-            <div className="mt-2 flex gap-2">
+            {/* 027: a stakeholder's upload is SUBMITTED until you verify it. */}
+            {isExpiryCat && (doc.verifiedAt ? (
+              <p className="mt-1 text-xs text-green-700">
+                Verified by {doc.verifiedByName || "builder"} on {new Date(doc.verifiedAt).toLocaleDateString("en-AU")}
+                {doc.verificationNote ? ` — ${doc.verificationNote}` : ""}
+              </p>
+            ) : (
+              <p className="mt-1 text-xs font-medium text-amber-700">
+                Submitted by the stakeholder — not yet verified. Open the file, check it matches the person and the expiry date, then verify.
+              </p>
+            ))}
+            <div className="mt-2 flex flex-wrap gap-2">
               <Button size="sm" variant="secondary" onClick={onView}>View / Download</Button>
+              {isExpiryCat && !doc.verifiedAt && (
+                <Button size="sm" variant="success" disabled={busy} onClick={async () => {
+                  setBusy(true);
+                  try { await verify(doc, true); toast(`${label} verified for ${worker.name}`); close(); }
+                  catch (err) { toast(err.message || "Could not verify", "error"); setBusy(false); }
+                }}>
+                  ✓ Verify document
+                </Button>
+              )}
+              {isExpiryCat && doc.verifiedAt && (
+                <Button size="sm" variant="secondary" disabled={busy} onClick={async () => {
+                  setBusy(true);
+                  try { await verify(doc, false, "Verification withdrawn"); toast(`${label} set back to submitted`); setBusy(false); }
+                  catch (err) { toast(err.message || "Could not update", "error"); setBusy(false); }
+                }}>
+                  Withdraw verification
+                </Button>
+              )}
               <Button size="sm" variant="danger" onClick={onRemove} disabled={busy}>Remove</Button>
             </div>
           </div>

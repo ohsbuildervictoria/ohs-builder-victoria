@@ -26,7 +26,7 @@ import Compliance from "./pages/builder/Compliance";
 import SWMS from "./pages/builder/SWMS";
 import SiteDiary from "./pages/builder/SiteDiary";
 import Incidents from "./pages/builder/Incidents";
-import NearMiss from "./pages/builder/NearMiss";
+import WorkerPolicies from "./pages/worker/Policies";
 import Toolbox from "./pages/builder/Toolbox";
 import Reports from "./pages/builder/Reports";
 import AdminPortal from "./pages/builder/AdminPortal";
@@ -207,7 +207,9 @@ function AppRoutes() {
         <Route path="swms" element={<SWMS />} />
         <Route path="diary" element={<SiteDiary />} />
         <Route path="incidents" element={<Incidents />} />
-        <Route path="incidents/near-miss" element={<NearMiss />} />
+        {/* The separate Near Miss Register duplicated the Near Miss tab with
+            fewer controls; old links land on the authoritative page. */}
+        <Route path="incidents/near-miss" element={<Navigate to="/builder/incidents" replace />} />
         <Route path="toolbox" element={<Toolbox />} />
         <Route path="reports" element={<Reports />} />
         <Route
@@ -239,6 +241,7 @@ function AppRoutes() {
         <Route path="swms" element={<SwmsSigning />} />
         <Route path="registration" element={<Registration />} />
         <Route path="report" element={<ReportIncident />} />
+        <Route path="policies" element={<WorkerPolicies />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
