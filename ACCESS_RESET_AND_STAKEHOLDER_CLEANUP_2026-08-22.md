@@ -38,6 +38,10 @@ The reset must not stop anyone re-registering with their usual email. So every r
 - **026:** `accept_worker_invite` now refuses any signed-in builder / HSE manager / site supervisor / institution admin / assessor / student ("A stakeholder invite is for the tradie's own login…"); the join page shows the same explanation with "Sign out and open this link as the stakeholder" instead of an accept button. Proven on staging with the exact case (builder opening an invite issued to his own email → refused, role unchanged).
 - Wording: Builder nav + page title "Compliance" → **"Stakeholder Compliance"**.
 
+### 1d. 24 Aug — organisation purge (owner: "check those numbers and get rid of if not needed")
+
+The platform tiles were counting 40 organisations that had **zero users** after the access reset (old trial junk #14–#49, retired pilot orgs #1/#17, QA org #13, temporary QA orgs #51/#53/#57). All 40 were deleted atomically with their org-scoped data (projects, workers, SWMS, incidents, diaries, toolbox, policies, invites, quiz, photos-metadata, org settings); `security_audit` rows were kept with the org reference nulled, so the audit trail survives. Orphaned files in the private storage buckets are inert and unreadable. **Kept:** #54 Arlington Homes (David, active), #55 SNY Home Solutions and #56 (new real customers), #50/#52 Education sandboxes (Education untouched). After: 5 organisations (3 customer · 2 internal), 7 users, and the pending invitations are David's own test crew + one staff invite in #54.
+
 ### 1c. 24 Aug — David's feedback (email Sun 23 Aug 10:12 PM) — migrations 027 + 028, merges `5182963` + `0825427`
 
 | David said | Root cause | Fix | Production proof |
