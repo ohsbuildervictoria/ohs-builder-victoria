@@ -121,12 +121,42 @@ export function AuthProvider({ children }) {
     });
     if (error) throw new Error(error.message);
     if (!data.session) {
-      throw new Error("Check your email to confirm your account, then open your invite link again.");
+      // Supabase returns an obfuscated "user" with no session when the email
+      // is already registered (autoconfirm is on otherwise). A returning
+      // stakeholder must SIGN IN and accept — the join page switches modes.
+      throw new Error("ALREADY_REGISTERED");
     }
     await acceptWorkerInvite(token);
     const profile = await fetchProfile(data.user.id);
     if (!profile?.workerId) throw new Error("Could not link your account to the invite.");
     touchLastLogin(data.user.id);
+    setUser(profile);
+    await loadPermissions();
+    return profile;
+  }, [loadPermissions]);
+
+  // A RETURNING stakeholder (existing account, not signed in — a phone's
+  // private window, a cleared browser) accepting a new site's invite: sign in
+  // with the account they already have, then claim the membership. Same
+  // account, one more site — never a second identity. The RPC still enforces
+  // the invite's email match and refuses staff/cross-company accounts; on
+  // refusal the session is cleared so the join page isn't left half signed-in.
+  const joinAsTradieSignin = useCallback(async ({ token, email, password }) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: (email || "").trim(),
+      password,
+    });
+    if (error) throw new Error(error.message);
+    try {
+      await acceptWorkerInvite(token);
+    } catch (err) {
+      await supabase.auth.signOut();
+      throw err;
+    }
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    const profile = await fetchProfile(authUser.id);
+    if (!profile?.workerId) throw new Error("Could not link your account to the invite.");
+    touchLastLogin(authUser.id);
     setUser(profile);
     await loadPermissions();
     return profile;
@@ -200,6 +230,7 @@ export function AuthProvider({ children }) {
       login,
       signup,
       joinAsTradie,
+      joinAsTradieSignin,
       joinAsStaff,
       logout,
       resetPassword,
@@ -207,7 +238,7 @@ export function AuthProvider({ children }) {
       isWorker: role === "worker",
       hasRole: (roleName) => role === roleName,
     };
-  }, [user, permissions, initialising, login, signup, joinAsTradie, joinAsStaff, logout, resetPassword]);
+  }, [user, permissions, initialising, login, signup, joinAsTradie, joinAsTradieSignin, joinAsStaff, logout, resetPassword]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

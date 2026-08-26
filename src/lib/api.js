@@ -378,7 +378,9 @@ export async function fetchAppData() {
       supabase.from("organizations").select("*").limit(1).maybeSingle(),
       supabase.from("profiles").select("*").order("created_at"),
       supabase.from("invites").select("*").eq("status", "invited").order("id"),
-      supabase.from("compliance_documents").select("*").order("id"),
+      // 029: person-level resolution — a linked stakeholder's White Card /
+      // Insurance / Medical follows them onto every site membership.
+      supabase.from("person_compliance_documents").select("*").order("id"),
       supabase.from("audit_log").select("*").order("created_at", { ascending: false }),
       supabase.from("site_checkins").select("*").order("created_at", { ascending: false }),
       supabase.from("subbie_companies").select("*").order("name"),
@@ -1044,7 +1046,7 @@ export async function uploadComplianceDoc({ workerId, category, file, expiry }) 
 // database actually holds.
 export async function fetchDocumentHistory(workerId) {
   const { data, error } = await supabase
-    .from("compliance_documents")
+    .from("person_compliance_documents")
     .select("*")
     .eq("worker_id", Number(workerId))
     .not("superseded_at", "is", null)
@@ -1730,6 +1732,21 @@ export async function uploadPolicyDoc(policy, file, orgId) {
     .upload(path, file, { upsert: false, contentType: "application/pdf" });
   if (up.error) fail(up.error, "Uploading policy document");
   return updatePolicyRow(policy.id, { fileName: file.name, filePath: path, source: "Builder supplied" });
+}
+
+// Policy Email — ask the server to email the selected policies to one
+// project's stakeholders and subcontractor contacts. Recipients and links are
+// composed server-side from the database; we only name record ids.
+export async function sendPolicyEmail(projectId, policyIds) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const r = await fetch("/api/send-policy-email", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token || ""}` },
+    body: JSON.stringify({ projectId: Number(projectId), policyIds: policyIds.map(Number) }),
+  });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body?.error || "Could not send the policy email.");
+  return body;
 }
 
 // 027 — ask the server to email the site team about a new incident. The

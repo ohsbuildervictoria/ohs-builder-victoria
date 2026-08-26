@@ -48,6 +48,9 @@ export default function Compliance() {
   const [addTrades, setAddTrades] = useState([]); // work types for the stakeholder being added
   const [tradesEdit, setTradesEdit] = useState(null); // { worker, trades } being edited
   const [tradesSaving, setTradesSaving] = useState(false);
+  // Bumped by "+ Add Subcontractor" in the header — tells the Subcontractors
+  // panel to open its add-company form.
+  const [addCompanySignal, setAddCompanySignal] = useState(0);
   const addForm = useForm();
   const emailForm = useForm();
   const companyChoice = addForm.watch("companyId");
@@ -122,6 +125,19 @@ export default function Compliance() {
       setAddOpen(false);
       addForm.reset();
       setAddTrades([]);
+      // 029: same email as a stakeholder account this organisation already
+      // knows → the new site membership was linked to that account on insert.
+      // There is nothing to invite — the site just appears under My Sites.
+      if (created.accountStatus === "active" && !created.inviteToken) {
+        setNewLogin({
+          linked: true,
+          name: created.name,
+          workerId: created.id,
+          email: created.email || "",
+          projectName: projects.find((p) => p.id === created.project)?.name || "",
+        });
+        return;
+      }
       const invite = {
         name: created.name,
         workerId: created.id,
@@ -178,17 +194,29 @@ export default function Compliance() {
             Stakeholder × 6-category compliance matrix — click a cell to upload evidence
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={() => {
-              addForm.reset({
-                name: "", trade: "", companyId: "", newCompanyName: "", project: "", loginHandle: "",
-              });
-              setAddOpen(true);
-            }}
-          >
-            + Add Stakeholder
-          </Button>
+        <div className="flex items-start gap-2">
+          {/* One clear creation choice, in one place (David, 26 Aug): a PERSON
+              is a Stakeholder, a BUSINESS is a Subcontractor — never both. */}
+          <div className="flex flex-col gap-2">
+            <Button
+              onClick={() => {
+                addForm.reset({
+                  name: "", trade: "", companyId: "", newCompanyName: "", project: "", loginHandle: "",
+                });
+                setAddOpen(true);
+              }}
+            >
+              + Add Stakeholder
+            </Button>
+            <Button
+              onClick={() => {
+                setTab("Subcontractors");
+                setAddCompanySignal((n) => n + 1);
+              }}
+            >
+              + Add Subcontractor
+            </Button>
+          </div>
           <Button variant="secondary" onClick={handleExport}>Export CSV</Button>
         </div>
       </div>
@@ -250,6 +278,7 @@ export default function Compliance() {
 
       {tab === "Subcontractors" && (
         <SubbiePanel
+          addCompanySignal={addCompanySignal}
           onAddWorker={(company) => {
             addForm.reset({
               name: "", trade: "", companyId: String(company.id),
@@ -443,10 +472,25 @@ export default function Compliance() {
       <Modal
         open={!!newLogin}
         onClose={() => setNewLogin(null)}
-        title="Subbie added — send them this link"
+        title={newLogin?.linked ? "Site added to their account" : "Subbie added — send them this link"}
         footer={<Button onClick={() => setNewLogin(null)}>Done</Button>}
       >
-        {newLogin && (
+        {newLogin?.linked && (
+          <div className="space-y-3 text-sm text-slate-700">
+            <p className="rounded-lg bg-green-50 px-3 py-2 text-green-800">
+              ✅ <span className="font-semibold">{newLogin.name}</span> already has an
+              OHS Builder account under <span className="font-semibold">{newLogin.email}</span> —
+              {newLogin.projectName ? ` ${newLogin.projectName}` : " this site"} has been added to it.
+            </p>
+            <p>
+              No new invite is needed. Next time they sign in they&apos;ll see the new
+              site under <span className="font-medium">My Sites</span> and complete this
+              site&apos;s own induction, quiz and SWMS. Their existing documents
+              (White Card, insurance, medical) carry over automatically while valid.
+            </p>
+          </div>
+        )}
+        {newLogin && !newLogin.linked && (
           <div className="space-y-3 text-sm text-slate-700">
             {newLogin.emailState === "sent" && (
               <p className="rounded-lg bg-green-50 px-3 py-2 text-green-800">

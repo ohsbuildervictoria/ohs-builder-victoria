@@ -305,7 +305,7 @@ export const adminGuide = {
         "The Policies page is the organisation's control room: the document register for your OHS plans, policies and procedures — readable by every signed-in member of your organisation — plus notification preferences for the office, organisation details, and the platform's own terms and policies.",
       who: "Builder Admins and HSE Managers (organisation details and branding stay admin-only).",
       how: [
-        "On Policy Register, click + Add Policy — name, version, category. Issue a New Version when a policy is updated; Remove retires one. The Templates tab offers editable starting documents that land as clearly-marked drafts until you publish them.",
+        "On Policy Register, click + Add Policy — name, version, category. Issue a New Version when a policy is updated; Remove retires one. Start from a template (inside the Policy Register) offers editable starting documents that land as clearly-marked drafts until you publish them.",
         "Document Categories cover common groupings — OHS Management Plan, hazard identification and risk, first aid and investigation, fire emergency, WorkSafe reporting and site access/induction. They're organisational, not an exhaustive list of legal requirements.",
         "On Notifications, set the alerts your office receives: incident alerts, compliance lapses, pending SWMS sign-offs, toolbox reminders. WorkSafe notifications are locked on — required for compliance.",
         "On Platform, read the platform's own Privacy Policy, Terms & Conditions, Refund Policy and Security Policy.",
@@ -335,7 +335,7 @@ export const adminGuide = {
         },
       ],
       screenshot: shot("admin-settings", "The Policies page tabs with the Policy Register active", [
-        "Six tabs — Policy Register, Templates, Notifications, Organisation, Subscription, Platform.",
+        "Six tabs — Policy Register, Policy Email, Notifications, Organisation, Subscription, Platform.",
         "+ Add Policy and per-row New Version / Remove.",
         "Notifications — WorkSafe alerts locked on.",
       ]),

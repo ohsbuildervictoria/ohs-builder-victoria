@@ -21,7 +21,7 @@ import {
 // each crew member's Insurance status in the matrix.
 // ============================================================================
 
-export default function SubbiePanel({ onAddWorker }) {
+export default function SubbiePanel({ onAddWorker, addCompanySignal = 0 }) {
   const { companies, docsFor, workersOf, removeCompany } = useCompanies();
   const { docsFor: workerDocsFor } = useDocuments();
   const toast = useToast();
@@ -29,6 +29,15 @@ export default function SubbiePanel({ onAddWorker }) {
   const [certModal, setCertModal] = useState(null); // { company, catKey }
   const [removing, setRemoving] = useState(null); // company | null
   const [busy, setBusy] = useState(false);
+
+  // "+ Add Subcontractor" in the page header (the one creation choice next to
+  // "+ Add Stakeholder") opens the add form here. Derived during render — the
+  // React-endorsed adjust-state-from-props pattern, no effect needed.
+  const [seenSignal, setSeenSignal] = useState(addCompanySignal);
+  if (addCompanySignal !== seenSignal) {
+    setSeenSignal(addCompanySignal);
+    if (addCompanySignal > 0 && editing == null) setEditing("new");
+  }
 
   const onRemove = async () => {
     setBusy(true);
@@ -45,25 +54,23 @@ export default function SubbiePanel({ onAddWorker }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-slate-500">
-          Each subbie company holds its own ABN and insurance — its workers keep
-          their personal tickets (White Card, induction, medical) underneath.
-        </p>
-        <Button onClick={() => setEditing("new")}>+ Add Company</Button>
-      </div>
+      <p className="text-sm text-slate-500">
+        Each subcontractor holds its own ABN and insurance — its workers keep
+        their personal tickets (White Card, induction, medical) underneath. Add
+        one with <span className="font-medium">+ Add Subcontractor</span> above.
+      </p>
 
       {companies.length === 0 ? (
         <Card>
           <CardBody className="py-12 text-center">
-            <p className="text-sm font-medium text-slate-600">No subbie companies yet</p>
+            <p className="text-sm font-medium text-slate-600">No subcontractors yet</p>
             <p className="mx-auto mt-1 max-w-md text-sm text-slate-400">
-              Add the companies you engage (plumbers, sparkies, chippies). Their
-              insurance lives on the company; each of their workers holds their
-              own White Card and induction.
+              Add the subcontracting businesses you engage (plumbers, sparkies,
+              chippies). Their insurance lives on the business; each of their
+              workers holds their own White Card and induction.
             </p>
             <Button className="mt-4" onClick={() => setEditing("new")}>
-              + Add your first company
+              + Add your first subcontractor
             </Button>
           </CardBody>
         </Card>
@@ -250,18 +257,18 @@ function CompanyFormModal({ company, onClose }) {
     <Modal
       open={!!company}
       onClose={onClose}
-      title={isNew ? "Add Subbie Company" : `Edit ${company?.name || ""}`}
+      title={isNew ? "Add Subcontractor" : `Edit ${company?.name || ""}`}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <Button onClick={form.handleSubmit(onSave)}>
-            {isNew ? "Add company" : "Save changes"}
+            {isNew ? "Add Subcontractor" : "Save changes"}
           </Button>
         </>
       }
     >
       <form className="space-y-4" onSubmit={form.handleSubmit(onSave)}>
-        <FormField label="Company name *">
+        <FormField label="Business name *">
           <input
             className="cmp-input"
             placeholder="e.g. Scope Plumbing Pty Ltd"

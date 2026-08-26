@@ -1,6 +1,8 @@
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useAppContext } from "../context/AppContext";
+import { fetchMySites, switchMySite } from "../lib/api";
 import Logo from "../components/shared/Logo";
 import OfflineSyncBanner from "../components/shared/OfflineSyncBanner";
 import HelpDrawer from "../components/shared/HelpDrawer";
@@ -21,6 +23,34 @@ export default function WorkerLayout() {
   const { logout, isBuilder, isWorker, user } = useAuth();
   const { org, loading, loadError, refresh } = useAppContext();
   const navigate = useNavigate();
+
+  // 029: one person, many sites. A stakeholder with more than one membership
+  // gets a switcher strip — the account stays the same; only which site's
+  // induction/SWMS/documents they are looking at changes.
+  const [sites, setSites] = useState([]);
+  const [switching, setSwitching] = useState(false);
+  useEffect(() => {
+    let live = true;
+    if (isWorker && user?.workerId) {
+      fetchMySites()
+        .then((list) => { if (live) setSites(list); })
+        .catch(() => {});
+    }
+    return () => { live = false; };
+  }, [isWorker, user?.workerId]);
+
+  const onSwitchSite = async (workerId) => {
+    if (!workerId || Number(workerId) === Number(user?.workerId)) return;
+    setSwitching(true);
+    try {
+      await switchMySite(workerId);
+      // Org, site and records all change — reload so every screen reads the
+      // newly selected membership.
+      window.location.assign("/worker/home");
+    } catch {
+      setSwitching(false);
+    }
+  };
 
   // Show the loading screen only before the FIRST load. Later refreshes (the
   // quiz refreshes compliance after a pass, for example) must not unmount the
@@ -70,6 +100,28 @@ export default function WorkerLayout() {
             </span>
           </div>
         </header>
+
+        {/* Site switcher — only when this account holds more than one site */}
+        {isWorker && sites.length > 1 && (
+          <div className="flex items-center gap-2 border-b border-slate-200 bg-blue-50 px-4 py-2">
+            <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wider text-blue-900">
+              My sites
+            </span>
+            <select
+              className="min-w-0 flex-1 rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-sm text-slate-800"
+              value={String(user?.workerId || "")}
+              disabled={switching}
+              onChange={(e) => onSwitchSite(Number(e.target.value))}
+              aria-label="Switch site"
+            >
+              {sites.map((s) => (
+                <option key={s.workerId} value={String(s.workerId)}>
+                  {s.projectName || "Site to be assigned"} — {s.builderName}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Content */}
         <main className="flex-1 overflow-y-auto pb-20 scrollbar-thin">

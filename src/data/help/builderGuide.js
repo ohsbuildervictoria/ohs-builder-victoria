@@ -641,7 +641,7 @@ export const builderGuide = {
       who: "Builder Admins and HSE Managers maintain the register. Published documents are readable by every signed-in member of your organisation.",
       how: [
         "Policy Register → + Add Policy registers a document you already have: give it a name, a version (v1.0 by default) and a category.",
-        "Or start from Templates: Use Template copies an editable starting document — such as the Victorian Health & Safety Coordination Plan / OHS Management Plan — into your register as a DRAFT.",
+        "Or use Start from a template (on the Policy Register): Use Template copies an editable starting document — such as the Victorian Health & Safety Coordination Plan / OHS Management Plan — into your register as a DRAFT.",
         "A draft is clearly marked DRAFT / TEMPLATE — NOT YET ADOPTED. Click Edit Draft to replace the bracketed prompts with your own project's details.",
         "When the document reflects how your site is actually run, click Publish & adopt — only then does it become an Active document in your register.",
         "When a document changes later, use New Version — the register keeps the version and last-updated date so 'which policy applied last March?' stays answerable.",
@@ -680,8 +680,8 @@ export const builderGuide = {
           a: "The register tracks each document's name, version, category and status; template-based documents also carry their editable text. File attachments for project paperwork live on each project's Documents tab.",
         },
       ],
-      screenshot: shot("builder-policies", "The Policy Register with a draft document and the Templates tab", [
-        "+ Add Policy registers an existing document; Templates starts a draft.",
+      screenshot: shot("builder-policies", "The Policy Register with a draft document and the template library", [
+        "+ Add Policy registers an existing document; Start from a template starts a draft.",
         "Drafts are marked DRAFT / TEMPLATE — NOT YET ADOPTED until published.",
         "Publish & adopt is the deliberate step that makes a document Active.",
         "Document Categories keep the register organised.",

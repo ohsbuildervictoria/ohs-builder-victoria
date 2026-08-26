@@ -23,9 +23,38 @@ import {
   updateOrgDetails,
   policyDocUrl,
   uploadPolicyDoc,
+  sendPolicyEmail,
 } from "../../lib/api";
 
-const TABS = ["Policy Register", "Templates", "Notifications", "Organisation", "Subscription", "Platform"];
+// "Policy Email" replaced the top-level "Templates" tab (David, 26 Aug): the
+// template library still exists, one click deep inside the Policy Register.
+const TABS = ["Policy Register", "Policy Email", "Notifications", "Organisation", "Subscription", "Platform"];
+
+// The plan/policy types a Victorian builder typically holds in the register.
+// Listed as common practice — which of them a given project genuinely needs
+// is the builder's call, not a legal checklist this software imposes.
+const PLAN_TYPES = [
+  "OH&S Management Plan",
+  "Environmental Management Plan",
+  "Quality Management Plan",
+  "Emergency Management Plan",
+  "Traffic Management Plan",
+  "Waste Management Plan",
+  "Site Security and Access Management Plan",
+  "Risk Management Policy",
+];
+
+// What a full OH&S Management System / Plan commonly contains — David's
+// educator framing (26 Aug), shown as examples rather than requirements.
+const OHS_PLAN_CONTENTS = [
+  { title: "Obligations of All Parties", body: "Responsibilities of employers, principal contractors, self-employed persons, supervisors and employees." },
+  { title: "Hazard Identification and Risk Assessment", body: "Hazard identification, risk assessment and the risk management cycle." },
+  { title: "Administration of OH&S", body: "Auditing, training, competency, communication and issue resolution." },
+  { title: "First Aid, Emergencies and Incidents", body: "Emergency response, accident procedures, reporting and investigations." },
+  { title: "Fire Emergency Procedures", body: "Warning notices and internal incident notification." },
+  { title: "WorkSafe Notification", body: "Notification requirements for workplace incidents." },
+  { title: "Workplace Policies", body: "Safety, drug and alcohol, UV protection and site rules." },
+];
 
 const NOTIFICATION_TOGGLES = [
   { key: "incident", label: "Incident alerts", locked: false },
@@ -78,8 +107,10 @@ export default function Policies() {
   // Editor for a document's text — used by template drafts and any document
   // that carries content. null = closed.
   const [editing, setEditing] = useState(null);
-  // Which template's preview is expanded on the Templates tab (by key).
+  // Which template's preview is expanded in the template library (by key).
   const [preview, setPreview] = useState(null);
+  // The template library lives inside the Policy Register tab, collapsed.
+  const [showTemplates, setShowTemplates] = useState(false);
 
   // The register had no insert path anywhere in the codebase, so the page
   // could never hold a single policy.
@@ -246,13 +277,23 @@ export default function Policies() {
 
       {tab === "Policy Register" && (
         <div className="space-y-4">
-          {/* What this page is for — in one honest sentence. */}
+          {/* What this page is for, and the plan types a builder keeps here. */}
           <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
-            <p className="text-sm font-semibold text-blue-900">What is Policies?</p>
+            <p className="text-sm font-semibold text-blue-900">Policy &amp; Management Plan Types</p>
             <p className="mt-0.5 text-sm text-blue-800">
-              Your organisation&apos;s document register for storing and
-              distributing OHS plans, policies and procedures to relevant site
-              stakeholders.
+              Your organisation&apos;s register for storing and distributing the
+              plans and policies your sites run on. Builders commonly hold:
+            </p>
+            <ul className="mt-2 grid gap-x-6 gap-y-1 text-sm text-blue-900 sm:grid-cols-2">
+              {PLAN_TYPES.map((t) => (
+                <li key={t} className="flex items-baseline gap-1.5">
+                  <span aria-hidden className="text-blue-400">•</span>{t}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-blue-700">
+              Which of these a project needs depends on its scope and hazards —
+              this list is common practice, not a legal checklist.
             </p>
           </div>
 
@@ -273,7 +314,7 @@ export default function Policies() {
                       <TD className="py-6 text-center text-sm text-slate-400">
                         No documents in the register yet — add your OHS
                         Management Plan and site policies with + Add Policy, or
-                        start from the Templates tab.
+                        start from a template below.
                       </TD>
                     </TR>
                   )}
@@ -358,70 +399,97 @@ export default function Policies() {
               ))}
             </CardBody>
           </Card>
-        </div>
-      )}
 
-      {tab === "Templates" && (
-        <div className="space-y-4">
-          {/* The responsibility warning, before any template is touched. */}
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-            <p className="text-sm font-semibold text-amber-800">⚠ {TEMPLATE_WARNING.title}</p>
-            <p className="mt-1 text-sm leading-relaxed text-amber-800">{TEMPLATE_WARNING.body}</p>
-          </div>
-
-          {policyTemplates.map((t) => (
-            <Card key={t.key}>
-              <CardHeader
-                title={t.name}
-                subtitle={t.blurb}
-                action={
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => setPreview(preview === t.key ? null : t.key)}
-                    >
-                      {preview === t.key ? "Hide preview" : "Preview"}
-                    </Button>
-                    <Button size="sm" disabled={saving} onClick={() => onUseTemplate(t)}>
-                      Use Template
-                    </Button>
-                  </div>
-                }
-              />
-              <CardBody className="pt-2">
-                {/* Template metadata */}
-                <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
-                  <Badge status="Draft">{t.status || "Template"}</Badge>
-                  <span className="rounded bg-slate-100 px-2 py-0.5 text-slate-600">Version {t.version}</span>
-                  <span className="rounded bg-slate-100 px-2 py-0.5 text-slate-600">Last reviewed {t.lastReviewed}</span>
-                  <span className="rounded bg-slate-100 px-2 py-0.5 text-slate-600">{t.category}</span>
+          <Card>
+            <CardHeader
+              title="Inside an OH&S Management Plan"
+              subtitle="Examples of what a full OH&S Management System document may contain — a guide for reviewing your own, not a mandated structure"
+            />
+            <CardBody className="grid gap-3 pt-2 sm:grid-cols-2">
+              {OHS_PLAN_CONTENTS.map((s) => (
+                <div key={s.title} className="rounded-lg border border-slate-200 p-3">
+                  <p className="text-sm font-semibold text-slate-800">{s.title}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">{s.body}</p>
                 </div>
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-amber-600">
-                  {ADOPTION_BANNER}
-                </p>
-                {t.sourceBasis && (
-                  <p className="mb-3 text-xs text-slate-500">
-                    <span className="font-semibold">Source basis:</span> {t.sourceBasis}
-                  </p>
-                )}
-                {preview === t.key && (
-                  <pre className="max-h-96 overflow-y-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs leading-relaxed text-slate-600 scrollbar-thin">
-                    {t.content}
-                  </pre>
-                )}
-                <p className="mt-3 text-xs text-slate-500">
-                  Use Template copies this document into your Policy Register as a{" "}
-                  <span className="font-semibold">draft</span>. Customise it to
-                  your project, review it, and publish it only when it reflects
-                  how your site is actually run. Nothing is adopted on your
-                  behalf.
-                </p>
+              ))}
+            </CardBody>
+          </Card>
+
+          {/* The template library — moved here when the top-level tab became
+              Policy Email. Same drafts-only flow: nothing is adopted for you. */}
+          <Card>
+            <CardHeader
+              title="Start from a template"
+              subtitle="Copy a starting document into your register as a draft, then customise and publish it"
+              action={
+                <Button size="sm" variant="secondary" onClick={() => setShowTemplates((v) => !v)}>
+                  {showTemplates ? "Hide templates" : `Browse templates (${policyTemplates.length})`}
+                </Button>
+              }
+            />
+            {showTemplates && (
+              <CardBody className="space-y-4 pt-2">
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                  <p className="text-sm font-semibold text-amber-800">⚠ {TEMPLATE_WARNING.title}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-amber-800">{TEMPLATE_WARNING.body}</p>
+                </div>
+                {policyTemplates.map((t) => (
+                  <Card key={t.key}>
+                    <CardHeader
+                      title={t.name}
+                      subtitle={t.blurb}
+                      action={
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => setPreview(preview === t.key ? null : t.key)}
+                          >
+                            {preview === t.key ? "Hide preview" : "Preview"}
+                          </Button>
+                          <Button size="sm" disabled={saving} onClick={() => onUseTemplate(t)}>
+                            Use Template
+                          </Button>
+                        </div>
+                      }
+                    />
+                    <CardBody className="pt-2">
+                      <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+                        <Badge status="Draft">{t.status || "Template"}</Badge>
+                        <span className="rounded bg-slate-100 px-2 py-0.5 text-slate-600">Version {t.version}</span>
+                        <span className="rounded bg-slate-100 px-2 py-0.5 text-slate-600">Last reviewed {t.lastReviewed}</span>
+                        <span className="rounded bg-slate-100 px-2 py-0.5 text-slate-600">{t.category}</span>
+                      </div>
+                      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-amber-600">
+                        {ADOPTION_BANNER}
+                      </p>
+                      {t.sourceBasis && (
+                        <p className="mb-3 text-xs text-slate-500">
+                          <span className="font-semibold">Source basis:</span> {t.sourceBasis}
+                        </p>
+                      )}
+                      {preview === t.key && (
+                        <pre className="max-h-96 overflow-y-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs leading-relaxed text-slate-600 scrollbar-thin">
+                          {t.content}
+                        </pre>
+                      )}
+                      <p className="mt-3 text-xs text-slate-500">
+                        Use Template copies this document into your Policy Register as a{" "}
+                        <span className="font-semibold">draft</span>. Customise it to
+                        your project, review it, and publish it only when it reflects
+                        how your site is actually run. Nothing is adopted on your
+                        behalf.
+                      </p>
+                    </CardBody>
+                  </Card>
+                ))}
               </CardBody>
-            </Card>
-          ))}
+            )}
+          </Card>
         </div>
       )}
+
+      {tab === "Policy Email" && <PolicyEmailTab policies={policies} />}
 
       {tab === "Notifications" && (
         <Card>
@@ -1014,6 +1082,194 @@ function Info({ label, value }) {
         {label}
       </p>
       <p className="mt-0.5 text-sm font-medium text-slate-800">{value}</p>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Policy Email (David, 26 Aug) — distribute the register's current documents
+// to ONE project's people: stakeholders on that site's roster plus the
+// contacts of subcontractors with crew on it. The server recomputes the
+// recipient list and signs every PDF link itself; this screen only chooses a
+// project and which policies to include. Sending is distribution only — it
+// never records an acknowledgement or acceptance for anyone.
+// ----------------------------------------------------------------------------
+function PolicyEmailTab({ policies }) {
+  const toast = useToast();
+  const { projects, workers, companies } = useAppContext();
+  const [projectId, setProjectId] = useState("");
+  const [selected, setSelected] = useState(() => new Set());
+  const [showRecipients, setShowRecipients] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [lastSend, setLastSend] = useState(null);
+
+  const sendable = policies.filter((p) => p.status !== "Draft");
+  const pid = Number(projectId) || null;
+
+  // Preview of who the server will email — same rules, derived client-side
+  // from the already-loaded org data so the builder can check before sending.
+  const crew = pid ? workers.filter((w) => Number(w.project) === pid) : [];
+  const stakeholderRecipients = crew.filter((w) => (w.email || "").trim());
+  const crewCompanyIds = new Set(crew.map((w) => w.companyId).filter(Boolean));
+  const companyRecipients = companies.filter((c) => crewCompanyIds.has(c.id) && (c.contactEmail || "").trim());
+  const uniqueEmails = new Set([
+    ...stakeholderRecipients.map((w) => w.email.trim().toLowerCase()),
+    ...companyRecipients.map((c) => c.contactEmail.trim().toLowerCase()),
+  ]);
+
+  const togglePolicy = (id) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const onSend = async () => {
+    if (!pid) return toast("Choose the project to send to", "warning");
+    if (!selected.size) return toast("Tick at least one policy to include", "warning");
+    if (!uniqueEmails.size) return toast("Nobody on that site's roster has an email address yet", "warning");
+    setSending(true);
+    try {
+      const res = await sendPolicyEmail(pid, Array.from(selected));
+      if (res.sent) {
+        setLastSend(res);
+        toast(`Policy email sent to ${res.recipients} recipient${res.recipients === 1 ? "" : "s"}`);
+      } else {
+        toast(res.skipped || "Nothing was sent", "warning");
+      }
+    } catch (err) {
+      toast(err.message || "Could not send the policy email — try again", "error");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+        <p className="text-sm font-semibold text-blue-900">Policy Email</p>
+        <p className="mt-0.5 text-sm text-blue-800">
+          Email the current policies and management plans to everyone on one
+          site — its stakeholders and its subcontractors&apos; contacts. PDF links
+          are private and expire after 7 days; recipients can always find the
+          latest versions under My Site → Site policies.
+        </p>
+        <p className="mt-1 text-xs text-blue-700">
+          Sending records who was emailed — it does not mark anyone as having
+          read or accepted a policy.
+        </p>
+      </div>
+
+      <Card>
+        <CardHeader title="1 · Project" subtitle="Only this site's people receive the email" />
+        <CardBody className="pt-2">
+          <select
+            className="w-full max-w-md rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            value={projectId}
+            onChange={(e) => { setProjectId(e.target.value); setShowRecipients(false); setLastSend(null); }}
+            aria-label="Project to send to"
+          >
+            <option value="">— Choose a project —</option>
+            {projects
+              .filter((p) => p.status !== "Archived")
+              .map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+          </select>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="2 · Policies to include"
+          subtitle={sendable.length ? "Published documents from your Policy Register" : "Publish documents in your Policy Register first — drafts are not sent"}
+        />
+        <CardBody className="space-y-2 pt-2">
+          {sendable.length === 0 && (
+            <p className="text-sm text-slate-400">No published policies yet.</p>
+          )}
+          {sendable.map((p) => (
+            <label key={p.id} className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={selected.has(p.id)}
+                onChange={() => togglePolicy(p.id)}
+              />
+              <span className="min-w-0 text-sm">
+                <span className="font-medium text-slate-800">{p.name}</span>
+                <span className="block text-xs text-slate-500">
+                  {p.version} · {p.category}
+                  {p.fileName ? ` · PDF attached (${p.fileName})` : " · no PDF — the email links to the portal"}
+                </span>
+              </span>
+            </label>
+          ))}
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="3 · Recipients"
+          subtitle={pid ? "Who this email goes to — checked again on the server when you send" : "Choose a project to see who would receive it"}
+          action={pid ? (
+            <Button size="sm" variant="secondary" onClick={() => setShowRecipients((v) => !v)}>
+              {showRecipients ? "Hide recipients" : "Preview recipients"}
+            </Button>
+          ) : null}
+        />
+        <CardBody className="space-y-3 pt-2">
+          {pid && (
+            <div className="flex flex-wrap gap-2 text-sm">
+              <span className="rounded-lg bg-slate-100 px-3 py-1.5 text-slate-700">
+                {stakeholderRecipients.length} stakeholder{stakeholderRecipients.length === 1 ? "" : "s"} with an email
+              </span>
+              <span className="rounded-lg bg-slate-100 px-3 py-1.5 text-slate-700">
+                {companyRecipients.length} subcontractor contact{companyRecipients.length === 1 ? "" : "s"}
+              </span>
+              <span className="rounded-lg bg-blue-50 px-3 py-1.5 font-medium text-blue-900">
+                {uniqueEmails.size} unique address{uniqueEmails.size === 1 ? "" : "es"}
+              </span>
+            </div>
+          )}
+          {pid && crew.length > stakeholderRecipients.length && (
+            <p className="text-xs text-amber-700">
+              {crew.length - stakeholderRecipients.length} stakeholder{crew.length - stakeholderRecipients.length === 1 ? " has" : "s have"} no
+              email address recorded and will be skipped — add emails on Stakeholder Compliance to include them.
+            </p>
+          )}
+          {showRecipients && pid && (
+            <div className="rounded-lg border border-slate-200 p-3 text-sm">
+              {stakeholderRecipients.map((w) => (
+                <p key={`w${w.id}`} className="flex justify-between gap-3 py-0.5">
+                  <span className="truncate text-slate-700">{w.name}</span>
+                  <span className="truncate text-xs text-slate-400">{w.email}</span>
+                </p>
+              ))}
+              {companyRecipients.map((c) => (
+                <p key={`c${c.id}`} className="flex justify-between gap-3 py-0.5">
+                  <span className="truncate text-slate-700">{c.name} (subcontractor)</span>
+                  <span className="truncate text-xs text-slate-400">{c.contactEmail}</span>
+                </p>
+              ))}
+              <p className="mt-2 border-t border-slate-100 pt-2 text-xs text-slate-400">
+                Recipients are BCC&apos;d — they never see each other&apos;s addresses. You receive a copy as the send receipt.
+              </p>
+            </div>
+          )}
+          <div className="flex items-center gap-3">
+            <Button onClick={onSend} disabled={sending || !pid || !selected.size}>
+              {sending ? "Sending…" : "Send Policy Email"}
+            </Button>
+            {lastSend?.sent && (
+              <span className="text-sm text-green-700">
+                ✓ Sent to {lastSend.recipients} recipient{lastSend.recipients === 1 ? "" : "s"}
+              </span>
+            )}
+          </div>
+        </CardBody>
+      </Card>
     </div>
   );
 }

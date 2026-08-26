@@ -332,7 +332,7 @@ export const FAQ_CATEGORIES = [
       },
       {
         q: "How do I manage my policy register?",
-        a: "Policies → Policy Register → + Add Policy, with New Version when a policy updates. Or start from the Templates tab — a template lands as a clearly-marked draft you customise and publish deliberately.",
+        a: "Policies → Policy Register → + Add Policy, with New Version when a policy updates. Or use Start from a template on the Policy Register — a template lands as a clearly-marked draft you customise and publish deliberately.",
       },
       {
         q: "Why can't I turn off WorkSafe notifications?",

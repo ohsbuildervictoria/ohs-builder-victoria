@@ -13,11 +13,14 @@ import Button from "../components/ui/Button";
 // more site; never a second identity.
 export default function JoinTradie() {
   const { token } = useParams();
-  const { joinAsTradie, user, logout } = useAuth();
+  const { joinAsTradie, joinAsTradieSignin, user, logout } = useAuth();
   const navigate = useNavigate();
   const [info, setInfo] = useState(undefined); // undefined=loading, null=invalid
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  // "signup" = brand-new account from this link; "signin" = a returning
+  // stakeholder adding this site to the account they already have.
+  const [mode, setMode] = useState("signup");
   const { register, handleSubmit, formState: { errors } } = useForm();
 
   const onAcceptSignedIn = async () => {
@@ -45,10 +48,21 @@ export default function JoinTradie() {
     setError(null);
     setSubmitting(true);
     try {
-      await joinAsTradie({ token, email: data.email, password: data.password });
+      if (mode === "signin") {
+        await joinAsTradieSignin({ token, email: data.email, password: data.password });
+      } else {
+        await joinAsTradie({ token, email: data.email, password: data.password });
+      }
       navigate("/worker/home", { replace: true });
     } catch (err) {
-      setError(err.message || "Could not set up your account.");
+      if (err.message === "ALREADY_REGISTERED") {
+        // The email already has an account — flip to sign-in so the same
+        // person adds this site to it instead of hitting a dead end.
+        setMode("signin");
+        setError("That email already has an OHS Builder account. Enter its password to sign in and add this site — same account, no second login.");
+      } else {
+        setError(err.message || (mode === "signin" ? "Could not sign in." : "Could not set up your account."));
+      }
       setSubmitting(false);
     }
   };
@@ -138,10 +152,12 @@ export default function JoinTradie() {
             ) : (
             <>
             <h1 className="mb-1 text-center text-lg font-bold text-slate-800">
-              Set up your account
+              {mode === "signin" ? "Sign in & add this site" : "Set up your account"}
             </h1>
             <p className="mb-4 text-center text-sm text-slate-500">
-              You&apos;ll use this to sign in and complete your induction.{info.email ? <> Use <span className="font-medium text-slate-700">{info.email}</span> — the invite was issued to that address.</> : null}
+              {mode === "signin"
+                ? <>Use the account you already have — accepting adds {info.projectName || "this site"} to it. No second login.</>
+                : <>You&apos;ll use this to sign in and complete your induction.{info.email ? <> Use <span className="font-medium text-slate-700">{info.email}</span> — the invite was issued to that address.</> : null}</>}
             </p>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -161,16 +177,16 @@ export default function JoinTradie() {
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
-                  Create a password
+                  {mode === "signin" ? "Your password" : "Create a password"}
                 </label>
                 <input
                   type="password"
-                  autoComplete="new-password"
+                  autoComplete={mode === "signin" ? "current-password" : "new-password"}
                   className="join-input"
-                  placeholder="At least 8 characters"
+                  placeholder={mode === "signin" ? "Your existing password" : "At least 8 characters"}
                   {...register("password", {
                     required: "Password is required",
-                    minLength: { value: 8, message: "Use at least 8 characters" },
+                    ...(mode === "signin" ? {} : { minLength: { value: 8, message: "Use at least 8 characters" } }),
                   })}
                 />
                 {errors.password && <p className="mt-1 text-xs text-red-500">{errors.password.message}</p>}
@@ -181,9 +197,21 @@ export default function JoinTradie() {
               )}
 
               <Button type="submit" className="w-full" size="lg" disabled={submitting}>
-                {submitting ? "Setting up…" : "Set up & continue"}
+                {submitting
+                  ? (mode === "signin" ? "Signing in…" : "Setting up…")
+                  : (mode === "signin" ? "Sign in & add this site" : "Set up & continue")}
               </Button>
             </form>
+
+            <button
+              type="button"
+              className="mt-3 w-full text-center text-xs font-medium text-blue-700 hover:underline"
+              onClick={() => { setError(null); setMode(mode === "signin" ? "signup" : "signin"); }}
+            >
+              {mode === "signin"
+                ? "New to OHS Builder? Set up a new account instead"
+                : "Already worked with a builder on OHS Builder? Sign in & add this site"}
+            </button>
             </>
             )}
           </>

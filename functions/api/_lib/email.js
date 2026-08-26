@@ -92,13 +92,48 @@ export async function adminPatch(env, path, body) {
   if (!r.ok) throw new Error(`db write failed: ${path} -> ${r.status}`);
 }
 
+// Service-role INSERT (bypasses RLS — only for server-owned records such as
+// the security_audit rows these endpoints write about their own sends).
+export async function adminInsert(env, path, body) {
+  const r = await fetch(`${env.SUPABASE_URL}/rest/v1/${path}`, {
+    method: "POST",
+    headers: {
+      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`db insert failed: ${path} -> ${r.status}`);
+}
+
+// Short-lived signed URL for a private storage object (service role). The
+// link goes into an email, so it must expire — 7 days matches how long a
+// tradie realistically sits on an email before opening the attachment.
+export async function signStorageUrl(env, bucket, path, expiresIn = 604800) {
+  const r = await fetch(`${env.SUPABASE_URL}/storage/v1/object/sign/${bucket}/${path}`, {
+    method: "POST",
+    headers: {
+      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ expiresIn }),
+  });
+  if (!r.ok) return null;
+  const body = await r.json().catch(() => null);
+  return body?.signedURL ? `${env.SUPABASE_URL}/storage/v1${body.signedURL}` : null;
+}
+
 // `attachments` is Resend's shape: [{ filename, content }] where content is
 // base64. Only /api/send-report uses it (report + incident PDFs).
 // `replyTo` is only used by the public education-enquiry endpoint, so the
 // support inbox can reply straight to the enquirer; everything else keeps the
 // fixed REPLY_TO.
-export async function sendEmail(env, { to, subject, html, text, attachments, replyTo }) {
+export async function sendEmail(env, { to, bcc, subject, html, text, attachments, replyTo }) {
   const payload = { from: FROM, reply_to: replyTo || REPLY_TO, to, subject, html, text };
+  if (bcc?.length) payload.bcc = bcc;
   if (attachments?.length) payload.attachments = attachments;
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
