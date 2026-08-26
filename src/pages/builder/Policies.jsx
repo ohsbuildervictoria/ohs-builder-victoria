@@ -383,27 +383,14 @@ export default function Policies() {
 
           <input ref={pdfInputRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={onPdfChosen} aria-label="Choose a PDF to attach" />
 
+          {/* One card, not two: these ARE the document categories, described.
+              (The old chip list repeated the same concepts a second time —
+              David flagged the duplication 28 Aug.) Register rows and the
+              Add Policy dropdown keep their existing category values. */}
           <Card>
             <CardHeader
               title="Document Categories"
-              subtitle="Common groupings to keep the register organised — not an exhaustive list of legal requirements"
-            />
-            <CardBody className="flex flex-wrap gap-2 pt-2">
-              {policyCategories.map((c) => (
-                <span
-                  key={c}
-                  className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm text-slate-700"
-                >
-                  {c}
-                </span>
-              ))}
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardHeader
-              title="Inside an OH&S Management Plan"
-              subtitle="Examples of what a full OH&S Management System document may contain — a guide for reviewing your own, not a mandated structure"
+              subtitle="What an OH&S Management System / Plan commonly covers — a guide for organising the register, not an exhaustive list of legal requirements"
             />
             <CardBody className="grid gap-3 pt-2 sm:grid-cols-2">
               {OHS_PLAN_CONTENTS.map((s) => (
