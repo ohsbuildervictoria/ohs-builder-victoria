@@ -837,3 +837,193 @@ export async function exportRiskRegister({ org, project, risks = [], workers = [
   footers(doc, { org });
   return output(doc, `Risk-Register-${slug(project?.name || "project")}.pdf`, mode);
 }
+
+// ---------------------------------------------------------------------------
+// 10. Project OHS Report — everything OHS Builder holds for ONE project, in
+//     one document: crew compliance (same evidence rules as the matrix),
+//     SWMS sign-off, risk register, incidents with corrective actions,
+//     toolbox meetings and the recent site diary. Facts only — the report
+//     never states more than the records do, and says so where a section
+//     is empty. Used by the Reports page (download / email) per project.
+// ---------------------------------------------------------------------------
+export async function exportProjectReport({
+  org, project, workers = [], docsFor = () => ({}), incidents = [], meetings = [],
+  templates = [], signatures = [], risks = [], entries = [], companies = [],
+  diaryDays = 14, mode = "save",
+}) {
+  await loadPdfLibs();
+  const [{ categoryStatus, overallStatus, isCompliant }, { riskRating }, constants] = await Promise.all([
+    import("./compliance"), import("./risk"), import("../data/constants"),
+  ]);
+  const cats = constants.complianceCategories;
+  const logo = await loadOrgLogo(org);
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const pid = project.id;
+  const crew = workers.filter((w) => w.project === pid);
+  const projIncidents = incidents.filter((i) => (i.projectId ?? i.project) === pid);
+  const projMeetings = meetings.filter((m) => m.project === pid).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  const projRisks = risks.filter((r) => r.projectId === pid);
+  const cutoff = new Date(Date.now() - diaryDays * 86400000).toISOString().slice(0, 10);
+  const projEntries = entries.filter((e) => e.project === pid).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  const recentEntries = projEntries.filter((e) => (e.date || "") >= cutoff);
+  const companyName = (id) => companies.find((c) => c.id === id)?.name || "";
+  const title = "Project OHS Report";
+  const meta = [
+    `Project: ${project.name}`,
+    `Address: ${project.address || "—"}`,
+    `Status: ${project.status || "—"} · Build ${project.buildPercent ?? project.build_percent ?? 0}% · Supervisor: ${project.projectManager || project.project_manager || "—"}`,
+    `Prepared: ${fmtDateTime(new Date().toISOString())}`,
+  ];
+  let y = header(doc, { org, logo, title, meta });
+  const pageBreakIfNeeded = (need = 140) => {
+    if (y > doc.internal.pageSize.getHeight() - need) {
+      doc.addPage();
+      y = header(doc, { org, logo, title, meta: [`Project: ${project.name}`] });
+    }
+  };
+
+  // ---- crew compliance (evidence rules shared with the Compliance page)
+  const rows = crew.map((w) => {
+    const docs = docsFor(w.id);
+    const statuses = cats.map((c) => categoryStatus(w, c.key, docs[c.key]));
+    return { w, statuses, overall: overallStatus(w, docs) };
+  });
+  const fullyValid = rows.filter((r) => r.statuses.every(isCompliant)).length;
+  const blocked = rows.filter((r) => r.overall === "Site Access Pending").length;
+  y = sectionTitle(doc, "At a glance", y + 4);
+  table(doc, {
+    startY: y, theme: "grid", head: [],
+    body: [
+      ["Stakeholders on this project", String(crew.length)],
+      ["Fully compliant (every category valid)", String(fullyValid)],
+      ["Site access pending (missing or expired evidence)", String(blocked)],
+      ["Open risks", String(projRisks.filter((r) => r.status !== "Closed").length)],
+      ["Incidents recorded / still open", `${projIncidents.length} / ${projIncidents.filter((i) => i.status !== "Closed").length}`],
+      ["Near misses recorded", String(projIncidents.filter((i) => String(i.type || "").toLowerCase() === "near miss").length)],
+      ["Toolbox meetings recorded / completed", `${projMeetings.length} / ${projMeetings.filter((m) => m.status === "Completed").length}`],
+      [`Site diary entries (last ${diaryDays} days)`, String(recentEntries.length)],
+    ],
+    columnStyles: { 0: { cellWidth: 260, fontStyle: "bold", fillColor: [248, 250, 252] }, 1: { cellWidth: "auto" } },
+  });
+  y = lastY(doc) + 22;
+
+  pageBreakIfNeeded();
+  y = sectionTitle(doc, "Crew compliance", y);
+  table(doc, {
+    startY: y,
+    head: [["Stakeholder", "Trade", "Company", ...cats.map((c) => c.label), "Overall"]],
+    body: rows.length
+      ? rows.map(({ w, statuses, overall }) => [w.name, (w.trades || [w.trade]).join(", "), companyName(w.companyId) || w.employer || "—", ...statuses, overall])
+      : [["No stakeholders on this project", "", "", ...cats.map(() => ""), ""]],
+    styles: { fontSize: 7.5, cellPadding: 3 },
+    didParseCell: (data) => {
+      if (data.section !== "body" || data.column.index < 3) return;
+      const v = String(data.cell.raw || "");
+      if (v === "Missing" || v === "Expired" || v === "Site Access Pending") data.cell.styles.textColor = [185, 28, 28];
+      else if (v === "Pending" || v === "Expiring" || v === "Action Required") data.cell.styles.textColor = [180, 83, 9];
+      else if (v === "Verified" || v === "Active") data.cell.styles.textColor = [21, 128, 61];
+    },
+  });
+  y = lastY(doc) + 22;
+
+  // ---- SWMS: template per trade, who has signed the CURRENT version
+  pageBreakIfNeeded();
+  y = sectionTitle(doc, "SWMS sign-off (current versions)", y);
+  const trades = [...new Set(crew.flatMap((w) => w.trades || [w.trade]).filter(Boolean))];
+  const swmsRows = trades.map((trade) => {
+    const t = templates.find((x) => x.trade === trade);
+    const crewOfTrade = crew.filter((w) => (w.trades || [w.trade]).includes(trade));
+    if (!t) return [trade, "no template", String(crewOfTrade.length), "—", "—"];
+    const signed = crewOfTrade.filter((w) => signatures.some((g) => (g.templateId ?? g.template_id) === t.id && (g.workerId ?? g.worker_id) === w.id && ((g.version ?? g.template_version) || "") === (t.version || "")));
+    const unsigned = crewOfTrade.filter((w) => !signed.includes(w)).map((w) => w.name);
+    return [trade, t.version || "—", String(crewOfTrade.length), `${signed.length} of ${crewOfTrade.length}`, unsigned.length ? unsigned.join(", ") : "—"];
+  });
+  table(doc, {
+    startY: y,
+    head: [["Trade", "Current version", "Crew", "Signed current", "Not signed / re-sign needed"]],
+    body: swmsRows.length ? swmsRows : [["No trades on this project", "", "", "", ""]],
+  });
+  y = lastY(doc) + 22;
+
+  // ---- risk register
+  pageBreakIfNeeded();
+  y = sectionTitle(doc, "Risk register", y);
+  const ownerName = (id) => workers.find((w) => w.id === id)?.name || "—";
+  table(doc, {
+    startY: y,
+    head: [["Hazard", "Category", "Initial", "Residual", "Status", "Review", "Owner"]],
+    body: projRisks.length
+      ? projRisks.map((r) => [
+          r.hazard, r.category || "—",
+          riskRating(r.likelihood, r.consequence) || "—",
+          r.residualLikelihood && r.residualConsequence ? riskRating(r.residualLikelihood, r.residualConsequence) : "—",
+          r.status, fmtDate(r.reviewDate), ownerName(r.ownerWorkerId),
+        ])
+      : [["No risks recorded for this project", "", "", "", "", "", ""]],
+    styles: { fontSize: 7.5, cellPadding: 3 },
+  });
+  y = lastY(doc) + 22;
+
+  // ---- incidents + corrective actions
+  pageBreakIfNeeded();
+  y = sectionTitle(doc, "Incidents and near misses", y);
+  table(doc, {
+    startY: y,
+    head: [["Date", "Type", "Severity", "Status", "Notifiable", "Description"]],
+    body: projIncidents.length
+      ? projIncidents.map((i) => [fmtDate(i.date), i.type, i.severity || "—", i.status, i.notifiable ? (i.notifiedAt ? "yes — notified" : "yes — NOT notified") : "no", String(i.description || "").slice(0, 160)])
+      : [["—", "None recorded", "", "", "", ""]],
+    styles: { fontSize: 7.5, cellPadding: 3 },
+    columnStyles: { 5: { cellWidth: 200 } },
+  });
+  y = lastY(doc) + 16;
+  const actions = projIncidents.flatMap((i) => (i.correctiveActions || []).map((a) => ({ ...a, incident: `${i.type} ${fmtDate(i.date)}` })));
+  if (actions.length) {
+    pageBreakIfNeeded();
+    y = sectionTitle(doc, "Corrective actions", y);
+    const today = new Date().toISOString().slice(0, 10);
+    table(doc, {
+      startY: y,
+      head: [["From", "Action", "Assigned to", "Due", "Status"]],
+      body: actions.map((a) => [a.incident, a.description, a.assignedTo || "—", fmtDate(a.due) + (a.status !== "Done" && a.due && a.due < today ? " (overdue)" : ""), a.status]),
+      styles: { fontSize: 7.5, cellPadding: 3 },
+    });
+    y = lastY(doc) + 22;
+  }
+
+  // ---- toolbox
+  pageBreakIfNeeded();
+  y = sectionTitle(doc, "Toolbox meetings", y);
+  table(doc, {
+    startY: y,
+    head: [["Date", "Topic", "Presenter", "Status", "Signed"]],
+    body: projMeetings.length
+      ? projMeetings.slice(0, 12).map((m) => [fmtDate(m.date), m.topic || m.title || "—", m.presenter || "—", m.status || "—", `${m.signatures ?? 0}${m.total ? ` of ${m.total}` : ""}`])
+      : [["—", "None recorded", "", "", ""]],
+  });
+  y = lastY(doc) + 22;
+
+  // ---- site diary
+  pageBreakIfNeeded();
+  y = sectionTitle(doc, `Site diary — last ${diaryDays} days`, y);
+  table(doc, {
+    startY: y,
+    head: [["Date", "Recorded by", "Labour", "Hours", "Weather", "Notes"]],
+    body: recentEntries.length
+      ? recentEntries.slice(0, 20).map((e) => [fmtDate(e.date), e.author || "—", String(e.labour ?? "—"), String(e.hours ?? "—"), e.weather || "—", String(e.notes || "").slice(0, 180)])
+      : [["—", projEntries.length ? `No entries in the last ${diaryDays} days (${projEntries.length} older)` : "No diary entries recorded", "", "", "", ""]],
+    styles: { fontSize: 7.5, cellPadding: 3 },
+    columnStyles: { 5: { cellWidth: 220 } },
+  });
+  y = lastY(doc) + 18;
+
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(8);
+  doc.setTextColor(...SLATE);
+  doc.text(
+    "This report contains only the records held in OHS Builder for this project. Compliance statuses follow the same evidence rules as the Compliance page (documents and expiry dates); an empty section means no record exists, not that nothing happened.",
+    MARGIN, y, { maxWidth: doc.internal.pageSize.getWidth() - 2 * MARGIN }
+  );
+  footers(doc, { org });
+  return output(doc, `Project-OHS-Report-${slug(project.name)}-${new Date().toISOString().slice(0, 10)}.pdf`, mode);
+}

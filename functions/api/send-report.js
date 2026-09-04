@@ -50,6 +50,10 @@ const KINDS = {
     label: "Incident Report",
     blurb: "a single incident report, including corrective actions and correction history",
   },
+  project_report: {
+    label: "Project OHS Report",
+    blurb: "one project's crew compliance, SWMS sign-off, risk register, incidents and corrective actions, toolbox meetings and recent site diary",
+  },
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;

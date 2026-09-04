@@ -15,6 +15,7 @@ import {
   exportMonthlySummary,
   exportIncidentRegister,
   exportSwmsSignoff,
+  exportProjectReport,
 } from "../../lib/pdf";
 import { complianceCategories } from "../../data/constants";
 import {
@@ -101,7 +102,9 @@ export default function Reports() {
   const { projects } = useProjects();
   const { workers } = useWorkers();
   const { incidents } = useIncidents();
-  const { org, meetings, templates } = useAppContext();
+  const { org, meetings, templates, entries, companies, projectRisks } = useAppContext();
+  // Project OHS Report: one project at a time, chosen here.
+  const [reportProjectId, setReportProjectId] = useState("");
   // The sign-off report carries the signatures themselves, not just a count.
   const { signatures } = useSwmsSignatures();
   const toast = useToast();
@@ -113,6 +116,21 @@ export default function Reports() {
   const overall = orgCompliancePercent(workers, byWorkerFrom(docsFor, workers));
 
   const ctx = { org, projects, workers, incidents, meetings, templates, signatures, overall };
+  const reportProject = projects.find((p) => String(p.id) === String(reportProjectId)) || projects[0] || null;
+  const projectReport = reportProject && {
+    kind: "project_report",
+    title: `Project OHS Report — ${reportProject.name}`,
+    run: (_ctx, mode) =>
+      exportProjectReport({
+        org, project: reportProject, workers, docsFor, incidents, meetings, templates, signatures,
+        risks: projectRisks || [], entries: entries || [], companies: companies || [], mode,
+      }),
+    summary: () => {
+      const crew = workers.filter((w) => w.project === reportProject.id);
+      const open = incidents.filter((i) => (i.projectId ?? i.project) === reportProject.id && i.status !== "Closed").length;
+      return `${reportProject.name}: ${crew.length} stakeholder${crew.length === 1 ? "" : "s"} · ${open} open incident${open === 1 ? "" : "s"} · ${(projectRisks || []).filter((r) => r.projectId === reportProject.id && r.status !== "Closed").length} open risks.`;
+    },
+  };
 
   const downloadReportPdf = async (r) => {
     setBusy(r.kind);
@@ -185,6 +203,51 @@ export default function Reports() {
           </CardBody>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader title="Project OHS Report" />
+        <CardBody className="flex flex-col gap-3 md:flex-row md:items-end">
+          <label className="block flex-1">
+            <span className="mb-1 block text-sm font-medium text-slate-600">Project</span>
+            <select
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              value={reportProject ? String(reportProject.id) : ""}
+              onChange={(e) => setReportProjectId(e.target.value)}
+              disabled={!projects.length}
+            >
+              {projects.length ? (
+                projects.map((p) => (
+                  <option key={p.id} value={String(p.id)}>
+                    {p.name} ({p.status})
+                  </option>
+                ))
+              ) : (
+                <option value="">No projects yet</option>
+              )}
+            </select>
+            <span className="mt-1 block text-xs text-slate-500">
+              Crew compliance, SWMS sign-off, risk register, incidents and corrective actions,
+              toolbox meetings and the last 14 days of the site diary — records only.
+            </span>
+          </label>
+          <div className="flex gap-2">
+            <Button
+              disabled={!projectReport || busy === "project_report"}
+              onClick={() => projectReport && downloadReportPdf(projectReport)}
+            >
+              {busy === "project_report" ? "Building…" : "Download PDF"}
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={!projectReport}
+              onClick={() => projectReport && setEmailing(projectReport)}
+              title="Email the project report"
+            >
+              ✉️ Send
+            </Button>
+          </div>
+        </CardBody>
+      </Card>
 
       <div>
         <h2 className="mb-3 text-lg font-semibold text-slate-700">
