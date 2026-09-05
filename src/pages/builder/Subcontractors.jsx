@@ -173,7 +173,15 @@ export default function SubbiePanel({ onAddWorker, addCompanySignal = 0 }) {
         </div>
       )}
 
-      <CompanyFormModal company={editing} onClose={() => setEditing(null)} />
+      {/* Mounted only while open. react-hook-form keeps its values across a
+          close — its `values` reset fires only when the incoming object
+          changes, and Add → Add hands it the same blanks — so a second Add
+          reopened with the first company's name and ABN still in the fields
+          (rehearsal 5b: "Harbour Formwork Pty LtdCoastline Electrical Pty Ltd").
+          A fresh instance per open starts from exactly its own values. */}
+      {editing != null && (
+        <CompanyFormModal company={editing} onClose={() => setEditing(null)} />
+      )}
 
       <Modal
         open={!!certModal}

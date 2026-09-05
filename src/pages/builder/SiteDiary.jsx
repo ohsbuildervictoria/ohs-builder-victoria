@@ -106,6 +106,7 @@ export default function SiteDiary() {
     handleSubmit,
     reset,
     setValue,
+    getValues,
     watch,
     formState: { errors },
   } = useForm({
@@ -127,6 +128,9 @@ export default function SiteDiary() {
   const [photoFiles, setPhotoFiles] = useState([]);
   const [wxNote, setWxNote] = useState(null); // { ok, text }
   const weatherTouched = useRef(false);
+  // What the lookup itself last wrote. It may replace its own earlier fill
+  // (a date change refetches) but never a value it did not put there.
+  const autoFilled = useRef({ weather: "", wind: "" });
   const entryDate = watch("date");
 
   useEffect(() => {
@@ -136,9 +140,19 @@ export default function SiteDiary() {
     fetchWeatherFor(project.address, entryDate).then((w) => {
       if (!live) return;
       if (w?.summary) {
+        // Additive only: the result arrives seconds after the page, by which
+        // time the builder may already be typing. Fill a field only if it is
+        // still blank or still holds this lookup's own earlier value.
         if (!weatherTouched.current) {
-          setValue("weather", w.summary);
-          setValue("wind", w.wind);
+          const current = getValues();
+          if (!current.weather || current.weather === autoFilled.current.weather) {
+            setValue("weather", w.summary);
+            autoFilled.current.weather = w.summary;
+          }
+          if (!current.wind || current.wind === autoFilled.current.wind) {
+            setValue("wind", w.wind);
+            autoFilled.current.wind = w.wind;
+          }
         }
         setWxNote({ ok: true, text: `Auto-filled for ${w.place} (Open-Meteo) — edit if it was different on site.` });
       } else if (w?.miss === "no-location") {
@@ -206,6 +220,7 @@ export default function SiteDiary() {
       audioBlobRef.current = null;
       setPhotoFiles([]);
       weatherTouched.current = false;
+      autoFilled.current = { weather: "", wind: "" };
     } catch (err) {
       toast(err.message || "Could not save entry", "error");
     }
