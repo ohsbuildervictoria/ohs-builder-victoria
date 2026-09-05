@@ -1810,6 +1810,16 @@ export async function updateOrgNotifications(orgId, notifications) {
 // Real builder signup: create an auth user, then (via a security-definer RPC)
 // create their organisation and make them its Builder Admin. Returns the new
 // org id. Requires the project's email auto-confirm so a session exists.
+// signup_create_org is idempotent on the server: an account that already
+// has an organisation gets that organisation back; one without gets a new
+// organisation, builder_admin, and the standard quiz (031). Used by signup and
+// by the "finish workspace setup" recovery for a stranded account.
+export async function ensureBuilderWorkspace(orgName) {
+  const { data, error } = await supabase.rpc("signup_create_org", { org_name: orgName || "" });
+  if (error) fail(error, "Setting up your workspace");
+  return data;
+}
+
 export async function signUpBuilder({ email, password, name, orgName }) {
   const { data, error } = await supabase.auth.signUp({
     email: (email || "").trim(),
@@ -1821,10 +1831,7 @@ export async function signUpBuilder({ email, password, name, orgName }) {
     // Auto-confirm is off — user must confirm by email before continuing.
     throw new Error("Check your email to confirm your account, then log in.");
   }
-  const { error: rpcError } = await supabase.rpc("signup_create_org", {
-    org_name: orgName,
-  });
-  if (rpcError) fail(rpcError, "Setting up your workspace");
+  await ensureBuilderWorkspace(orgName);
   return data.user.id;
 }
 

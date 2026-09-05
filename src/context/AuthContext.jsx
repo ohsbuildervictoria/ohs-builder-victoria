@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { fetchPermissions, fetchProfile, touchLastLogin, signUpBuilder, sendHeartbeat } from "../lib/api";
+import { fetchPermissions, fetchProfile, touchLastLogin, signUpBuilder, sendHeartbeat, ensureBuilderWorkspace } from "../lib/api";
 import { acceptWorkerInvite, acceptStaffInvite } from "../lib/api";
 
 const AuthContext = createContext(null);
@@ -209,16 +209,43 @@ export function AuthProvider({ children }) {
   }, []);
 
   // Real builder signup → new organisation → Builder Admin of that org.
-  const signup = useCallback(async ({ email, password, name, orgName }) => {
-    await signUpBuilder({ email, password, name, orgName });
+  // Re-read profile + permissions and confirm the account owns a workspace.
+  const settleWorkspace = useCallback(async () => {
     const { data } = await supabase.auth.getUser();
+    if (!data?.user) throw new Error("Not signed in.");
     const profile = await fetchProfile(data.user.id);
     if (!profile) throw new Error("Account created but profile is missing.");
-    touchLastLogin(data.user.id);
+    const perms = await loadPermissions();
     setUser(profile);
-    await loadPermissions();
-    return profile;
+    return { profile, perms, ready: !!(perms && perms.organizationId != null && profile.role !== "worker") };
   }, [loadPermissions]);
+
+  const WORKSPACE_ERROR =
+    "Your account was created but your workspace wasn't set up. Sign in and choose \"Finish workspace setup\" — nothing is lost.";
+
+  const signup = useCallback(async ({ email, password, name, orgName }) => {
+    await signUpBuilder({ email, password, name, orgName });
+    let s = await settleWorkspace();
+    if (!s.ready) {
+      // The RPC is idempotent: one retry is safe. Still not ready -> say so,
+      // never navigate into a workspace that does not exist.
+      await ensureBuilderWorkspace(orgName);
+      s = await settleWorkspace();
+    }
+    if (!s.ready) throw new Error(WORKSPACE_ERROR);
+    touchLastLogin(s.profile.id);
+    return s.profile;
+  }, [settleWorkspace]);
+
+  // Recovery for a STRANDED account (signed in, role worker, no organisation,
+  // no worker record): the same idempotent RPC, then re-read.
+  const finishWorkspace = useCallback(async (orgName) => {
+    await ensureBuilderWorkspace(orgName);
+    const s = await settleWorkspace();
+    if (!s.ready) throw new Error(WORKSPACE_ERROR);
+    touchLastLogin(s.profile.id);
+    return s.profile;
+  }, [settleWorkspace]);
 
   const value = useMemo(() => {
     const role = user?.role || null;
@@ -229,6 +256,7 @@ export function AuthProvider({ children }) {
       initialising,
       login,
       signup,
+      finishWorkspace,
       joinAsTradie,
       joinAsTradieSignin,
       joinAsStaff,
@@ -238,7 +266,7 @@ export function AuthProvider({ children }) {
       isWorker: role === "worker",
       hasRole: (roleName) => role === roleName,
     };
-  }, [user, permissions, initialising, login, signup, joinAsTradie, joinAsTradieSignin, joinAsStaff, logout, resetPassword]);
+  }, [user, permissions, initialising, login, signup, finishWorkspace, joinAsTradie, joinAsTradieSignin, joinAsStaff, logout, resetPassword]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

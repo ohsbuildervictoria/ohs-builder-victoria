@@ -1,8 +1,13 @@
 // Where does an account land after sign-in? One answer, used by Login, Signup,
 // the invite pages and the layouts, so the three Education roles and the
 // Industry roles never fight over the same redirect.
+import { workspaceState } from "./workspace.js";
+
 export function homeRouteFor(user, permissions) {
   if (!user) return "/login";
+  // A signed-in account whose organisation was never created (signup step 2
+  // failed) is sent to finish that step, not into an empty stakeholder portal.
+  if (workspaceState({ user, permissions }) === "missing_workspace") return "/signup";
   const edu = permissions?.education;
   if (edu?.role === "institution_admin") return "/education/admin";
   if (edu?.role === "assessor") return "/education/assess";

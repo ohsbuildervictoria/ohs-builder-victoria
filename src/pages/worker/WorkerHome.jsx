@@ -8,6 +8,7 @@ import { useProjects } from "../../hooks/useProjects";
 import { useAppContext } from "../../context/AppContext";
 import { categoryStatus, isCompliant } from "../../lib/compliance";
 import { fetchMySites, switchMySite } from "../../lib/api";
+import { workspaceState } from "../../lib/workspace";
 import ProgressBar from "../../components/ui/ProgressBar";
 
 // ============================================================================
@@ -35,7 +36,8 @@ const CTA = {
 
 export default function WorkerHome() {
   const worker = useCurrentWorker();
-  const { user, isWorker } = useAuth();
+  const { user, isWorker, permissions } = useAuth();
+  const stranded = workspaceState({ user, permissions }) === "missing_workspace";
   const { getProject } = useProjects();
   const { canAccessSite } = useCompliance(worker?.id);
   const { docsFor } = useDocuments();
@@ -103,6 +105,11 @@ export default function WorkerHome() {
 
   return (
     <div className="p-4">
+      {stranded && (
+        <Link to="/signup" className="mb-4 block rounded-xl border border-yellow-400 bg-yellow-50 p-3 text-sm text-slate-700">
+          Signed up as a builder? Your company workspace wasn&apos;t created yet — <span className="font-semibold underline">finish workspace setup</span>.
+        </Link>
+      )}
       {firstTime ? (
         <>
           <p className="text-xs font-bold uppercase tracking-wider text-blue-900">Welcome to OHS Builder Victoria</p>
