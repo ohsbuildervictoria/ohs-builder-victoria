@@ -4,6 +4,7 @@
 // page numbers, footer). No server, no external requests at runtime.
 // ============================================================================
 import { brand } from "../data/constants";
+import { attributedName } from "./accountKind";
 import { bodyViewToPng, summariseMarks, BODY_VIEWS } from "./bodyMap";
 
 // jsPDF + autotable are ~600 kB of code that only a builder exporting a
@@ -479,7 +480,7 @@ export async function exportIncidentReport({ org, incident, audits = [], mode = 
     const rows = [];
     for (const a of trail) {
       for (const [field, { from, to }] of Object.entries(a.changes || {})) {
-        rows.push([fmtDateTime(a.createdAt), a.changedBy, field, `${from || "(blank)"} → ${to || "(blank)"}`]);
+        rows.push([fmtDateTime(a.createdAt), attributedName(a.changedBy), field, `${from || "(blank)"} → ${to || "(blank)"}`]);
       }
     }
     table(doc, {

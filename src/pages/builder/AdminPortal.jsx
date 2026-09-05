@@ -7,6 +7,8 @@ import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
 import StatCard from "../../components/ui/StatCard";
 import RoleBadge from "../../components/shared/RoleBadge";
+import AutomatedBadge from "../../components/shared/AutomatedBadge";
+import { isAutomatedAccount, AUTOMATED_LABEL } from "../../lib/accountKind";
 import { Table, THead, TBody, TR, TD } from "../../components/ui/Table";
 import { useToast } from "../../components/ui/Notification";
 import { useProjects } from "../../hooks/useProjects";
@@ -33,6 +35,13 @@ export default function AdminPortal() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [newInvite, setNewInvite] = useState(null); // { name, email, link, emailState }
   const { register, handleSubmit, reset } = useForm();
+  // Invite-time hint only (the roster badge is the source of truth). Plain
+  // state rather than watch(): the React Compiler cannot memoise watch().
+  const [reservedName, setReservedName] = useState(false);
+  const closeInvite = () => {
+    setInviteOpen(false);
+    setReservedName(false);
+  };
 
   const inviteLink = (u) => `${window.location.origin}/join-staff/${u.inviteToken}`;
 
@@ -93,7 +102,7 @@ export default function AdminPortal() {
       });
       setInvites((prev) => [...prev, created]);
       reset();
-      setInviteOpen(false);
+      closeInvite();
       setNewInvite({
         name: created.name,
         email: created.email,
@@ -141,7 +150,10 @@ export default function AdminPortal() {
             <TBody>
               {users.map((u) => (
                 <TR key={u.id}>
-                  <TD className="font-medium text-slate-800">{u.name}</TD>
+                  <TD className="font-medium text-slate-800">
+                    {u.name}
+                    <AutomatedBadge name={u.name} role={u.role} className="ml-2 align-middle" />
+                  </TD>
                   <TD>{u.email}</TD>
                   <TD>
                     <RoleBadge role={u.role} />
@@ -232,11 +244,11 @@ export default function AdminPortal() {
       {/* Invite modal */}
       <Modal
         open={inviteOpen}
-        onClose={() => setInviteOpen(false)}
+        onClose={closeInvite}
         title="Invite Stakeholder"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setInviteOpen(false)}>
+            <Button variant="secondary" onClick={closeInvite}>
               Cancel
             </Button>
             <Button onClick={handleSubmit(onInvite)}>Send Invite</Button>
@@ -245,7 +257,16 @@ export default function AdminPortal() {
       >
         <form className="space-y-4" onSubmit={handleSubmit(onInvite)}>
           <Field label="Name">
-            <input className="adm-input" {...register("name", { required: true })} />
+            <input
+              className="adm-input"
+              {...register("name", { required: true, onChange: (e) => setReservedName(isAutomatedAccount({ name: e.target.value })) })}
+            />
+            {reservedName && (
+              <p className="mt-1 text-xs text-violet-800">
+                Names starting with &ldquo;SiteIQ&rdquo; are reserved for the SiteIQ automated account. This account will
+                be labelled &ldquo;{AUTOMATED_LABEL}&rdquo; everywhere it appears. Do not use it for a person.
+              </p>
+            )}
           </Field>
           <Field label="Email">
             <input type="email" className="adm-input" {...register("email", { required: true })} />

@@ -13,6 +13,7 @@ import ComplianceMatrix from "../../components/shared/ComplianceMatrix";
 import { useWorkers } from "../../hooks/useWorkers";
 import { useProjects } from "../../hooks/useProjects";
 import { useDocuments } from "../../hooks/useDocuments";
+import { attributedName } from "../../lib/accountKind";
 import { useAppContext } from "../../context/AppContext";
 import { useToast } from "../../components/ui/Notification";
 import { useForm } from "react-hook-form";
@@ -692,7 +693,7 @@ function CellModal({ cell, onClose, updateCompliance }) {
             {/* 027: a stakeholder's upload is SUBMITTED until you verify it. */}
             {isExpiryCat && (doc.verifiedAt ? (
               <p className="mt-1 text-xs text-green-700">
-                Verified by {doc.verifiedByName || "builder"} on {new Date(doc.verifiedAt).toLocaleDateString("en-AU")}
+                Verified by {attributedName(doc.verifiedByName, "builder")} on {new Date(doc.verifiedAt).toLocaleDateString("en-AU")}
                 {doc.verificationNote ? ` — ${doc.verificationNote}` : ""}
               </p>
             ) : (

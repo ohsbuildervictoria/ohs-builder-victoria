@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { attributedName } from "../../lib/accountKind";
 import { useForm } from "react-hook-form";
 import Card, { CardBody, CardHeader } from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
@@ -266,7 +267,7 @@ export default function Toolbox() {
         )}
         {rollFor?.status === "Completed" && (
           <p className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-800">
-            Completed {rollFor.completedAt ? new Date(rollFor.completedAt).toLocaleString("en-AU") : ""}{rollFor.completedByName ? ` · ${rollFor.completedByName}` : ""}{rollFor.completionNote && rollFor.completionNote !== "auto" && rollFor.completionNote !== "backfill" ? ` — ${rollFor.completionNote}` : ""}
+            Completed {rollFor.completedAt ? new Date(rollFor.completedAt).toLocaleString("en-AU") : ""}{rollFor.completedByName ? ` · ${attributedName(rollFor.completedByName)}` : ""}{rollFor.completionNote && rollFor.completionNote !== "auto" && rollFor.completionNote !== "backfill" ? ` — ${rollFor.completionNote}` : ""}
           </p>
         )}
       </Modal>

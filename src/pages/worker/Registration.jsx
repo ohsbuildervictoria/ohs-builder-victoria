@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { useAuth } from "../../hooks/useAuth";
 import { useWorkers } from "../../hooks/useWorkers";
 import { useDocuments } from "../../hooks/useDocuments";
+import { attributedName } from "../../lib/accountKind";
 import Tabs from "../../components/ui/Tabs";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
@@ -289,7 +290,7 @@ function DocumentRow({ worker, categoryKey, doc, upload, open, toast }) {
               )}
               {doc.verifiedAt && status !== "Pending" && (
                 <span className="mt-0.5 block text-green-700">
-                  Verified by {doc.verifiedByName || "your builder"}
+                  Verified by {attributedName(doc.verifiedByName, "your builder")}
                 </span>
               )}
             </p>

@@ -1,4 +1,5 @@
 import { useAudit } from "../../hooks/useAudit";
+import { attributedName } from "../../lib/accountKind";
 
 const fmt = (d) =>
   new Date(d).toLocaleString("en-AU", {
@@ -21,7 +22,7 @@ export default function AuditTrail({ entity, entityId }) {
       <ul className="mt-2 space-y-2">
         {rows.map((r) => (
           <li key={r.id} className="text-xs text-slate-600">
-            <span className="font-medium text-slate-700">{r.changedBy}</span>
+            <span className="font-medium text-slate-700">{attributedName(r.changedBy)}</span>
             {" · "}
             {fmt(r.createdAt)}
             <ul className="mt-0.5 space-y-0.5 pl-3">
