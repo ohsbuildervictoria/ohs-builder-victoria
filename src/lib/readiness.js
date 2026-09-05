@@ -209,6 +209,21 @@ export function nextStep(result) {
   return result.items.find((i) => NEEDS_ACTION.includes(i.state)) || null;
 }
 
+// "invited" is waiting on somebody else, not a task for the builder: the
+// next-step strip skips it and points at the first item the builder can act
+// on now. The card keeps nextStep() (the waiting row stays highlighted there).
+const ACTIONABLE = ["open", "in_progress", "unknown"];
+
+/** The first item the builder can act on now (never a waiting item), or null. */
+export function nextAction(result) {
+  return result.items.find((i) => ACTIONABLE.includes(i.state)) || null;
+}
+
+/** Items waiting on another person (an invited HSE manager), in order. */
+export function waitingItems(result) {
+  return result.items.filter((i) => i.state === "invited");
+}
+
 /** { done, total, notApplicable } for "N of M set up". Only real ticks count. */
 export function progressOf(result) {
   const done = result.items.filter((i) => i.state === "done").length;

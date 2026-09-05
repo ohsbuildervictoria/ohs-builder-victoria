@@ -4,13 +4,17 @@
 //
 // Derived from the same readiness result as the Dashboard card, so it moves
 // the moment a setup action lands: when the item it was pointing at becomes
-// done, that item is acknowledged and the following open item is offered.
-// Hidden once everything is complete, and when the builder hid the checklist.
+// done, that item is acknowledged and the following actionable item is
+// offered. An "invited" item is waiting on somebody else, so it is never
+// offered as the builder's next task: it is named as waiting, and the strip
+// points past it to the first thing the builder can do now.
+// Hidden once everything is complete. "Hide for now" hides it, leaving a
+// small "Show setup guidance" control so the builder can bring it back.
 // ============================================================================
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { useReadiness, readHidden, HIDE_EVENT } from "../../hooks/useReadiness";
-import { nextStep, progressOf } from "../../lib/readiness";
+import { useReadiness, useReadinessHidden } from "../../hooks/useReadiness";
+import { nextAction, waitingItems, progressOf } from "../../lib/readiness";
 
 // Short past-tense acknowledgement per item, for the "✓" half of the strip.
 const DONE_TEXT = {
@@ -27,36 +31,61 @@ const DONE_TEXT = {
   setup_no_toolbox_scheduled: "Toolbox meeting scheduled",
 };
 
+// How a waiting item reads: what has been done, and what is being waited for.
+const WAITING_TEXT = {
+  setup_no_hse_manager: { done: "HSE manager invited", waiting: "waiting for them to accept and set a password" },
+};
+
+export function ShowGuidanceButton({ onClick, className = "" }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`text-xs font-medium text-slate-500 underline decoration-slate-300 underline-offset-2 hover:text-slate-700 ${className}`}
+    >
+      Show setup guidance
+    </button>
+  );
+}
+
 export default function NextStepStrip() {
   const location = useLocation();
   const { result, loading } = useReadiness(location.pathname);
-  const [hidden, setHidden] = useState(readHidden);
+  const [hidden, , show] = useReadinessHidden();
   const [justDone, setJustDone] = useState(null);       // item acknowledged this session
-  const lastNext = useRef(null);                        // id the strip last pointed at
+  const lastNext = useRef(null);                        // { id, state } the strip last pointed at
 
-  useEffect(() => {
-    const onHide = () => setHidden(true);
-    window.addEventListener(HIDE_EVENT, onHide);
-    return () => window.removeEventListener(HIDE_EVENT, onHide);
-  }, []);
-
-  const next = loading ? null : nextStep(result);
+  const action = loading ? null : nextAction(result);
+  const waiting = loading ? [] : waitingItems(result);
   // Track the transition "the item we pointed at is now done" — that is the
-  // moment the builder finished a setup action.
+  // moment the builder finished a setup action. A waiting item never blocks
+  // this: the pointer only ever rests on something the builder can act on.
+  // An "unknown" item resolving to done (the quiz bank finishing its read)
+  // is not the builder's doing and is not acknowledged.
   useEffect(() => {
     if (loading) return;
     const prev = lastNext.current;
-    if (prev && next?.id !== prev) {
-      const prevItem = result.items.find((i) => i.id === prev);
-      if (prevItem?.state === "done") setJustDone(prevItem);
+    if (prev && action?.id !== prev.id) {
+      const prevItem = result.items.find((i) => i.id === prev.id);
+      if (prevItem?.state === "done" && prev.state !== "unknown") setJustDone(prevItem);
     }
-    lastNext.current = next?.id || null;
-  }, [loading, next, result]);
+    lastNext.current = action ? { id: action.id, state: action.state } : null;
+  }, [loading, action, result]);
 
-  if (loading || hidden || result.complete || !next) return null;
+  if (loading || result.complete) return null;
   if (location.pathname === "/builder/dashboard") return null;
+  if (hidden) {
+    return (
+      <div className="mb-2 flex justify-end" data-testid="next-step-strip-hidden">
+        <ShowGuidanceButton onClick={show} />
+      </div>
+    );
+  }
+  if (!action && !waiting.length) return null;
 
   const { done, total } = progressOf(result);
+  const waitingOn = waiting[0];
+  const waitingText = waitingOn && (WAITING_TEXT[waitingOn.id] || { done: waitingOn.label, waiting: waitingOn.detail });
   return (
     <div
       data-testid="next-step-strip"
@@ -65,12 +94,27 @@ export default function NextStepStrip() {
       {justDone && (
         <span className="font-medium text-green-700">{DONE_TEXT[justDone.id] || justDone.label} ✓</span>
       )}
-      <span className="text-slate-700">
-        <span className="font-semibold">Next:</span>{" "}
-        <Link to={next.href} className="font-medium text-blue-900 underline decoration-yellow-400 underline-offset-2 hover:text-blue-700">
-          {next.label} →
-        </Link>
-      </span>
+      {waitingOn && (
+        <span className="text-violet-800" data-testid="next-step-waiting">
+          <span className="font-medium">{waitingText.done} ✓</span>
+          {!action && (
+            <>
+              {" · "}
+              <Link to={waitingOn.href} className="underline decoration-violet-300 underline-offset-2 hover:text-violet-900">
+                Waiting for them to accept →
+              </Link>
+            </>
+          )}
+        </span>
+      )}
+      {action && (
+        <span className="text-slate-700">
+          <span className="font-semibold">Next:</span>{" "}
+          <Link to={action.href} className="font-medium text-blue-900 underline decoration-yellow-400 underline-offset-2 hover:text-blue-700">
+            {action.label} →
+          </Link>
+        </span>
+      )}
       <Link to="/builder/dashboard" className="ml-auto text-xs text-slate-500 hover:text-slate-700">
         {done} of {total} set up · checklist
       </Link>

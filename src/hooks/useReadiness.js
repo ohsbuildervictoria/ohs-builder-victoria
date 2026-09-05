@@ -31,8 +31,10 @@ export function useReadiness(refreshKey = null) {
   return { result, loading };
 }
 
-// "Hide for now" on the Dashboard card is a per-browser convenience; the
-// next-step strip follows it so hiding the checklist really hides it.
+// "Hide for now" is a per-browser convenience kept in localStorage. Both the
+// Dashboard card and the next-step strip follow it, and either can bring the
+// guidance back ("Show setup guidance"); a change in one is announced to the
+// other through a window event so nothing needs a reload.
 export const HIDE_KEY = "ohsb.readiness.hidden";
 export const HIDE_EVENT = "ohsb:readiness-hidden";
 
@@ -40,7 +42,24 @@ export function readHidden() {
   try { return localStorage.getItem(HIDE_KEY) === "1"; } catch { return false; }
 }
 
-export function hideReadiness() {
-  try { localStorage.setItem(HIDE_KEY, "1"); } catch { /* ignore */ }
+export function setReadinessHidden(hidden) {
+  try {
+    if (hidden) localStorage.setItem(HIDE_KEY, "1");
+    else localStorage.removeItem(HIDE_KEY);
+  } catch { /* ignore */ }
   try { window.dispatchEvent(new Event(HIDE_EVENT)); } catch { /* ignore */ }
+}
+
+export const hideReadiness = () => setReadinessHidden(true);
+export const showReadiness = () => setReadinessHidden(false);
+
+/** [hidden, hide, show] — shared across every mounted card/strip. */
+export function useReadinessHidden() {
+  const [hidden, setHidden] = useState(readHidden);
+  useEffect(() => {
+    const sync = () => setHidden(readHidden());
+    window.addEventListener(HIDE_EVENT, sync);
+    return () => window.removeEventListener(HIDE_EVENT, sync);
+  }, []);
+  return [hidden, hideReadiness, showReadiness];
 }

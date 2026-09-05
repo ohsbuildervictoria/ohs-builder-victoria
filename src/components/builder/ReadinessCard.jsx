@@ -6,14 +6,15 @@
 // modal or project) where it is done. A fresh organisation shows what is
 // genuinely set up — items that cannot be checked yet (no project, no
 // stakeholder) read "Not yet", never a tick. The card hides itself once
-// everything is complete; "Hide for now" is a per-browser convenience only.
+// everything is complete; "Hide for now" is a per-browser convenience that
+// leaves a "Show setup guidance" control in its place.
 // ============================================================================
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import Card, { CardHeader, CardBody } from "../ui/Card";
 import ProgressBar from "../ui/ProgressBar";
-import { useReadiness, readHidden, hideReadiness } from "../../hooks/useReadiness";
+import { useReadiness, useReadinessHidden } from "../../hooks/useReadiness";
 import { nextStep, progressOf } from "../../lib/readiness";
+import { ShowGuidanceButton } from "./NextStepStrip";
 
 // How each state reads on the right-hand side of a row.
 const STATE_LABEL = {
@@ -27,18 +28,20 @@ const STATE_LABEL = {
 
 export default function ReadinessCard() {
   const { result, loading } = useReadiness();
-  const [hidden, setHidden] = useState(readHidden);
+  const [hidden, hide, show] = useReadinessHidden();
 
-  if (loading || hidden || result.complete) return null;
+  if (loading || result.complete) return null;
+  if (hidden) {
+    return (
+      <div className="flex justify-end" data-testid="readiness-card-hidden">
+        <ShowGuidanceButton onClick={show} />
+      </div>
+    );
+  }
 
   const { done, total, notApplicable } = progressOf(result);
   const pct = Math.round((done / total) * 100);
   const next = nextStep(result);
-
-  const hide = () => {
-    hideReadiness();
-    setHidden(true);
-  };
 
   return (
     <Card>

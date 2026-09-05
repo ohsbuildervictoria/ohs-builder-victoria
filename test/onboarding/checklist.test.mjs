@@ -17,7 +17,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { computeReadiness, outstandingIds, nextStep, progressOf, READINESS_ITEMS, STATES } from "../../src/lib/readiness.js";
+import { computeReadiness, outstandingIds, nextStep, nextAction, waitingItems, progressOf, READINESS_ITEMS, STATES } from "../../src/lib/readiness.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const TODAY = "2026-09-05";
@@ -176,4 +176,28 @@ test("next step is the first item that still needs the builder, in checklist ord
   // remaining: no stakeholders yet → company/work type/SWMS not applicable, risk register open
   assert.equal(nextStep(computeReadiness(d, { today: TODAY })).id, "setup_risk_register_empty");
   assert.equal(READINESS_ITEMS.length, 11);
+});
+
+test("next ACTION skips a waiting (invited) item; waitingItems names it; the card's nextStep is unchanged", () => {
+  const d = fresh(); d.org.abn = "12345678901"; d.org.billingContact = "accounts@marlowridge.example";
+  d.invites = [{ role: "hse_manager" }];
+  const r = computeReadiness(d, { today: TODAY });
+  assert.equal(nextStep(r).id, "setup_no_hse_manager", "card highlight still rests on the waiting row");
+  assert.equal(nextAction(r).id, "setup_no_active_project", "the strip points past the waiting item");
+  assert.deepEqual(waitingItems(r).map((i) => i.id), ["setup_no_hse_manager"]);
+  assert.ok(outstandingIds(r).includes("setup_no_hse_manager"), "parity list unchanged: still outstanding for SiteIQ");
+  // nothing else waiting, everything else done -> no action, one waiting item
+  const c = load("configured");
+  c.profiles = c.profiles.filter((p) => p.role !== "hse_manager"); c.invites = [{ role: "hse_manager" }];
+  const w = computeReadiness(c, { today: TODAY });
+  assert.equal(nextAction(w), null);
+  assert.deepEqual(waitingItems(w).map((i) => i.id), ["setup_no_hse_manager"]);
+  assert.equal(w.complete, false);
+  // open / in_progress / unknown are actionable; not_applicable and done are not
+  const e = load("configured"); e.policies = [{ id: 1, status: "Active", content: "" }];
+  assert.equal(nextAction(computeReadiness(e, { today: TODAY })).id, "setup_no_published_policy");
+  const u = load("configured"); u.quizBank = undefined;
+  assert.equal(nextAction(computeReadiness(u, { today: TODAY })).id, "setup_quiz_bank_empty");
+  assert.equal(nextAction(computeReadiness(load("configured"), { today: TODAY })), null);
+  assert.deepEqual(waitingItems(computeReadiness(load("configured"), { today: TODAY })), []);
 });
