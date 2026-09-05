@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import Card, { CardBody, CardHeader } from "../../components/ui/Card";
 import { useAppContext } from "../../context/AppContext";
 import { brand } from "../../data/constants";
@@ -124,6 +125,9 @@ export default function Welcome() {
             You're signed in to <span className="font-semibold text-white">{org.name}</span>
           </p>
         )}
+        <p className="mt-3 text-sm text-blue-100">
+          Setting up? Your <Link to="/builder/dashboard" className="font-semibold text-yellow-300 underline">getting-your-site-ready checklist</Link> is on the Dashboard.
+        </p>
       </div>
 
       {/* What the platform does */}

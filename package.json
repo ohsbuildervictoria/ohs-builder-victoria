@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:education": "node --test \"test/education/*.test.mjs\""
+    "test:education": "node --test \"test/education/*.test.mjs\"",
+    "test:onboarding": "node --test \"test/onboarding/*.test.mjs\""
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",

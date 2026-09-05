@@ -12,6 +12,7 @@ import { useProjects } from "../../hooks/useProjects";
 import { useDocuments } from "../../hooks/useDocuments";
 import { orgCompliancePercent, formatPercent } from "../../lib/compliance";
 import { isOpenHighRisk } from "../../lib/risk";
+import ReadinessCard from "../../components/builder/ReadinessCard";
 
 // Evaluated once per page load — stable across re-renders.
 const THIRTY_DAYS_AGO = Date.now() - 30 * 24 * 60 * 60 * 1000;
@@ -134,6 +135,9 @@ export default function Dashboard() {
         <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
         <p className="text-sm text-slate-500">Organisation-wide OHS overview</p>
       </div>
+
+      {/* P0-2: onboarding readiness — derived from the data above, hidden once complete. */}
+      <ReadinessCard />
 
       {/* Primary KPI row */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">

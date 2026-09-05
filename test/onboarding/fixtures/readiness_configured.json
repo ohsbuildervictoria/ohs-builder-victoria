@@ -1,0 +1,293 @@
+{
+ "expected_ids_product": [],
+ "expected_ids_siteiq": [],
+ "name": "configured",
+ "tables": {
+  "company_documents": [
+   {
+    "category": "public_liability",
+    "company_id": 301,
+    "expiry_date": "2030-01-01",
+    "file_name": "pl.pdf",
+    "file_path": "c/301/pl.pdf",
+    "id": 601,
+    "organization_id": 13,
+    "uploaded_at": "2026-08-02T00:00:00+00:00"
+   }
+  ],
+  "organizations": [
+   {
+    "abn": "12 345 678 901",
+    "billing_contact": "accounts@example.invalid",
+    "id": 13,
+    "name": "Fable Builders Pty Ltd",
+    "notifications": {
+     "compliance": true,
+     "incident": true,
+     "swms": true,
+     "toolbox": false,
+     "worksafe": true
+    },
+    "organization_id": 13,
+    "plan": "Trial",
+    "state": "Victoria"
+   }
+  ],
+  "policies": [
+   {
+    "category": "OH&S",
+    "content": "SECRET CONTENT",
+    "id": 1,
+    "name": "Policy 1",
+    "organization_id": 13,
+    "status": "Active",
+    "version": "v1.0"
+   },
+   {
+    "category": "OH&S",
+    "content": "SECRET CONTENT",
+    "id": 2,
+    "name": "Policy 2",
+    "organization_id": 13,
+    "status": "Draft",
+    "version": "v1.0"
+   }
+  ],
+  "profiles": [
+   {
+    "email": "secret@example.invalid",
+    "id": "b1368111-4e45-44a2-a217-f5635f4adea2",
+    "name": "SECRET NAME",
+    "organization_id": 13,
+    "role": "builder_admin",
+    "status": "Active"
+   },
+   {
+    "email": "secret@example.invalid",
+    "id": "b1368111-4e45-44a2-a217-f5635f4adea2",
+    "name": "SECRET NAME",
+    "organization_id": 13,
+    "role": "hse_manager",
+    "status": "Active"
+   }
+  ],
+  "project_risks": [
+   {
+    "category": "Falls",
+    "consequence": 4,
+    "controls": "edge protection",
+    "created_at": "2026-08-21T00:00:00+00:00",
+    "hazard": "Falls from height",
+    "id": 1201,
+    "likelihood": 3,
+    "organization_id": 13,
+    "owner_worker_id": null,
+    "project_id": 101,
+    "residual_consequence": 3,
+    "residual_likelihood": 2,
+    "review_date": "2026-12-01",
+    "source": "swms_library",
+    "source_ref": "",
+    "status": "Open",
+    "updated_at": "2026-08-21T00:00:00+00:00"
+   }
+  ],
+  "projects": [
+   {
+    "address": "101 Foundry Lane, Dandenong VIC",
+    "build_percent": 10,
+    "checkin_token": "SECRET-TOKEN",
+    "compliance": 100,
+    "contract_type": "Lump Sum",
+    "created_at": "2026-08-01T00:00:00+00:00",
+    "id": 101,
+    "induction": {
+     "contactName": "Site Supervisor",
+     "contactPhone": "0400 000 000",
+     "musterPoint": "Gate A assembly point",
+     "rules": [
+      "Sign in at the gate"
+     ]
+    },
+    "name": "Riverside Apartments",
+    "organization_id": 13,
+    "project_manager": "PM",
+    "start_date": "2026-08-01",
+    "status": "Active"
+   }
+  ],
+  "quiz_questions": [
+   {
+    "active": true,
+    "answer_index": 1,
+    "created_at": "2026-08-01T00:00:00+00:00",
+    "id": 1,
+    "options": [
+     "a",
+     "b"
+    ],
+    "organization_id": 13,
+    "position": 1,
+    "question": "SECRET QUESTION TEXT"
+   },
+   {
+    "active": true,
+    "answer_index": 1,
+    "created_at": "2026-08-01T00:00:00+00:00",
+    "id": 2,
+    "options": [
+     "a",
+     "b"
+    ],
+    "organization_id": 13,
+    "position": 2,
+    "question": "SECRET QUESTION TEXT"
+   },
+   {
+    "active": true,
+    "answer_index": 1,
+    "created_at": "2026-08-01T00:00:00+00:00",
+    "id": 3,
+    "options": [
+     "a",
+     "b"
+    ],
+    "organization_id": 13,
+    "position": 3,
+    "question": "SECRET QUESTION TEXT"
+   },
+   {
+    "active": true,
+    "answer_index": 1,
+    "created_at": "2026-08-01T00:00:00+00:00",
+    "id": 4,
+    "options": [
+     "a",
+     "b"
+    ],
+    "organization_id": 13,
+    "position": 4,
+    "question": "SECRET QUESTION TEXT"
+   },
+   {
+    "active": true,
+    "answer_index": 1,
+    "created_at": "2026-08-01T00:00:00+00:00",
+    "id": 5,
+    "options": [
+     "a",
+     "b"
+    ],
+    "organization_id": 13,
+    "position": 5,
+    "question": "SECRET QUESTION TEXT"
+   }
+  ],
+  "subbie_companies": [
+   {
+    "abn": "",
+    "contact_name": "",
+    "created_at": "2026-08-01T00:00:00+00:00",
+    "id": 301,
+    "name": "Fable Carpentry Pty Ltd",
+    "notes": "",
+    "organization_id": 13
+   }
+  ],
+  "swms_templates": [
+   {
+    "created_at": "2026-08-20T00:00:00+00:00",
+    "id": 701,
+    "locked": true,
+    "organization_id": 13,
+    "ref": "SWMS-CAR-13-701",
+    "signed": 0,
+    "status": "Pending",
+    "total": 1,
+    "trade": "Carpenter",
+    "version": "v1.0"
+   },
+   {
+    "created_at": "2026-08-20T00:00:00+00:00",
+    "id": 702,
+    "locked": true,
+    "organization_id": 13,
+    "ref": "SWMS-PLU-13-702",
+    "signed": 0,
+    "status": "Pending",
+    "total": 1,
+    "trade": "Plumber",
+    "version": "v1.0"
+   }
+  ],
+  "toolbox_meetings": [
+   {
+    "attendees": 0,
+    "completed_at": null,
+    "completed_by_name": null,
+    "completion_note": null,
+    "created_at": "2026-09-01T00:00:00+00:00",
+    "date": "2027-01-04",
+    "duration": "15 min",
+    "id": 1301,
+    "organization_id": 13,
+    "points": [],
+    "presenter": "PM",
+    "project_id": 101,
+    "signatures": 0,
+    "status": "Scheduled",
+    "topic": "Site start",
+    "total": 2
+   }
+  ],
+  "workers": [
+   {
+    "account_status": "invited",
+    "company_id": 301,
+    "created_at": "2026-08-20T00:00:00+00:00",
+    "email": "x@example.invalid",
+    "employer": "Co",
+    "id": 201,
+    "induction": "Missing",
+    "insurance": "Missing",
+    "invite_token": "SECRET",
+    "medical": "Missing",
+    "name": "Mia K",
+    "organization_id": 13,
+    "project_id": 101,
+    "quiz": "Missing",
+    "status": "Site Access Pending",
+    "swms": "Missing",
+    "trade": "Carpenter",
+    "trades": [
+     "Carpenter"
+    ],
+    "white_card": "Missing"
+   },
+   {
+    "account_status": "invited",
+    "company_id": null,
+    "created_at": "2026-08-20T00:00:00+00:00",
+    "email": "x@example.invalid",
+    "employer": "Co",
+    "id": 202,
+    "induction": "Missing",
+    "insurance": "Missing",
+    "invite_token": "SECRET",
+    "medical": "Missing",
+    "name": "Dev R",
+    "organization_id": 13,
+    "project_id": 101,
+    "quiz": "Missing",
+    "status": "Site Access Pending",
+    "swms": "Missing",
+    "trade": "Plumber",
+    "trades": [
+     "Plumber"
+    ],
+    "white_card": "Missing"
+   }
+  ]
+ },
+ "today": "2026-09-05"
+}

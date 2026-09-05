@@ -1,0 +1,123 @@
+{
+ "expected_ids_product": [
+  "setup_no_active_project",
+  "setup_no_hse_manager",
+  "setup_no_published_policy",
+  "setup_no_toolbox_scheduled",
+  "setup_org_profile_incomplete"
+ ],
+ "expected_ids_siteiq": [
+  "setup_no_hse_manager",
+  "setup_no_published_policy",
+  "setup_no_toolbox_scheduled",
+  "setup_org_profile_incomplete",
+  "setup_section_unknown"
+ ],
+ "name": "new_org",
+ "tables": {
+  "company_documents": [],
+  "organizations": [
+   {
+    "abn": "",
+    "billing_contact": "",
+    "id": 13,
+    "name": "My Company",
+    "notifications": {
+     "compliance": true,
+     "incident": true,
+     "swms": true,
+     "toolbox": false,
+     "worksafe": true
+    },
+    "organization_id": 13,
+    "plan": "Trial",
+    "state": "Victoria"
+   }
+  ],
+  "policies": [],
+  "profiles": [
+   {
+    "email": "secret@example.invalid",
+    "id": "b1368111-4e45-44a2-a217-f5635f4adea2",
+    "name": "SECRET NAME",
+    "organization_id": 13,
+    "role": "builder_admin",
+    "status": "Active"
+   }
+  ],
+  "project_risks": [],
+  "projects": [],
+  "quiz_questions": [
+   {
+    "active": true,
+    "answer_index": 1,
+    "created_at": "2026-08-01T00:00:00+00:00",
+    "id": 1,
+    "options": [
+     "a",
+     "b"
+    ],
+    "organization_id": 13,
+    "position": 1,
+    "question": "SECRET QUESTION TEXT"
+   },
+   {
+    "active": true,
+    "answer_index": 1,
+    "created_at": "2026-08-01T00:00:00+00:00",
+    "id": 2,
+    "options": [
+     "a",
+     "b"
+    ],
+    "organization_id": 13,
+    "position": 2,
+    "question": "SECRET QUESTION TEXT"
+   },
+   {
+    "active": true,
+    "answer_index": 1,
+    "created_at": "2026-08-01T00:00:00+00:00",
+    "id": 3,
+    "options": [
+     "a",
+     "b"
+    ],
+    "organization_id": 13,
+    "position": 3,
+    "question": "SECRET QUESTION TEXT"
+   },
+   {
+    "active": true,
+    "answer_index": 1,
+    "created_at": "2026-08-01T00:00:00+00:00",
+    "id": 4,
+    "options": [
+     "a",
+     "b"
+    ],
+    "organization_id": 13,
+    "position": 4,
+    "question": "SECRET QUESTION TEXT"
+   },
+   {
+    "active": true,
+    "answer_index": 1,
+    "created_at": "2026-08-01T00:00:00+00:00",
+    "id": 5,
+    "options": [
+     "a",
+     "b"
+    ],
+    "organization_id": 13,
+    "position": 5,
+    "question": "SECRET QUESTION TEXT"
+   }
+  ],
+  "subbie_companies": [],
+  "swms_templates": [],
+  "toolbox_meetings": [],
+  "workers": []
+ },
+ "today": "2026-09-05"
+}
