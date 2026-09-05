@@ -14,6 +14,8 @@ import { useWorkers } from "../../hooks/useWorkers";
 import { useProjects } from "../../hooks/useProjects";
 import { useDocuments } from "../../hooks/useDocuments";
 import { attributedName } from "../../lib/accountKind";
+import { summariseAttempts, EVIDENCE_TEXT } from "../../lib/quizEvidence";
+import { fetchQuizAttempts } from "../../lib/api";
 import { useAppContext } from "../../context/AppContext";
 import { useToast } from "../../components/ui/Notification";
 import { useForm } from "react-hook-form";
@@ -546,6 +548,40 @@ export default function Compliance() {
   );
 }
 
+// Read-only auditor evidence for the Quiz category: what the database graded.
+// Shows worker-level facts only (when, pass/fail, score); never the answers.
+function QuizEvidence({ attempts, quizStatus }) {
+  if (attempts === null) return <p className="text-xs text-slate-500">Loading graded attempts…</p>;
+  if (attempts === "error") {
+    return (
+      <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+        Graded attempts could not be loaded — do not read this as &ldquo;no attempt&rdquo;.
+      </p>
+    );
+  }
+  const s = summariseAttempts(attempts, quizStatus);
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Evidence · graded by the database</p>
+      <p className="mt-1 text-sm text-slate-700">{EVIDENCE_TEXT[s.evidence]}</p>
+      {s.count > 0 && (
+        <ul className="mt-2 divide-y divide-slate-100 text-xs">
+          {s.attempts.map((a) => (
+            <li key={a.id} className="flex items-center justify-between py-1.5">
+              <span className="text-slate-600">{new Date(a.attemptedAt).toLocaleString("en-AU")}</span>
+              <span className="text-slate-600">{a.score} / {a.total}</span>
+              <Badge status={a.passed ? "Verified" : "Missing"}>{a.passed ? "Pass" : "Fail"}</Badge>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-2 text-[11px] text-slate-400">
+        {s.count} attempt{s.count === 1 ? "" : "s"} · {s.passedCount} passed · Quiz column: {quizStatus || "—"}
+      </p>
+    </div>
+  );
+}
+
 // Cell modal: for expiry categories (White Card/Insurance/Medical) the builder
 // uploads a file + expiry and can view/replace/remove it; for the rest, the
 // completion status is set manually and a supporting file can still be attached.
@@ -560,6 +596,10 @@ function CellModal({ cell, onClose, updateCompliance }) {
   // certificate, which destroyed the only answer to "were they licensed on
   // the day of the incident?".
   const [history, setHistory] = useState([]);
+  // Quiz evidence (read-only): the graded attempts the database recorded.
+  // null = not loaded, "error" = could not load (never shown as "no attempt").
+  const [attemptsFor, setAttemptsFor] = useState(null);   // { workerId, rows | "error" }
+  const attempts = attemptsFor && attemptsFor.workerId === cell?.worker?.id ? attemptsFor.rows : null;
 
   useEffect(() => {
     let alive = true;
@@ -571,6 +611,18 @@ function CellModal({ cell, onClose, updateCompliance }) {
       alive = false;
     };
   }, [cell?.worker?.id, historyFor]);
+
+  useEffect(() => {
+    let alive = true;
+    const wid = cell?.worker?.id;
+    if (!wid || cell?.category !== "quiz") return undefined;
+    fetchQuizAttempts(wid)
+      .then((rows) => alive && setAttemptsFor({ workerId: wid, rows }))
+      .catch(() => alive && setAttemptsFor({ workerId: wid, rows: "error" }));
+    return () => {
+      alive = false;
+    };
+  }, [cell?.worker?.id, cell?.category]);
 
   if (!cell) return null;
   const { worker, category } = cell;
@@ -768,6 +820,7 @@ function CellModal({ cell, onClose, updateCompliance }) {
             <span className="font-medium">Policies → Safety Quiz</span>; every attempt is kept as evidence.
           </div>
         )}
+        {category === "quiz" && <QuizEvidence attempts={attempts} quizStatus={worker.quiz} />}
 
         {/* Manual completion status for induction / SWMS */}
         {!isExpiryCat && category !== "quiz" && (

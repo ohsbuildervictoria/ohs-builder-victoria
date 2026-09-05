@@ -3,6 +3,7 @@
 // Maps between snake_case DB rows and the camelCase shapes the UI uses.
 // ============================================================================
 import { supabase } from "./supabase";
+import { ATTEMPT_FIELDS, mapAttempt } from "./quizEvidence";
 import {
   CATEGORY_DB,
   DB_TO_KEY,
@@ -1527,6 +1528,23 @@ export async function fetchQuiz() {
 
 // Grading happens server-side. Only this RPC can set quiz = 'Verified', and it
 // records the attempt either way, so a pass is evidence rather than a claim.
+// Auditor evidence: the graded attempts the database recorded for one
+// stakeholder (migration 008). READ-ONLY. Selects only the auditor fields —
+// never `answers`. Who may read is decided by RLS ("quiz attempts read":
+// organisation safety staff, a supervisor for their own projects' workers,
+// or the worker themselves). Errors are thrown so the UI can say "could not
+// load" instead of showing an empty list as if nothing was attempted.
+export async function fetchQuizAttempts(workerId) {
+  const { data, error } = await supabase
+    .from("quiz_attempts")
+    .select(ATTEMPT_FIELDS.join(", "))
+    .eq("worker_id", Number(workerId))
+    .order("attempted_at", { ascending: false })
+    .limit(20);
+  if (error) fail(error, "Loading quiz attempts");
+  return (data || []).map(mapAttempt);
+}
+
 export async function submitQuiz(answers) {
   const { data, error } = await supabase.rpc("submit_quiz", { p_answers: answers });
   if (error) fail(error, "Submitting the quiz");
