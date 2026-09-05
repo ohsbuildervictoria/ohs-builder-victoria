@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { attributedName } from "../../lib/accountKind";
 import { useForm } from "react-hook-form";
 import Card, { CardBody, CardHeader } from "../../components/ui/Card";
@@ -22,7 +23,9 @@ export default function Toolbox() {
   const { workers } = useWorkers();
   const { user } = useAuth();
   const toast = useToast();
-  const [createOpen, setCreateOpen] = useState(false);
+  // Deep link from the onboarding checklist (?new=1) opens the new-meeting form.
+  const [searchParams] = useSearchParams();
+  const [createOpen, setCreateOpen] = useState(searchParams.get("new") === "1");
   const [attendees, setAttendees] = useState([]);
   // The meeting whose attendance register is open, and the names already on it.
   const [rollFor, setRollFor] = useState(null);

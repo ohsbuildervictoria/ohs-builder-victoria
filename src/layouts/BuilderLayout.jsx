@@ -5,6 +5,7 @@ import { useNotifications } from "../hooks/useNotifications";
 import { useAppContext } from "../context/AppContext";
 import Logo from "../components/shared/Logo";
 import OfflineSyncBanner from "../components/shared/OfflineSyncBanner";
+import NextStepStrip from "../components/builder/NextStepStrip";
 import RoleBadge from "../components/shared/RoleBadge";
 import HelpDrawer from "../components/shared/HelpDrawer";
 import { NotificationItem } from "../components/ui/Notification";
@@ -271,6 +272,8 @@ export default function BuilderLayout() {
           ) : (
             <>
               <OfflineSyncBanner />
+              {/* P0-2: "what next?" on every builder page (the Dashboard shows the full checklist). */}
+              <NextStepStrip />
               <Outlet />
             </>
           )}

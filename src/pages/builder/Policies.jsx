@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import Card, { CardBody, CardHeader } from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
@@ -100,7 +101,11 @@ export default function Policies() {
       (t !== "Organisation" || permissions?.orgSettings !== false) &&
       (t !== "Subscription" || permissions?.billing !== false)
   );
-  const [tab, setTab] = useState("Policy Register");
+  // Deep links from the onboarding checklist (?tab=Organisation, ?tab=Safety%20Quiz)
+  // open the requested tab; anything unknown or not visible falls back to the register.
+  const [searchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const [tab, setTab] = useState(visibleTabs.includes(requestedTab) ? requestedTab : "Policy Register");
   const [modal, setModal] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [draft, setDraft] = useState({ name: "", version: "v1.0", category: policyCategories[0] });

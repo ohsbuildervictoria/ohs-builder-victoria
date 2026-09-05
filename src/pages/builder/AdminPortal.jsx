@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import Card, { CardBody, CardHeader } from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
@@ -32,7 +32,9 @@ export default function AdminPortal() {
   const { projects } = useProjects();
   const { profiles, setProfiles, invites, setInvites } = useAppContext();
   const toast = useToast();
-  const [inviteOpen, setInviteOpen] = useState(false);
+  // Deep link from the onboarding checklist (?invite=1) lands in the invite form.
+  const [searchParams] = useSearchParams();
+  const [inviteOpen, setInviteOpen] = useState(searchParams.get("invite") === "1");
   const [newInvite, setNewInvite] = useState(null); // { name, email, link, emailState }
   const { register, handleSubmit, reset } = useForm();
   // Invite-time hint only (the roster badge is the source of truth). Plain

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import Card, { CardBody } from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
@@ -18,6 +18,10 @@ import { isOpenHighRisk } from "../../lib/risk";
 const TABS = ["All", "Active", "Planning", "On Hold", "Completed", "Archived"];
 const CONTRACT_TYPES = ["Lump Sum", "Cost Plus", "Design & Construct", "Construction Management"];
 const STATUSES = ["Planning", "Active", "On Hold", "Completed"];
+const NEW_PROJECT = {
+  name: "", address: "", contractType: "Lump Sum", contractValue: "",
+  projectManager: "", startDate: "", status: "Planning", buildPercent: 0,
+};
 
 function complianceTone(value) {
   if (value >= 90) return "text-green-600";
@@ -33,13 +37,15 @@ export default function Projects() {
   const highRisksFor = (pid) =>
     projectRisks.filter((r) => r.projectId === pid && isOpenHighRisk(r)).length;
   const { hasRole } = useAuth();
+  const canManage = hasRole("builder_admin");
   const toast = useToast();
   const [tab, setTab] = useState("All");
-  const [editing, setEditing] = useState(null); // null=closed, "new"=create, project=edit
+  // Deep link from the onboarding checklist (?new=1) opens the New Project form.
+  const [searchParams] = useSearchParams();
+  const [editing, setEditing] = useState(searchParams.get("new") === "1" && canManage ? "new" : null); // null=closed, "new"=create, project=edit
   const [qrProject, setQrProject] = useState(null);
-  const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  const { register, handleSubmit, reset, formState: { errors } } = useForm({ defaultValues: NEW_PROJECT });
 
-  const canManage = hasRole("builder_admin");
 
   const list =
     tab === "All"
@@ -47,10 +53,7 @@ export default function Projects() {
       : projects.filter((p) => p.status === tab);
 
   const openNew = () => {
-    reset({
-      name: "", address: "", contractType: "Lump Sum", contractValue: "",
-      projectManager: "", startDate: "", status: "Planning", buildPercent: 0,
-    });
+    reset(NEW_PROJECT);
     setEditing("new");
   };
 

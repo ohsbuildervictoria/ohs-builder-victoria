@@ -6,6 +6,7 @@ import TradePicker from "../../components/shared/TradePicker";
 import Card, { CardBody, CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Tabs from "../../components/ui/Tabs";
+import { useSearchParams } from "react-router-dom";
 import Modal from "../../components/ui/Modal";
 import Badge from "../../components/ui/Badge";
 import ProgressBar from "../../components/ui/ProgressBar";
@@ -42,7 +43,10 @@ export default function Compliance() {
   const { companies, addCompany } = useCompanies();
   const { refresh, setWorkers } = useAppContext();
   const toast = useToast();
-  const [tab, setTab] = useState("Stakeholders");
+  // Deep link from the onboarding checklist (?tab=Subcontractors) opens that tab.
+  const [searchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const [tab, setTab] = useState(ALL_TABS.includes(requestedTab) ? requestedTab : "Stakeholders");
   const [cell, setCell] = useState(null); // { worker, category }
   const [addOpen, setAddOpen] = useState(false);
   const [newLogin, setNewLogin] = useState(null); // credentials to show after create
