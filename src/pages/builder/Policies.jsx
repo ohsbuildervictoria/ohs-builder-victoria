@@ -3,6 +3,7 @@ import Card, { CardBody, CardHeader } from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
 import Tabs from "../../components/ui/Tabs";
+import QuizBankTab from "./QuizBank";
 import Modal from "../../components/ui/Modal";
 import ProgressBar from "../../components/ui/ProgressBar";
 import { Table, THead, TBody, TR, TD } from "../../components/ui/Table";
@@ -28,7 +29,7 @@ import {
 
 // "Policy Email" replaced the top-level "Templates" tab (David, 26 Aug): the
 // template library still exists, one click deep inside the Policy Register.
-const TABS = ["Policy Register", "Policy Email", "Notifications", "Organisation", "Subscription", "Platform"];
+const TABS = ["Policy Register", "Policy Email", "Safety Quiz", "Notifications", "Organisation", "Subscription", "Platform"];
 
 // The plan/policy types a Victorian builder typically holds in the register.
 // Listed as common practice — which of them a given project genuinely needs
@@ -477,6 +478,8 @@ export default function Policies() {
       )}
 
       {tab === "Policy Email" && <PolicyEmailTab policies={policies} />}
+
+      {tab === "Safety Quiz" && <QuizBankTab />}
 
       {tab === "Notifications" && (
         <Card>

@@ -33,7 +33,10 @@ export default function SubbiePanel({ onAddWorker, addCompanySignal = 0 }) {
   // "+ Add Subcontractor" in the page header (the one creation choice next to
   // "+ Add Stakeholder") opens the add form here. Derived during render — the
   // React-endorsed adjust-state-from-props pattern, no effect needed.
-  const [seenSignal, setSeenSignal] = useState(addCompanySignal);
+  // Starts at 0, not at the incoming value: when the header button switches
+  // the page to this tab, the panel mounts with the signal already raised and
+  // must open the form on that first render (previously it needed a second click).
+  const [seenSignal, setSeenSignal] = useState(0);
   if (addCompanySignal !== seenSignal) {
     setSeenSignal(addCompanySignal);
     if (addCompanySignal > 0 && editing == null) setEditing("new");

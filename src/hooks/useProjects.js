@@ -16,7 +16,7 @@ export function useProjects() {
       const created = await insertProject(project);
       // A brand-new project has no crew, so it has no compliance figure yet —
       // never the DB column's default. Same annotation fetchAll applies.
-      const annotated = { ...created, compliance: null, workers: 0, incidents: 0, openHighRisks: 0 };
+      const annotated = { ...created, compliance: null, workers: 0, incidents: 0, openIncidents: 0, openHighRisks: 0 };
       setProjects((prev) => [...prev, annotated]);
       return annotated;
     },

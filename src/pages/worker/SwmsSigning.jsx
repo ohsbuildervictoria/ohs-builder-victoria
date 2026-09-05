@@ -120,7 +120,7 @@ export default function SwmsSigning() {
               <li key={t.id}>
                 <button
                   type="button"
-                  onClick={() => { setSelectedId(t.id); setJustSigned(null); setSignError(null); }}
+                  onClick={() => { setSelectedId(t.id); setJustSigned(null); setSignError(null); setTypedName(""); }}
                   className={`flex w-full items-center gap-3 px-3 py-2.5 text-left ${active ? "bg-blue-50" : ""}`}
                 >
                   <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${done ? "bg-green-500 text-white" : "border-2 border-slate-300 text-transparent"}`} aria-hidden>✓</span>
@@ -140,9 +140,9 @@ export default function SwmsSigning() {
         <div className="mt-3 rounded-xl bg-green-100 p-4 text-center">
           <p className="text-3xl">✅</p>
           <h2 className="mt-1 text-lg font-bold text-slate-800">SWMS Signed</h2>
-          <p className="mt-1 text-sm text-slate-600">{justSigned.trade} SWMS {justSigned.version} signed by {typedName} on {today}.</p>
+          <p className="mt-1 text-sm text-slate-600">{justSigned.trade} SWMS {justSigned.version} signed by {justSigned.signedAs || typedName} on {today}.</p>
           {unsigned.length > 0 ? (
-            <button type="button" onClick={() => { setSelectedId(unsigned[0].id); setJustSigned(null); }} className="mt-3 rounded-lg bg-blue-900 px-4 py-2 text-sm font-semibold text-white">
+            <button type="button" onClick={() => { setSelectedId(unsigned[0].id); setJustSigned(null); setTypedName(""); }} className="mt-3 rounded-lg bg-blue-900 px-4 py-2 text-sm font-semibold text-white">
               Next SWMS: {unsigned[0].trade} →
             </button>
           ) : (
@@ -232,12 +232,16 @@ export default function SwmsSigning() {
                       await signSWMS(template.id, { signedName: typedName.trim(), workerId: worker?.id });
                       await reloadSignatures();
                       await refresh(); // the SWMS tick on My Site follows the register
-                      setJustSigned(template);
+                      // Each document is signed under a freshly typed name — the
+                      // box is cleared so the next signature cannot inherit it.
+                      setJustSigned({ ...template, signedAs: typedName.trim() });
+                      setTypedName("");
                     } catch (err) {
                       const message = err?.message || "";
                       if (/already signed/i.test(message)) {
                         await reloadSignatures();
-                        setJustSigned(template);
+                        setJustSigned({ ...template, signedAs: typedName.trim() });
+                        setTypedName("");
                       } else {
                         setSignError(`${message || "Your signature could not be recorded."} Nothing has been signed — try again, and tell your builder if it keeps happening.`);
                       }

@@ -447,6 +447,9 @@ export async function fetchAppData() {
     const crew = workerList.filter((w) => w.project === p.id);
     p.workers = crew.length;
     p.incidents = incidentList.filter((i) => i.projectId === p.id).length;
+    // "Active" on the project overview means not yet Closed — the same rule the
+    // dashboard's Open Incidents tile applies. The total stays on the card.
+    p.openIncidents = incidentList.filter((i) => i.projectId === p.id && i.status !== "Closed").length;
     p.compliance = projectCompliancePercent(crew, docsByWorker);
     // Open High/Extreme risks surface on the project card and dashboard the
     // same way incidents do.
@@ -1874,3 +1877,68 @@ export const rowMappers = {
   mapAudit, mapPolicy, mapProfile, mapOrg, mapProjectRisk,
 };
 export { fail as dbFail, safeName };
+
+// ---------------------------------------------------------------------------
+// Safety quiz bank (migration 008 table, 031 seeding). One question set per
+// organisation. Builder staff read and write it under RLS ("quiz_questions:
+// staff read/write" — organisation_id = my_org()); organisation_id is filled
+// by the column default, so a builder can never write into another
+// organisation's bank. Stakeholders never touch this table: they get the
+// questions through get_quiz(), which does not return answer_index, and are
+// graded by submit_quiz().
+function mapQuizQuestion(r) {
+  return {
+    id: r.id,
+    position: r.position ?? 0,
+    question: r.question,
+    options: Array.isArray(r.options) ? r.options : [],
+    answerIndex: r.answer_index,
+    active: r.active !== false,
+    createdAt: r.created_at,
+  };
+}
+
+export async function fetchQuizBank() {
+  const { data, error } = await supabase
+    .from("quiz_questions")
+    .select("id, position, question, options, answer_index, active, created_at")
+    .order("position", { ascending: true })
+    .order("id", { ascending: true });
+  if (error) fail(error, "Loading the quiz bank");
+  return (data || []).map(mapQuizQuestion);
+}
+
+export async function insertQuizQuestions(questions) {
+  const rows = questions.map((q) => ({
+    position: q.position ?? 0,
+    question: q.question,
+    options: q.options,
+    answer_index: q.answerIndex,
+    active: q.active ?? true,
+  }));
+  const { data, error } = await supabase.from("quiz_questions").insert(rows).select();
+  if (error) fail(error, "Adding quiz questions");
+  return (data || []).map(mapQuizQuestion);
+}
+
+export async function updateQuizQuestion(id, patch) {
+  const row = {};
+  if (patch.position !== undefined) row.position = patch.position;
+  if (patch.question !== undefined) row.question = patch.question;
+  if (patch.options !== undefined) row.options = patch.options;
+  if (patch.answerIndex !== undefined) row.answer_index = patch.answerIndex;
+  if (patch.active !== undefined) row.active = patch.active;
+  const { data, error } = await supabase
+    .from("quiz_questions")
+    .update(row)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) fail(error, "Updating the quiz question");
+  return mapQuizQuestion(data);
+}
+
+export async function deleteQuizQuestion(id) {
+  const { error } = await supabase.from("quiz_questions").delete().eq("id", id);
+  if (error) fail(error, "Removing the quiz question");
+}

@@ -87,7 +87,7 @@ export default function ProjectDetail() {
               <Info label="Project Manager" value={project.projectManager || "—"} />
               <Info label="Start Date" value={project.startDate || "—"} />
               <Info label="Stakeholders on Site" value={project.workers} />
-              <Info label="Active Incidents" value={project.incidents} />
+              <Info label="Active Incidents" value={project.openIncidents ?? 0} />
               <div className="col-span-2">
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
                   Build Progress

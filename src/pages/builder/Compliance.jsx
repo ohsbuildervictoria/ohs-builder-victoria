@@ -757,11 +757,22 @@ function CellModal({ cell, onClose, updateCompliance }) {
           </div>
         )}
 
-        {/* Manual completion status for non-expiry categories */}
-        {!isExpiryCat && (
+        {/* The quiz is graded server-side when the stakeholder sits it
+            (migration 008/024) — record_compliance_signoff refuses quiz, so
+            offering Verified/Pending/Missing here only produced an error. */}
+        {category === "quiz" && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            The safety quiz is graded when the stakeholder sits it in their portal — it
+            cannot be recorded by hand. Manage the questions under{" "}
+            <span className="font-medium">Policies → Safety Quiz</span>; every attempt is kept as evidence.
+          </div>
+        )}
+
+        {/* Manual completion status for induction / SWMS */}
+        {!isExpiryCat && category !== "quiz" && (
           <div className="space-y-2 border-t border-slate-100 pt-3">
             <p className="text-xs text-slate-500">
-              Set completion status {category === "quiz" ? "" : "(evidence optional above)"}:
+              Set completion status (evidence optional above):
             </p>
             <div className="flex gap-2">
               {STATUSES.map((s) => (

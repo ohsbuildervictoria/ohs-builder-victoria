@@ -264,7 +264,7 @@ export default function BuilderLayout() {
                 Try again
               </button>
             </div>
-          ) : loading ? (
+          ) : loading && !org ? (
             <div className="flex h-64 items-center justify-center text-sm text-slate-400">
               Loading…
             </div>

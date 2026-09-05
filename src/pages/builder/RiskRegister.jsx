@@ -121,7 +121,9 @@ export default function RiskRegister({ project, workers }) {
 
   // SWMS-library seeding: one candidate list per trade already on this project.
   const seedCandidates = useMemo(() => {
-    const trades = [...new Set(crew.map((w) => w.trade).filter(Boolean))];
+    // Every work type on the site, not just each person's first one — a
+    // carpenter doing framing AND decking brings both SWMS hazard sets.
+    const trades = [...new Set(crew.flatMap((w) => (w.trades?.length ? w.trades : [w.trade])).filter(Boolean))];
     const seen = new Set();
     const groups = [];
     for (const trade of trades) {
