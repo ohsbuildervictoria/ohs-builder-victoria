@@ -247,7 +247,7 @@ export default function AdminPortal() {
       <Modal
         open={inviteOpen}
         onClose={closeInvite}
-        title="Invite Stakeholder"
+        title="Invite Staff Member"
         footer={
           <>
             <Button variant="secondary" onClick={closeInvite}>

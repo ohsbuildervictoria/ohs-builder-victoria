@@ -109,10 +109,11 @@ export default function JoinStaff() {
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
+                <label htmlFor="join-email" className="mb-1 block text-sm font-medium text-slate-700">
                   Your email
                 </label>
                 <input
+                  id="join-email"
                   type="email"
                   className="join-input bg-slate-50 text-slate-500"
                   value={info.email}
@@ -123,10 +124,11 @@ export default function JoinStaff() {
                 </p>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">
+                <label htmlFor="join-password" className="mb-1 block text-sm font-medium text-slate-700">
                   {mode === "signin" ? "Your password" : "Create a password"}
                 </label>
                 <input
+                  id="join-password"
                   type="password"
                   autoComplete={mode === "signin" ? "current-password" : "new-password"}
                   className="join-input"

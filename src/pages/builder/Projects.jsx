@@ -161,7 +161,7 @@ export default function Projects() {
                   <p className="text-lg font-bold text-slate-800">{p.workers}</p>
                 </div>
                 <div className="rounded-lg bg-slate-50 py-2">
-                  <p className="text-xs text-slate-500">Compliance</p>
+                  <p className="text-xs text-slate-500">Compliance · all 6 categories</p>
                   <p className={`text-lg font-bold ${complianceTone(p.compliance ?? 0)}`}>
                     {p.compliance == null ? "—" : `${p.compliance}%`}
                   </p>

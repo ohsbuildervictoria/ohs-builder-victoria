@@ -94,6 +94,19 @@ const SECTIONS = [
       "Manage all of your projects from a single dashboard with visibility of contractor compliance, outstanding actions, document status, inductions, toolbox meetings and project activity — so you can identify potential compliance issues before they become risks.",
     ],
   },
+  {
+    icon: "⚙️",
+    title: "SiteIQ — your automated safety assistant",
+    body: [
+      "SiteIQ is an automated account your organisation can invite as an HSE Manager. It reads the same records you see — projects, stakeholders, compliance documents, SWMS, risk register, toolbox meetings, incidents and the site diary — and tells you what needs attention first and why.",
+      "It is not a person and it is not your HSE manager. A human HSE manager stays responsible for the site. SiteIQ never changes a record on its own: it prepares a proposal, a named person approves it with a signature, and only then is the change made, read back and recorded in the audit trail.",
+    ],
+    list: [
+      "Everywhere SiteIQ acts, its name carries the marker \"automated account\" — you can always tell its work from a person's.",
+      "Invite it from Admin Portal → Invite Staff Member with the reserved name \"SiteIQ (assistant)\" and the role HSE Manager; your platform operator connects it after the invite is accepted.",
+      "You can deactivate it at any time from the Admin Portal, like any staff account.",
+    ],
+  },
 ];
 
 export default function Welcome() {

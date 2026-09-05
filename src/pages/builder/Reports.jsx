@@ -162,7 +162,7 @@ export default function Reports() {
                 columns={[
                   "Project",
                   ...complianceCategories.map((c) => c.label),
-                  "Overall",
+                  "Overall (all 6 categories)",
                 ]}
               />
               <TBody>
@@ -197,7 +197,7 @@ export default function Reports() {
                   No stakeholders on the books yet.
                 </p>
               ) : (
-                <ComplianceDonut percent={overall} label="Overall" height={240} />
+                <ComplianceDonut percent={overall} label="All 6 categories" height={240} />
               )}
             </div>
           </CardBody>

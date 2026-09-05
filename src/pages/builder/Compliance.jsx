@@ -230,7 +230,10 @@ export default function Compliance() {
 
       {/* Summary bars */}
       <Card>
-        <CardHeader title="Compliance Summary" />
+        <CardHeader
+          title="Compliance Summary"
+          subtitle="Each bar is the share of stakeholders whose evidence for that one category is currently valid (Verified or Expiring). The overall percentage on the Dashboard is different: it counts all six categories together."
+        />
         <CardBody className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
           {complianceCategories.map((c) => (
             <div key={c.key}>

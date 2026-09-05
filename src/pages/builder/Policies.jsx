@@ -259,7 +259,9 @@ export default function Policies() {
       toast(
         publish
           ? `${updated.name} published — it is now an adopted document in your register`
-          : "Draft saved — publish it when you've finished reviewing"
+          : updated.status === "Draft"
+            ? "Draft saved — publish it when you've finished reviewing"
+            : `${updated.name} text saved`
       );
     } catch (err) {
       toast(err.message || "Could not save the document", "error");
@@ -356,17 +358,18 @@ export default function Policies() {
                       <TD>{p.updated}</TD>
                       <TD>
                         <div className="flex flex-wrap gap-2">
-                          {p.content != null && (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() =>
-                                setEditing({ id: p.id, name: p.name, content: p.content || "", status: p.status })
-                              }
-                            >
-                              {p.status === "Draft" ? "Edit Draft" : "View / Edit"}
-                            </Button>
-                          )}
+                          {/* A policy with no text yet (added by name only) still needs
+                              a way to get its text — the checklist asks for text or a
+                              PDF before it counts as usable. Same editor, empty. */}
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() =>
+                              setEditing({ id: p.id, name: p.name, content: p.content || "", status: p.status })
+                            }
+                          >
+                            {p.content == null ? "Add text" : p.status === "Draft" ? "Edit Draft" : "View / Edit"}
+                          </Button>
                           <Button size="sm" variant="secondary" disabled={saving} onClick={() => pickPdf(p)}>
                             {p.fileName ? "Replace PDF" : "Upload PDF"}
                           </Button>

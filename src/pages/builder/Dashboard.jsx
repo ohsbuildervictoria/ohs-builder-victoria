@@ -143,7 +143,12 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
         <StatCard label="Active Projects" value={kpis.activeProjects} tone="blue" />
         <StatCard label="Stakeholders on Site" value={kpis.activeWorkers} tone="blue" />
-        <StatCard label="Achieved Compliance" value={formatPercent(kpis.compliance)} tone="green" />
+        <StatCard
+          label="Achieved Compliance"
+          value={formatPercent(kpis.compliance)}
+          tone="green"
+          sub="Across all six categories for every stakeholder — valid slots ÷ (stakeholders × 6)"
+        />
         <StatCard label="Pending Inductions" value={kpis.pendingInductions} tone="amber" />
         <StatCard label="Open Incidents" value={kpis.openIncidents} tone="red" />
       </div>
